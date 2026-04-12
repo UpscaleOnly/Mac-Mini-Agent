@@ -1,0 +1,13 @@
+ollama/
+postgres/
+chromadb/
+fastapi/
+old_skeleton/
+.git/
+.env
+.env.save
+.env.template
+*.bak
+__pycache__/
+*.pyc
+schema_patch.sql
