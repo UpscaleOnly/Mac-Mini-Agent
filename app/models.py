@@ -52,19 +52,31 @@ class ActionType(str, Enum):
     SYSTEM_EVENT = "system_event"
 
 
+class Channel(str, Enum):
+    """Supported input channels."""
+    TELEGRAM = "telegram"
+    CLI = "cli"
+    WEB = "web"
+    INTERNAL = "internal"       # system-initiated (nightly jobs, health checks)
+
+
 # ---------------------------------------------------------------------------
 # Request / Response models
 # ---------------------------------------------------------------------------
 
 class AgentRequest(BaseModel):
-    """Inbound request from Telegram webhook or internal trigger."""
+    """
+    Inbound request from any channel.
+    Channel-agnostic — Telegram, CLI, web, or internal trigger.
+    """
     request_id: uuid.UUID = Field(default_factory=uuid.uuid4)
     session_id: uuid.UUID
     persona: Persona
     trust_tier: TrustTier
-    chat_id: int
+    channel: Channel
+    channel_id: str                 # Telegram chat_id, CLI session, web session token
     raw_text: str
-    initiated_by: str = "operator_telegram"
+    initiated_by: str = "operator"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Populated after LLM execution

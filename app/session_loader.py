@@ -4,6 +4,8 @@ session_loader.py — Session create / load with trust tier assignment (ADR-035 
 Creates session + session_budget + session_state rows atomically.
 Trust tier assigned at creation based on persona and initiation context.
 Trust tier reason recorded for audit (ADR-035 §6.4).
+
+Channel-agnostic: works with Telegram, CLI, web, or internal channels.
 """
 import uuid
 import logging
@@ -20,10 +22,10 @@ def _determine_trust_tier(persona: Persona, initiated_by: str) -> tuple[TrustTie
     ADR-035 §6.3 — Trust tier assigned at session creation.
     Returns (tier, reason) tuple. Reason is logged for audit.
     """
-    if initiated_by == "operator_telegram":
+    if initiated_by in ("operator", "operator_telegram"):
         if persona == Persona.PROTOTYPE:
             return (TrustTier.OPERATOR_APPROVED,
-                    "Interactive Prototype session via operator Telegram")
+                    "Interactive Prototype session via operator")
         elif persona == Persona.AUTOMATE:
             return (TrustTier.LOW_RISK_WRITE,
                     "Automate persona — low-risk write default")
@@ -45,38 +47,45 @@ def _determine_trust_tier(persona: Persona, initiated_by: str) -> tuple[TrustTie
 
 
 async def load_or_create_session(
-    chat_id: int,
+    channel: str,
+    channel_id: str,
     persona: Persona,
-    initiated_by: str = "operator_telegram",
+    initiated_by: str = "operator",
 ) -> dict:
     """
     Returns a session dict with session_id, trust_tier, trust_tier_reason.
 
-    If a session already exists for this chat_id + persona combo and is active,
-    returns the existing session.
+    If a session already exists for this channel_id + persona combo and is
+    active, returns the existing session.
 
     If no active session exists, creates session + session_budget + session_state
     rows atomically in a transaction.
+
+    Args:
+        channel: Source channel (telegram, cli, web, internal)
+        channel_id: Channel-specific identifier (Telegram chat ID, CLI session, etc.)
+        persona: Which persona is handling this session
+        initiated_by: Who initiated the session (operator, automate_scheduler, system)
     """
     pool = await get_pool()
     settings = get_settings()
 
     async with pool.acquire() as conn:
-        # Check for existing active session for this chat
+        # Check for existing active session for this channel_id + persona
         row = await conn.fetchrow("""
             SELECT s.session_id, s.trust_tier, s.trust_tier_reason
             FROM sessions s
             JOIN session_state ss ON s.session_id = ss.session_id
-            WHERE s.chat_id = $1
+            WHERE s.channel_id = $1
               AND s.persona = $2
               AND ss.status = 'active'
             ORDER BY s.created_at DESC
             LIMIT 1
-        """, chat_id, persona.value)
+        """, channel_id, persona.value)
 
         if row:
-            log.info("Resumed session %s for chat %s / %s",
-                     row["session_id"], chat_id, persona.value)
+            log.info("Resumed session %s for %s/%s/%s",
+                     row["session_id"], channel, channel_id, persona.value)
             return {
                 "session_id": row["session_id"],
                 "trust_tier": row["trust_tier"],
@@ -87,15 +96,17 @@ async def load_or_create_session(
         # Create new session atomically
         trust_tier, reason = _determine_trust_tier(persona, initiated_by)
         session_id = uuid.uuid4()
+        operator_id = settings.telegram_operator_id
 
         async with conn.transaction():
             # 1. sessions row
             await conn.execute("""
                 INSERT INTO sessions
-                    (session_id, persona, chat_id, trust_tier, trust_tier_reason)
-                VALUES ($1, $2, $3, $4, $5)
-            """, session_id, persona.value, chat_id,
-                int(trust_tier), reason)
+                    (session_id, persona, channel, channel_id,
+                     operator_id, trust_tier, trust_tier_reason, initiated_by)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            """, session_id, persona.value, channel, channel_id,
+                operator_id, int(trust_tier), reason, initiated_by)
 
             # 2. session_budget row (ADR-035 §4)
             await conn.execute("""
@@ -112,8 +123,9 @@ async def load_or_create_session(
                 VALUES ($1, $2, $3, 'active')
             """, session_id, persona.value, int(trust_tier))
 
-        log.info("Created session %s for chat %s / %s — tier %d (%s)",
-                 session_id, chat_id, persona.value, trust_tier, reason)
+        log.info("Created session %s for %s/%s/%s — tier %d (%s)",
+                 session_id, channel, channel_id, persona.value,
+                 trust_tier, reason)
 
         return {
             "session_id": session_id,
