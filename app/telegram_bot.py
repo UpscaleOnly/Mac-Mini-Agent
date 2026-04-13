@@ -55,7 +55,7 @@ async def call_agent(text: str, persona: str, chat_id: int, user_id: int) -> str
         "initiated_by": "operator",
     }
     try:
-        async with httpx.AsyncClient(timeout=180.0) as client:
+        async with httpx.AsyncClient(timeout=360.0) as client:
             resp = await client.post(AGENT_URL, json=payload)
             resp.raise_for_status()
             data = resp.json()
@@ -90,14 +90,31 @@ async def switch_persona(
 ) -> None:
     if update.effective_user.id != OPERATOR_ID:
         return
-    # Command text is like "/prototype" — strip the slash
-    persona = update.message.text.strip("/").lower()
-    if persona in PERSONAS:
-        active_persona["current"] = persona
-        await update.message.reply_text(f"Switched to {persona} persona.")
-        logger.info(f"Persona switched to: {persona}")
-    else:
+    # Extract command and optional message: "/prototype Hello" -> persona=prototype, msg=Hello
+    parts = update.message.text.strip().split(None, 1)
+    persona = parts[0].strip("/").lower()
+    trailing_text = parts[1] if len(parts) > 1 else None
+
+    if persona not in PERSONAS:
         await update.message.reply_text(f"Unknown persona: {persona}")
+        return
+
+    active_persona["current"] = persona
+    logger.info(f"Persona switched to: {persona}")
+
+    if trailing_text:
+        await update.message.reply_text(f"Switched to {persona}. Processing message...")
+        await update.message.chat.send_action("typing")
+        chat_id = update.message.chat.id
+        user_id = update.effective_user.id
+        reply = await call_agent(trailing_text, persona, chat_id, user_id)
+        if len(reply) > 4000:
+            for i in range(0, len(reply), 4000):
+                await update.message.reply_text(reply[i : i + 4000])
+        else:
+            await update.message.reply_text(reply)
+    else:
+        await update.message.reply_text(f"Switched to {persona} persona.")
 
 
 async def status_command(
