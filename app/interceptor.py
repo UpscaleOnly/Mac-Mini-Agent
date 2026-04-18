@@ -8,6 +8,7 @@ Three-stage pipeline:
 
 The interceptor is the single enforcement point for:
   - Circuit breaker (10 calls / 60 seconds, ADR-027)
+  - Security scan — pattern scanner (ADR-038)
   - Tool registry persona + trust tier validation (ADR-035 §5)
   - Token budget ceiling (ADR-035 §4)
   - Cost escalation threshold ($1.00, ADR-028)
@@ -25,7 +26,10 @@ from app.models import (
     AgentRequest, AgentActionRecord, Persona, TrustTier,
     Routing, ToolRegistryEntry, SessionBudgetStatus,
 )
-
+from app.security import (
+    scan_security, write_security_event, send_security_alert,
+    record_block_for_brute_force, mark_alert_sent,
+)
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -266,11 +270,90 @@ async def intercept(req: AgentRequest) -> dict:
         result["reason"] = "Circuit breaker tripped — too many calls in window"
         return result
 
-    # 2. Load tool registry for this persona
+    # 2. Security scan (ADR-038) — runs after circuit breaker, before LLM
+    scan = await scan_security(
+        text=req.raw_text,
+        persona=req.persona.value,
+        session_id=req.session_id,
+        channel=req.channel.value if req.channel else None,
+        channel_id=req.channel_id,
+        user_id=req.initiated_by,
+    )
+
+    if not scan.clean:
+        # Persist the security event regardless of block/flag outcome
+        event_id = await write_security_event(
+            event_type=scan.event_type,
+            severity=scan.severity,
+            source="interceptor",
+            persona=req.persona.value,
+            session_id=req.session_id,
+            channel=req.channel.value if req.channel else None,
+            channel_id=req.channel_id,
+            user_id=req.initiated_by,
+            input_text=req.raw_text,
+            pattern_matched=scan.pattern_matched,
+            action_taken=scan.action,
+            alert_sent=False,
+        )
+
+        # Send real-time alert for high/critical (ADR-038 §6)
+        if scan.send_alert:
+            sent = await send_security_alert(
+                event_type=scan.event_type,
+                severity=scan.severity,
+                persona=req.persona.value,
+                session_id=req.session_id,
+                channel=req.channel.value if req.channel else None,
+                user_id=req.initiated_by,
+                pattern_matched=scan.pattern_matched,
+                input_text=req.raw_text,
+                action_taken=scan.action,
+            )
+            if sent and event_id:
+                await mark_alert_sent(event_id)
+
+        # Check brute force after any block
+        if scan.should_block:
+            bf = record_block_for_brute_force(req.channel_id)
+            if bf:
+                bf_event_id = await write_security_event(
+                    event_type=bf.event_type,
+                    severity=bf.severity,
+                    source="interceptor",
+                    persona=req.persona.value,
+                    session_id=req.session_id,
+                    channel=req.channel.value if req.channel else None,
+                    channel_id=req.channel_id,
+                    user_id=req.initiated_by,
+                    pattern_matched=bf.pattern_matched,
+                    action_taken=bf.action,
+                    alert_sent=False,
+                )
+                if bf.send_alert:
+                    bf_sent = await send_security_alert(
+                        event_type=bf.event_type,
+                        severity=bf.severity,
+                        persona=req.persona.value,
+                        session_id=req.session_id,
+                        channel=req.channel.value if req.channel else None,
+                        user_id=req.initiated_by,
+                        pattern_matched=bf.pattern_matched,
+                        input_text=None,
+                        action_taken=bf.action,
+                    )
+                    if bf_sent and bf_event_id:
+                        await mark_alert_sent(bf_event_id)
+
+            result["proceed"] = False
+            result["reason"] = scan.block_reason
+            return result
+
+    # 3. Load tool registry for this persona
     tools = await load_tool_registry(req.persona, req.session_id)
     result["tools"] = tools
 
-    # 3. Pre-call budget check
+    # 4. Pre-call budget check
     # Estimate input tokens from raw_text length (rough: 1 token ≈ 4 chars)
     estimated_input = max(len(req.raw_text) // 4, 100)
     proceed, reason, budget = await pre_call_budget_check(
@@ -283,7 +366,7 @@ async def intercept(req: AgentRequest) -> dict:
         result["reason"] = reason
         return result
 
-    # 4. Check for pending cost escalation
+    # 5. Check for pending cost escalation
     if budget.escalation_triggered:
         result["proceed"] = False
         result["reason"] = (f"Cost escalation triggered (${budget.cost_usd:.4f} >= "

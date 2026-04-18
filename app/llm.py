@@ -40,7 +40,7 @@ async def call_ollama(req: AgentRequest) -> dict:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(url, json=payload)
             resp.raise_for_status()
             data = resp.json()
@@ -159,7 +159,7 @@ async def execute(req: AgentRequest) -> AgentRequest:
         }
 
     # Populate request with results
-    req.model_used = result["model_used"]
+    req.llm_model_used = result["model_used"]
     req.input_tokens = result["input_tokens"]
     req.output_tokens = result["output_tokens"]
     req.response_text = result["response_text"]
