@@ -5,14 +5,16 @@
 -- ADR-035: sessions, session_budget, tool_registry, session_state
 -- ADR-037: session_transcripts, agent_heartbeat, service_health, knowledge_updates
 -- ADR-034: hardware_metrics + hardware_alerts view
+-- ADR-038: security_events
 --
--- Phase 1.5 (deferred): workflow_runs, workflow_steps
+-- Phase 1.5 (deferred): workflow_runs, workflow_steps, ssh_forwarder
 --
 -- Run as: psql -U openclaw -d openclaw -f schema.sql
 -- Account: dev
 -- Date: April 12, 2026
 -- Updated: April 13, 2026 — channel-agnostic sessions (Entry #002)
 -- Updated: April 18, 2026 — sessions table aligned with running DB (Entry #003)
+-- Updated: April 19, 2026 — schema_version seeding replaced with single authoritative stamp
 -- ============================================================================
 
 -- Enable UUID generation
@@ -288,6 +290,54 @@ WHERE thermal_pressure IN ('serious', 'critical')
 ORDER BY timestamp DESC;
 
 -- ============================================================================
+-- 11. SECURITY_EVENTS (ADR-038)
+-- Application-layer threat detection and SSH authentication events
+-- Sources: interceptor pattern scanner (Phase 1), SSH log forwarder (Phase 1.5)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS security_events (
+    event_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type        TEXT NOT NULL,                   -- injection / suspicious_input / persona_override /
+                                                       -- encoding_attack / shell_injection / abnormal_length /
+                                                       -- brute_force / unauthorized_user /
+                                                       -- ssh_failure / ssh_success / ssh_key_rejected
+    severity          TEXT NOT NULL DEFAULT 'medium',  -- low / medium / high / critical
+    source            TEXT NOT NULL DEFAULT 'interceptor', -- interceptor / ssh_forwarder
+    persona           TEXT,                            -- NULL for SSH events
+    session_id        UUID REFERENCES sessions(session_id) ON DELETE SET NULL,
+    channel           TEXT,                            -- NULL for SSH events
+    channel_id        TEXT,                            -- NULL for SSH events
+    user_id           TEXT,                            -- NULL for SSH events
+    input_snippet     TEXT,                            -- First 200 chars of triggering input. NULL for SSH.
+    pattern_matched   TEXT,                            -- Specific pattern or rule that matched
+    action_taken      TEXT NOT NULL DEFAULT 'flagged', -- flagged / blocked
+    alert_sent        BOOLEAN NOT NULL DEFAULT FALSE,  -- TRUE if real-time Telegram alert was sent
+    raw_detail        JSONB,                           -- Additional context. SSH: host, port, source IP.
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT security_events_severity_check CHECK (
+        severity = ANY (ARRAY['low', 'medium', 'high', 'critical'])
+    ),
+    CONSTRAINT security_events_source_check CHECK (
+        source = ANY (ARRAY['interceptor', 'ssh_forwarder'])
+    ),
+    CONSTRAINT security_events_action_check CHECK (
+        action_taken = ANY (ARRAY['flagged', 'blocked'])
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_security_events_type
+    ON security_events(event_type);
+
+CREATE INDEX IF NOT EXISTS idx_security_events_created
+    ON security_events(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_security_events_severity
+    ON security_events(severity) WHERE severity IN ('high', 'critical');
+
+CREATE INDEX IF NOT EXISTS idx_security_events_session
+    ON security_events(session_id) WHERE session_id IS NOT NULL;
+
+-- ============================================================================
 -- SCHEMA VERSION TRACKING
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -296,26 +346,23 @@ CREATE TABLE IF NOT EXISTS schema_version (
     applied_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Single authoritative version stamp for fresh installs.
+-- schema.sql only runs on an empty database — this table was just created
+-- above and is guaranteed empty. No conflict handling needed.
+-- MUST match REQUIRED_SCHEMA_VERSION in app/db.py.
 INSERT INTO schema_version (version, description) VALUES
-    (1, 'Phase 1 initial schema: ADR-029 + ADR-034 + ADR-035 + ADR-037. April 12, 2026.')
-ON CONFLICT (version) DO NOTHING;
-
-INSERT INTO schema_version (version, description) VALUES
-    (2, 'Channel-agnostic sessions: chat_id replaced with channel + channel_id. April 13, 2026.')
-ON CONFLICT (version) DO NOTHING;
-
-INSERT INTO schema_version (version, description) VALUES
-    (3, 'Migration 002: sessions table aligned — added status, started_at, ended_at, model_tier. April 18, 2026.')
-ON CONFLICT (version) DO NOTHING;
+    (4, 'Baseline schema — April 19, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038.');
 
 -- ============================================================================
 -- DONE
--- Tables created: 10 + 1 view + 1 version tracker
+-- Tables created: 11 + 1 view + 1 version tracker
 --   ADR-035: sessions, session_budget, tool_registry, session_state
 --   ADR-029/035: agent_actions (partitioned, 4 initial monthly partitions)
 --   ADR-037: session_transcripts, agent_heartbeat, service_health, knowledge_updates
 --   ADR-034: hardware_metrics + hardware_alerts view
+--   ADR-038: security_events
 --   Meta: schema_version
 --
 -- Phase 1.5 deferred: workflow_runs, workflow_steps (ADR-035 §8)
+-- Phase 1.5 deferred: ssh_forwarder — writes to security_events from Mac host
 -- ============================================================================

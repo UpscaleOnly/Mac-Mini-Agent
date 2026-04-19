@@ -253,3 +253,61 @@ AU-2, AU-3, CM-3, IR-4, SI-4
 No code changes. Verification only. `.gitignore` change is administrative — no behavior impact. ADR-038 Phase 1 is now fully closed.
 
 ---
+
+## Entry #006 — April 19, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Infrastructure — Bootstrap safety, schema authority model, version gate
+
+**Commits:** (pending end-of-session rebuild)
+
+### Changes Made
+
+1. **Bootstrap authority model redesigned** — Eliminated the two-actor ambiguity where both `schema.sql` and migrations could modify the database. Production rule adopted: migrations are the only thing permitted to modify an existing database. `schema.sql` is now a bootstrap-only artifact used exclusively for fresh installs, local rebuilds, and Mac Studio setup day.
+
+2. **`app/db.py` rewritten** — Conditional bootstrap logic implemented. On every startup, `db.py` detects whether the database is fresh or existing by querying `pg_catalog.pg_tables WHERE schemaname = 'public'` for any user table. Two paths:
+   - **PATH A (no tables):** Fresh database — run `schema.sql` in full, stamp version.
+   - **PATH B (tables exist):** Existing database — `schema.sql` is NOT run. Read `MAX(version)` from `schema_version`, compare against `REQUIRED_SCHEMA_VERSION = 4`. Behind → CRITICAL log + `RuntimeError` (container exits, no silent limp). Equal → proceed. Ahead → warning only (dev discipline issue, not a runtime failure).
+   - Version gate error message includes the exact `docker cp` + `docker exec psql` commands needed to apply missing migrations.
+
+3. **`schema.sql` version stamp simplified** — Replaced four `ON CONFLICT DO NOTHING` INSERT statements with a single unconditional `INSERT INTO schema_version VALUES (4, ...)`. No conflict handling is needed — `schema.sql` only runs on an empty database where the table was just created. Comment cross-references `REQUIRED_SCHEMA_VERSION` in `db.py` as the single number to keep in sync when adding migrations.
+
+4. **Docker image rebuild model documented** — Confirmed that `docker restart` does not pick up code changes (no bind mount — code is baked into the image). Established operational rule: edit freely during a session, run `docker compose build openclaw_fastapi` + `docker compose up -d openclaw_fastapi` once at end of session. This is the session-closing ritual alongside GitHub push.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/app/db.py` | Replaced (conditional bootstrap, version gate) |
+| `~/openclaw/schema.sql` | Modified (version stamp simplified to single INSERT) |
+| `~/openclaw/changelog.md` | Updated (Entry #006 added) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-035 | `db.py` bootstrap behavior formally defined. `schema_version` is now enforced at startup. |
+| ADR-031 | This entry fulfills the changelog requirement for the bootstrap redesign. |
+
+### NIST Controls Touched
+
+CM-3, CM-6, SI-2, SI-7(1)
+
+### Risk Assessment
+
+No schema changes. No migrations applied. No egress changes. No tools enabled. Behavior change is startup-only: existing database now skips `schema.sql` and enforces version gate instead of silently proceeding. On the current MacBook Air with schema version 4 matching `REQUIRED_SCHEMA_VERSION = 4`, startup proceeds identically to before. Verification pending end-of-session rebuild — expected log output: `Existing database detected — schema.sql will NOT be run.` followed by `Schema version OK — live database is at version 4 (required 4).`
+
+### Docker Operational Rule (permanent)
+
+`docker restart` restarts the process only. Code changes require a full image rebuild:
+
+```
+cd ~/openclaw && docker compose build openclaw_fastapi
+docker compose up -d openclaw_fastapi
+```
+
+Run once at the end of each session, not after every edit. This is the session-closing ritual alongside `git push`.
+
+---
+
