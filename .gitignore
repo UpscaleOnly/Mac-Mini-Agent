@@ -7,3 +7,8 @@ ollama/
 postgres/
 chromadb/
 fastapi/
+.bak
+*.bak
+.save
+*.save
+docker-compose.yml.bak
