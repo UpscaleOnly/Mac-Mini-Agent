@@ -215,3 +215,41 @@ Ollama move: no data loss, no schema change, no egress change. Native Ollama ser
 Ollama in Docker Desktop ran `100% CPU` due to Linux VM having no Apple Silicon GPU access. Native Ollama runs `100% GPU`. Response time improvement: 2-3 minutes → 30-45 seconds (4-6x). Mac Studio M1 Max (32GB unified memory, Phase 1.5) expected to reduce further to 5-15 seconds.
 
 ---
+
+## Entry #005 — April 19, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Verification and Housekeeping — ADR-038 Phase 1 close-out, gitignore cleanup
+
+### Changes Made
+
+1. **ADR-038 Phase 1 Step 5 verified — end-to-end security detection confirmed** — Test message containing "ignore previous instructions" sent via Telegram on April 18, 2026. Confirmed: `security_events` row written with `event_type = injection`, `severity = high`, `action_taken = flagged`, `alert_sent = TRUE`. Real-time Telegram alert received on router bot. ADR-038 Phase 1 implementation sequence Steps 1–5 complete. Step 6 (this changelog entry) completes Phase 1.
+
+2. **`.gitignore` updated** — Added entries to exclude `.bak`, `*.bak`, `.save`, and `docker-compose.yml.bak`. Prevents backup artifacts from entering version control on future commits.
+
+3. **Cleanup commit staged** — Git commit to follow covering `.gitignore` addition and any stale backup files removed from tracked paths.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/.gitignore` | Modified (backup file exclusions added) |
+| `~/openclaw/changelog.md` | Updated (Entry #005 added) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-038 | Phase 1 implementation sequence complete. Steps 1–6 all done. Steps 7–8 (SSH forwarder) deferred to Phase 1.5 / Mac Studio setup day. |
+| ADR-031 | This entry fulfills ADR-038 Step 6 — changelog entry confirming security framework close-out. |
+
+### NIST Controls Touched
+
+AU-2, AU-3, CM-3, IR-4, SI-4
+
+### Risk Assessment
+
+No code changes. Verification only. `.gitignore` change is administrative — no behavior impact. ADR-038 Phase 1 is now fully closed.
+
+---
