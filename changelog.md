@@ -311,3 +311,55 @@ Run once at the end of each session, not after every edit. This is the session-c
 
 ---
 
+
+
+---
+
+## Entry #007 — April 24, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Security — Backup integrity verification (ADR-039 C2)
+
+### Changes Made
+
+1. **Backup restore test completed** — Verified openclaw_manual_20260419_171305.sql (55KB, April 19) restores cleanly. All 17 tables confirmed present including partitions. Test database dropped clean.
+
+2. **ADR-019 backup integrity confirmed** — Restore test satisfies ADR-039 remediation item C2.
+
+### Files Changed
+
+None. Verification task only.
+
+### ADR-039 Status
+
+C2 — CLOSED.
+
+---
+
+## Entry #008 — April 24, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Security — Secrets management migration (ADR-039 A1)
+
+### Changes Made
+
+1. **Telegram bot tokens rotated** — All four tokens replaced via BotFather. Old tokens revoked. New tokens active.
+
+2. **Keychain migration complete** — Six secrets stored in macOS Keychain under account=openclaw.
+
+3. **config.py replaced** — New version includes _keychain_get() helper and SecretsOverlay class.
+
+4. **.env scrubbed** — All token and password values removed. Empty placeholders remain.
+
+5. **Stack rebuilt and verified** — Startup log confirms: Settings loaded. Keychain overlay applied.
+
+### Files Changed
+
+- config.py — replaced with Keychain-aware version
+- .env — secrets scrubbed
+
+### ADR-039 Status
+
+A1 — CLOSED.
