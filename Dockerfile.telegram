@@ -1,0 +1,5 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements-telegram.txt .
+RUN pip install --no-cache-dir -r requirements-telegram.txt
+CMD ["python3", "-u", "main.py"]
