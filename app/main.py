@@ -4,6 +4,7 @@ main.py — OpenClaw FastAPI entry point
 Request flow (ADR-027):
   Any Channel (Telegram, CLI, web, internal)
     → POST /agent (channel-agnostic)
+    → Identity verification (operator user_id OR internal token)
     → Session Loader / Creator (ADR-035 trust tier)
     → Interceptor (ADR-027 + ADR-035 budget)
     → Persona Router
@@ -12,9 +13,24 @@ Request flow (ADR-027):
     → JSON response returned to caller
 
 Channel adapters:
-  - Telegram bot (telegram_bot.py) — polls Telegram, POSTs to /agent, sends reply
+  - Telegram bot (telegram_bot module) — polls Telegram, POSTs to /agent, sends reply
   - /webhook/{bot_token} — receives Telegram webhooks, POSTs internally to pipeline
   - Future: CLI, web UI, internal scheduler
+
+Identity verification (Session 19 update — closes ADR-038 §6 gap):
+  Two trust paths, evaluated in order:
+    1. INTERNAL TOKEN PATH — if X-Internal-Auth header is present and matches
+       INTERNAL_API_TOKEN, the request is trusted as system-initiated. The body's
+       user_id field is IGNORED in this path (per Session 19 decision: body fields
+       cannot be used as trust signals).
+    2. OPERATOR USER_ID PATH — if no internal token, body.user_id MUST equal the
+       configured operator ID. Anything else (including empty string) is rejected
+       and logged as a security event.
+
+  Unauthorized rejections write a security_events row and fire a real-time
+  Telegram alert per ADR-038 §6. Two lightweight rate counters track probing:
+    - Global counter: > 10 unauthorized requests in 60 min → escalation alert
+    - Per-IP counter: > 5 from same source IP in 60 min → escalation alert
 
 Startup sequence:
   1. Init PostgreSQL pool and bootstrap schema
@@ -23,14 +39,17 @@ Startup sequence:
   4. Start APScheduler (timed jobs: keep-warm, weekly digest ADR-031)
 """
 import asyncio
+import os
+import time
 import uuid
 import logging
+from collections import deque
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional
 
 from app.config import get_settings
 from app.db import init_pool, close_pool
@@ -41,6 +60,7 @@ from app.interceptor import intercept, post_call_budget_update
 from app.persona_router import resolve_persona
 from app.llm import execute
 from app.audit import write_action
+from app.security import write_security_event, send_security_alert
 from app.models import AgentRequest, AgentActionRecord, Persona, Channel
 from app.scheduling.scheduler import start_scheduler, shutdown_scheduler
 
@@ -49,6 +69,79 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
 log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Internal authentication token (Session 19 — ADR-038 §6 closure)
+# ---------------------------------------------------------------------------
+# Read once at module load. System-initiated callers (jobs.py weekly digest,
+# future scheduled tasks) send this in the X-Internal-Auth header to bypass
+# the operator user_id check. The token never leaves the Docker network.
+#
+# If unset, internal-token auth is disabled and only operator user_id works.
+# That breaks scheduled jobs — set INTERNAL_API_TOKEN in .env before deploy.
+INTERNAL_API_TOKEN: str = os.environ.get("INTERNAL_API_TOKEN", "").strip()
+
+# ---------------------------------------------------------------------------
+# Unauthorized rate counters (in-memory, per-process)
+# ---------------------------------------------------------------------------
+# Two counters track unauthorized request bursts:
+#   _unauth_global    — all unauthorized requests, regardless of source
+#   _unauth_by_ip     — per source IP (best effort; rotated/spoofed IPs evade)
+#
+# Both windows are 60 minutes. Threshold-crossing fires ONE additional
+# escalation alert; individual events still write security_events rows.
+_UNAUTH_WINDOW_SECONDS: int = 3600
+_UNAUTH_GLOBAL_THRESHOLD: int = 10
+_UNAUTH_PER_IP_THRESHOLD: int = 5
+
+_unauth_global: deque[float] = deque()
+_unauth_by_ip: dict[str, deque[float]] = {}
+
+# Track which thresholds we've already alerted on within the current window
+# to prevent alert spam (one escalation alert per threshold crossing).
+_unauth_global_alert_sent_until: float = 0.0
+_unauth_ip_alert_sent_until: dict[str, float] = {}
+
+
+def _record_unauthorized(client_ip: str) -> tuple[bool, bool]:
+    """
+    Append timestamps to global and per-IP counters, prune expired entries,
+    and return (global_threshold_hit, per_ip_threshold_hit) flags.
+
+    Each flag is True only at the moment of crossing — repeat hits within
+    the same window do not re-fire until the window rolls over.
+    """
+    global _unauth_global_alert_sent_until
+    now = time.time()
+    cutoff = now - _UNAUTH_WINDOW_SECONDS
+
+    # Global counter
+    while _unauth_global and _unauth_global[0] < cutoff:
+        _unauth_global.popleft()
+    _unauth_global.append(now)
+    global_count = len(_unauth_global)
+
+    global_hit = False
+    if global_count >= _UNAUTH_GLOBAL_THRESHOLD and now >= _unauth_global_alert_sent_until:
+        global_hit = True
+        _unauth_global_alert_sent_until = now + _UNAUTH_WINDOW_SECONDS
+
+    # Per-IP counter
+    per_ip_hit = False
+    if client_ip:
+        ip_deque = _unauth_by_ip.setdefault(client_ip, deque())
+        while ip_deque and ip_deque[0] < cutoff:
+            ip_deque.popleft()
+        ip_deque.append(now)
+        ip_count = len(ip_deque)
+
+        ip_alert_until = _unauth_ip_alert_sent_until.get(client_ip, 0.0)
+        if ip_count >= _UNAUTH_PER_IP_THRESHOLD and now >= ip_alert_until:
+            per_ip_hit = True
+            _unauth_ip_alert_sent_until[client_ip] = now + _UNAUTH_WINDOW_SECONDS
+
+    return (global_hit, per_ip_hit)
+
 
 # Active sessions for heartbeat tracking
 _active_sessions: set[uuid.UUID] = set()
@@ -75,6 +168,15 @@ async def lifespan(app: FastAPI):
     # Startup
     await init_pool()
     log.info("PostgreSQL pool initialised.")
+
+    # Internal token presence check (warn-only — not fatal)
+    if not INTERNAL_API_TOKEN:
+        log.warning(
+            "INTERNAL_API_TOKEN is not set. Scheduled jobs (weekly digest) "
+            "will be rejected with 403. Set INTERNAL_API_TOKEN in .env."
+        )
+    else:
+        log.info("INTERNAL_API_TOKEN configured (length %d).", len(INTERNAL_API_TOKEN))
 
     # Crash detection (ADR-035 §7.4)
     crashed = await detect_crashed_sessions()
@@ -112,7 +214,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="OpenClaw Agent Server",
-    version="0.4.0",
+    version="0.4.1",
     lifespan=lifespan,
 )
 
@@ -140,7 +242,138 @@ class AgentInput(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.4.0"}
+    return {"status": "ok", "version": "0.4.1"}
+
+
+# ---------------------------------------------------------------------------
+# Identity verification helper (Session 19 — ADR-038 §6 closure)
+# ---------------------------------------------------------------------------
+
+async def _verify_identity(
+    body: AgentInput,
+    request: Request,
+) -> Optional[JSONResponse]:
+    """
+    Verify request identity. Returns None if authorized, else a 403 JSONResponse.
+
+    Two trust paths:
+      1. X-Internal-Auth header matches INTERNAL_API_TOKEN — system-initiated,
+         body.user_id is ignored.
+      2. body.user_id matches configured operator ID — operator-initiated.
+
+    Anything else is unauthorized: writes security_events row, fires Telegram
+    alert, increments rate counters. Threshold-crossing fires escalation alert.
+    """
+    settings = get_settings()
+    operator_id = str(settings.telegram_operator_id)
+
+    # Path 1: Internal token (system-initiated jobs)
+    auth_header = request.headers.get("X-Internal-Auth", "")
+    if INTERNAL_API_TOKEN and auth_header and auth_header == INTERNAL_API_TOKEN:
+        # Trusted system call. user_id is not consulted.
+        return None
+
+    # Path 2: Operator user_id check
+    # Empty string is no longer a valid trust signal (Session 19 decision).
+    if body.user_id and body.user_id == operator_id:
+        return None
+
+    # ── Unauthorized ──────────────────────────────────────────────────────
+    client_ip = request.client.host if request.client else "unknown"
+    user_id_value = body.user_id or "(empty)"
+
+    log.warning(
+        "Unauthorized /agent request — user_id=%s client_ip=%s persona=%s",
+        user_id_value, client_ip, body.persona,
+    )
+
+    # Write the unauthorized_user security event (ADR-038 §6, severity=critical)
+    pattern_value = f"user_id={user_id_value}"
+    event_id = await write_security_event(
+        event_type="unauthorized_user",
+        severity="critical",
+        source="main_identity_check",
+        persona=body.persona,
+        session_id=None,                # no session yet — pre-pipeline check
+        channel=body.channel,
+        channel_id=body.channel_id or None,
+        user_id=user_id_value,
+        input_text=body.text,
+        pattern_matched=pattern_value,
+        action_taken="blocked",
+        alert_sent=False,
+        raw_detail={"client_ip": client_ip, "initiated_by": body.initiated_by},
+    )
+
+    # Fire real-time Telegram alert (quiet hours overridden for critical)
+    try:
+        await send_security_alert(
+            event_type="unauthorized_user",
+            severity="critical",
+            persona=body.persona,
+            session_id=None,
+            channel=body.channel,
+            user_id=user_id_value,
+            pattern_matched=pattern_value,
+            input_text=body.text,
+            action_taken="blocked",
+        )
+    except Exception as e:
+        log.error("Unauthorized alert send failed: %s", e)
+
+    # Update rate counters and fire escalation alerts on threshold crossing
+    global_hit, per_ip_hit = _record_unauthorized(client_ip)
+
+    if global_hit:
+        log.warning(
+            "Unauthorized GLOBAL threshold crossed: >= %d events in %ds",
+            _UNAUTH_GLOBAL_THRESHOLD, _UNAUTH_WINDOW_SECONDS,
+        )
+        try:
+            await send_security_alert(
+                event_type="unauthorized_user",
+                severity="critical",
+                persona="(system)",
+                session_id=None,
+                channel="(global)",
+                user_id="(threshold)",
+                pattern_matched=(
+                    f">={_UNAUTH_GLOBAL_THRESHOLD}_unauth_in_"
+                    f"{_UNAUTH_WINDOW_SECONDS}s"
+                ),
+                input_text=None,
+                action_taken="threshold_global",
+            )
+        except Exception as e:
+            log.error("Global threshold alert failed: %s", e)
+
+    if per_ip_hit:
+        log.warning(
+            "Unauthorized PER-IP threshold crossed: ip=%s >= %d events in %ds",
+            client_ip, _UNAUTH_PER_IP_THRESHOLD, _UNAUTH_WINDOW_SECONDS,
+        )
+        try:
+            await send_security_alert(
+                event_type="unauthorized_user",
+                severity="critical",
+                persona="(system)",
+                session_id=None,
+                channel="(per_ip)",
+                user_id=client_ip,
+                pattern_matched=(
+                    f">={_UNAUTH_PER_IP_THRESHOLD}_unauth_from_{client_ip}_in_"
+                    f"{_UNAUTH_WINDOW_SECONDS}s"
+                ),
+                input_text=None,
+                action_taken="threshold_per_ip",
+            )
+        except Exception as e:
+            log.error("Per-IP threshold alert failed: %s", e)
+
+    return JSONResponse(
+        status_code=403,
+        content={"error": "unauthorized", "detail": "Identity verification failed"},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -148,29 +381,25 @@ async def health():
 # ---------------------------------------------------------------------------
 
 @app.post("/agent")
-async def agent_endpoint(body: AgentInput):
+async def agent_endpoint(body: AgentInput, request: Request):
     """
     Core agent pipeline. All channels route through here.
 
     Flow:
-      1. Verify operator identity
+      1. Verify identity (operator user_id OR internal token)
       2. Resolve persona
-      3. Load or create session
-      4. Interceptor pre-call checks
-      5. LLM execution
-      6. Post-call budget update
-      7. Write audit record
-      8. Return response as JSON
+      3. Resolve channel
+      4. Load or create session
+      5. Interceptor pre-call checks
+      6. LLM execution
+      7. Post-call budget update
+      8. Write audit record
+      9. Return response as JSON
     """
-    settings = get_settings()
-
-    # 1. Verify operator identity
-    if body.user_id and body.user_id != str(settings.telegram_operator_id):
-        log.warning("Rejected request from non-operator user %s", body.user_id)
-        return JSONResponse(
-            status_code=403,
-            content={"error": "unauthorized", "detail": "Operator ID mismatch"},
-        )
+    # 1. Identity verification (Session 19 — closes ADR-038 §6 gap)
+    unauth_response = await _verify_identity(body, request)
+    if unauth_response is not None:
+        return unauth_response
 
     # 2. Resolve persona
     try:
@@ -273,7 +502,6 @@ async def telegram_webhook(bot_token: str, request: Request):
     Thin adapter: extracts message data, calls the core agent pipeline,
     and sends the response back to Telegram.
     """
-    settings = get_settings()
     body = await request.json()
 
     # Extract message data from Telegram update
@@ -299,7 +527,7 @@ async def telegram_webhook(bot_token: str, request: Request):
         initiated_by="operator",
     )
 
-    result = await agent_endpoint(input_body)
+    result = await agent_endpoint(input_body, request)
 
     # Extract response from JSONResponse
     import json

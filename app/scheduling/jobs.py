@@ -1,7 +1,7 @@
 """
 scheduling/jobs.py — Scheduled job definitions for OpenClaw
 
-Each function is a self-contained job. Jobs are registered in scheduler.py.
+Each function is a self-contained job. Jobs are registered in scheduler module.
 
 Jobs defined here:
   keep_warm_job     — HTTP GET /health every 5 minutes (cold-start prevention)
@@ -10,16 +10,33 @@ Jobs defined here:
 Design rules:
   - Jobs must be async.
   - Jobs must not raise unhandled exceptions (catch and log everything).
-  - Jobs that go through the agent pipeline use initiated_by="automate_scheduler".
+  - Jobs that go through the agent pipeline use initiated_by="automate_scheduler"
+    AND send the X-Internal-Auth header so they pass identity verification
+    (Session 19 — body.user_id is no longer trusted as a bypass signal).
   - Jobs must not carry state between runs — fetch what they need each execution.
 """
 import logging
+import os
 import httpx
 
 log = logging.getLogger(__name__)
 
 # Internal base URL — container-local, no external network hop
 _BASE_URL = "http://localhost:8080"
+
+# Internal API token — must match INTERNAL_API_TOKEN read by main module.
+# Read at call time (not module load) so .env updates take effect on next run.
+
+
+def _internal_headers() -> dict:
+    """Build headers with internal auth token for system-initiated requests."""
+    token = os.environ.get("INTERNAL_API_TOKEN", "").strip()
+    if not token:
+        log.warning(
+            "INTERNAL_API_TOKEN not set — system jobs will be rejected with 403."
+        )
+        return {}
+    return {"X-Internal-Auth": token}
 
 
 # ---------------------------------------------------------------------------
@@ -33,6 +50,8 @@ async def keep_warm_job() -> None:
     Uses a real HTTP request (not a direct function call) so the full
     ASGI worker stack is exercised — connection pool, middleware, routing.
     Logs a warning if the ping fails; never raises.
+
+    /health does not require authentication — no internal token needed.
     """
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -59,6 +78,9 @@ async def weekly_digest_job() -> None:
     the call is logged to agent_actions and subject to normal interceptor
     budget checks (ADR-035). The automate persona handles digest generation.
 
+    Identity: passes X-Internal-Auth header. body.user_id is unset and is
+    NOT consulted on the system-token path (Session 19 ADR-038 §6 closure).
+
     Settings loaded fresh each run — no stale config risk.
     Errors are caught and logged; digest failure never crashes the scheduler.
     """
@@ -72,6 +94,14 @@ async def weekly_digest_job() -> None:
         log.error("weekly_digest_job: telegram_operator_id not configured — skipping.")
         return
 
+    headers = _internal_headers()
+    if not headers:
+        log.error(
+            "weekly_digest_job: INTERNAL_API_TOKEN not configured — skipping. "
+            "The digest cannot run without internal auth."
+        )
+        return
+
     payload = {
         "persona": "automate",
         "text": (
@@ -82,13 +112,17 @@ async def weekly_digest_job() -> None:
         ),
         "channel": "telegram",
         "channel_id": channel_id,
-        "user_id": "",          # System-initiated — no operator user_id check
+        "user_id": "",          # Not consulted on internal-token path
         "initiated_by": "automate_scheduler",
     }
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(f"{_BASE_URL}/agent", json=payload)
+            resp = await client.post(
+                f"{_BASE_URL}/agent",
+                json=payload,
+                headers=headers,
+            )
             if resp.status_code == 200:
                 log.info(
                     "weekly_digest_job: digest dispatched successfully — session %s",
