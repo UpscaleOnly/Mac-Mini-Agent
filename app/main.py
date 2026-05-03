@@ -60,7 +60,7 @@ from app.interceptor import intercept, post_call_budget_update
 from app.persona_router import resolve_persona
 from app.llm import execute
 from app.audit import write_action
-from app.security import write_security_event, send_security_alert
+from app.security import write_security_event, send_security_alert, mark_alert_sent
 from app.models import AgentRequest, AgentActionRecord, Persona, Channel
 from app.scheduling.scheduler import start_scheduler, shutdown_scheduler
 
@@ -318,6 +318,8 @@ async def _verify_identity(
             input_text=body.text,
             action_taken="blocked",
         )
+        # Mark the row alert_sent=TRUE only after Telegram confirmed delivery
+        await mark_alert_sent(event_id)
     except Exception as e:
         log.error("Unauthorized alert send failed: %s", e)
 

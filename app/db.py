@@ -41,9 +41,10 @@ log = logging.getLogger(__name__)
 
 # ── Schema version gate ───────────────────────────────────────────────────────
 # Increment this when you add a new migration file.
-# Current migrations: 001 (initial), 002 (sessions align), 003 (security_events)
-# schema.sql seeds versions 1–4; REQUIRED is 4.
-REQUIRED_SCHEMA_VERSION: int = 4
+# Current migrations: 001 (initial), 002 (sessions align), 003 (security_events),
+#                     004 (security_events.source CHECK widened — May 3, 2026).
+# schema.sql seeds version 5; REQUIRED is 5.
+REQUIRED_SCHEMA_VERSION: int = 5
 
 # Path to schema.sql — used only for PATH A (fresh installs)
 _SCHEMA_SQL_PATH = pathlib.Path(__file__).parent.parent / "schema.sql"

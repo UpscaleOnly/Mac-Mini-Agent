@@ -363,3 +363,129 @@ C2 — CLOSED.
 ### ADR-039 Status
 
 A1 — CLOSED.
+
+---
+
+## Entry #009 — May 3, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Security Framework — ADR-038 §6 closure (unauthorized_user) and audit data integrity
+
+**Commits:** (pending end-of-session push)
+
+### Changes Made
+
+1. **ADR-038 §6 unauthorized_user — verified end-to-end after two corrective fixes.** The
+   Session 19 deployment (commit `dfd103e`) returned HTTP 403 and fired the Telegram
+   alert correctly, but had two latent bugs that surfaced during Step 6–9 verification:
+
+   - **Constraint bug.** `_verify_identity()` writes `source='main_identity_check'`, but
+     `security_events_source_check` allowed only `('interceptor', 'ssh_forwarder')`.
+     Every unauthorized request was failing its `INSERT` silently while still returning
+     403 and firing the alert. No audit row was being written.
+   - **alert_sent bug.** Rows were being written with `alert_sent=FALSE` and never
+     updated after Telegram confirmed delivery. The `f` was hardcoded by ordering: insert
+     happens before alert send. Every successful alert was being recorded as failed in
+     the audit trail.
+
+   Both fixes deployed and verified in this session. Step 6–9 now produce all expected
+   signals: HTTP 403, Telegram alert, `security_events` row with `source='main_identity_check'`
+   and `action_taken='blocked'`, and `alert_sent=TRUE` after Telegram confirms delivery.
+   Burst test (11 unauthorized requests) confirmed both per-IP (≥5 in 60min) and global
+   (≥10 in 60min) escalation alerts fire as designed.
+
+2. **Migration 004 — `security_events.source` CHECK constraint widened.** Added
+   `'main_identity_check'` to the whitelist alongside the existing `'interceptor'` and
+   `'ssh_forwarder'` values. Migration applied via standard `docker cp` + `docker exec
+   psql -f` pattern (matches Migration 002 / 003 deployment). Schema version bumped 4 → 5.
+
+3. **`schema.sql` updated to v5.** Bootstrap-correct constraint for fresh databases (Mac
+   Studio setup day): inline CHECK in the `security_events` table definition includes
+   the new value. Single authoritative `INSERT INTO schema_version` row updated to v5.
+   Header comment line added documenting the May 3 change.
+
+4. **`app/db.py` — `REQUIRED_SCHEMA_VERSION` bumped 4 → 5.** Comment block updated to
+   list four migrations (001 initial, 002 sessions align, 003 security_events, 004
+   source CHECK widened).
+
+5. **`app/main.py` — `mark_alert_sent(event_id)` call added.** Reuses the existing
+   `mark_alert_sent` helper from `security.py` (already used by `scan_security()`).
+   Placed inside the per-event try block, immediately after `send_security_alert(...)`,
+   so a Telegram-send exception correctly leaves `alert_sent=FALSE`. Threshold
+   escalation alerts (per-IP and global) intentionally do not call `mark_alert_sent` —
+   they don't write their own `security_events` rows; they're notification-only by
+   design.
+
+6. **`.gitignore` rule corrected for session-suffixed backups.** Existing `.bak` and
+   `*.bak` patterns from Entry #005 did not match the `.bak.session20` and `.bak.s19`
+   forms used in this and prior sessions. Five backup files were appearing as untracked
+   in `git status`. Added `*.bak.*` and `*.bak.session*` patterns. Verified via
+   `git status` that all five backups are now correctly filtered.
+
+### Apply Sequence (recorded for next time we add a CHECK constraint)
+
+Database migration first (so live DB is at v5 before new code runs version gate):
+1. `docker cp migration_004.sql openclaw_postgres:/tmp/migration_004.sql`
+2. `docker exec openclaw_postgres psql -U openclaw -d openclaw -f /tmp/migration_004.sql`
+3. Verify: `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'security_events_source_check';`
+4. Verify: `SELECT MAX(version) FROM schema_version;` → 5
+
+Code swap second:
+5. Replace `~/openclaw/schema.sql` and `~/openclaw/app/db.py`
+6. `docker compose build fastapi && docker compose up -d fastapi`
+7. Verify startup log: `Schema version OK — live database is at version 5 (required 5).`
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/migration_004.sql` | Created (CHECK constraint widened, schema_version → 5) |
+| `~/openclaw/schema.sql` | Modified (v5 — inline CHECK + version stamp updated) |
+| `~/openclaw/app/db.py` | Modified (REQUIRED_SCHEMA_VERSION → 5, comment block) |
+| `~/openclaw/app/main.py` | Modified (mark_alert_sent import + call) |
+| `~/openclaw/.gitignore` | Modified (`.bak.*` and `.bak.session*` patterns added) |
+| `~/openclaw/changelog.md` | Updated (Entry #009 added) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-038 | §6 unauthorized_user verified operational end-to-end. CRIT-3 (Session 19 review) closed for real. Audit-quality bug (alert_sent column) also closed. |
+| ADR-031 | §6.3 real-time unauthorized user alert verified firing. Schema authority model (Entry #006) followed: migration applied to live DB; `schema.sql` updated for fresh installs. |
+| ADR-039 | No direct closure. Session 19 review item Section 6 / "ADR-038 §6 implementation gap" → resolved. |
+
+### NIST Controls Touched
+
+AC-3, AC-6, AU-2, AU-3, AU-9, CM-3, IR-4, SI-4
+
+### Risk Assessment
+
+No new egress destinations. No tools enabled. No cost or budget changes. Schema change
+is constraint-only — no data column added, no data modified, no row count change.
+Behavior changes: (a) unauthorized requests now write a `security_events` row that was
+previously failing silently; (b) `alert_sent` column now accurately reflects Telegram
+delivery state. Both are corrections of audit-data quality bugs, not new behavior in
+the request-handling path. End-to-end verified via 4 curl tests + 11-request burst —
+all signals (HTTP, Telegram, database) consistent.
+
+### Open Items Surfaced This Session
+
+Logged for future attention. Not blocking close-out.
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| Per-IP rate counter keyed to incorrect IP value | Low | Threshold WARNING log shows `ip=149.154.166.110` (Telegram server) for curls run from localhost. Counter still trips correctly; only the recorded IP is wrong. Likely `_record_unauthorized()` reads a header instead of the immediate peer. |
+| Router bot "unknown persona" reply on `/prototype hello` | Low | Pre-existing routing issue separate from today's work. Bot did successfully forward a different message later in the session, so not totally broken. |
+| Project knowledge staleness | Medium | This session: `main.py` in project knowledge was 228 lines behind disk; `migration_003.sql` was in project knowledge but missing on disk. Session 19 review (HIGH-2) flagged the same pattern for `CURRENT_STATE.md` and `CODE_REFERENCE.md`. No documented refresh cadence in ADR-031. Phase 1.5 housekeeping. |
+| Threshold escalation alerts do not write `security_events` rows | Design | Intentional today (escalation is notification-only) but worth a brief ADR note documenting the decision. Future audit queries for "how often did a threshold escalation fire" cannot be answered from the database. |
+
+### Session 20 Test Coverage
+
+| Test | Status |
+|------|--------|
+| Step 6 — Unauthorized request → 403 + alert + audit row + `alert_sent=t` | Closed |
+| Step 7 — Internal token request → 200, no security event | Closed |
+| Step 8 — Operator request → 200, no security event | Closed |
+| Step 9 — Burst of 11 → all 403, both threshold escalations fired | Closed |
+

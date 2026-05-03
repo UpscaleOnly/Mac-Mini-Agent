@@ -15,6 +15,7 @@
 -- Updated: April 13, 2026 — channel-agnostic sessions (Entry #002)
 -- Updated: April 18, 2026 — sessions table aligned with running DB (Entry #003)
 -- Updated: April 19, 2026 — schema_version seeding replaced with single authoritative stamp
+-- Updated: May 3, 2026 — security_events.source CHECK widened (Migration 004) — version 5
 -- ============================================================================
 
 -- Enable UUID generation
@@ -301,7 +302,7 @@ CREATE TABLE IF NOT EXISTS security_events (
                                                        -- brute_force / unauthorized_user /
                                                        -- ssh_failure / ssh_success / ssh_key_rejected
     severity          TEXT NOT NULL DEFAULT 'medium',  -- low / medium / high / critical
-    source            TEXT NOT NULL DEFAULT 'interceptor', -- interceptor / ssh_forwarder
+    source            TEXT NOT NULL DEFAULT 'interceptor', -- interceptor / ssh_forwarder / main_identity_check
     persona           TEXT,                            -- NULL for SSH events
     session_id        UUID REFERENCES sessions(session_id) ON DELETE SET NULL,
     channel           TEXT,                            -- NULL for SSH events
@@ -318,7 +319,7 @@ CREATE TABLE IF NOT EXISTS security_events (
         severity = ANY (ARRAY['low', 'medium', 'high', 'critical'])
     ),
     CONSTRAINT security_events_source_check CHECK (
-        source = ANY (ARRAY['interceptor', 'ssh_forwarder'])
+        source = ANY (ARRAY['interceptor', 'ssh_forwarder', 'main_identity_check'])
     ),
     CONSTRAINT security_events_action_check CHECK (
         action_taken = ANY (ARRAY['flagged', 'blocked'])
@@ -351,7 +352,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
 -- above and is guaranteed empty. No conflict handling needed.
 -- MUST match REQUIRED_SCHEMA_VERSION in app/db.py.
 INSERT INTO schema_version (version, description) VALUES
-    (4, 'Baseline schema — April 19, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038.');
+    (5, 'Baseline schema — May 3, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038, ADR-038 §6 closure (Migration 004).');
 
 -- ============================================================================
 -- DONE
