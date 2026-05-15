@@ -489,3 +489,59 @@ Logged for future attention. Not blocking close-out.
 | Step 8 — Operator request → 200, no security event | Closed |
 | Step 9 — Burst of 11 → all 403, both threshold escalations fired | Closed |
 
+
+
+---
+
+## Entry #010 — May 15, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — ADR-039 amendment (A6 DECIDED, §7.5 added)
+
+**Commits:** (pending end-of-session push)
+
+### Changes Made
+
+1. **ADR-039 §5.6 added — Sub-decision A6 (Project knowledge refresh cadence) DECIDED.** New Category A sub-decision capturing the project-knowledge-staleness pattern surfaced as Open Item 3 in Entry #009 and previously flagged in the Session 19 review (HIGH-2). Four options considered. **Option 4 selected:** weekly Sunday refresh as the primary required cadence (slotting into the existing ADR-031 Sunday rhythm), with end-of-session refresh as an opportunistic step for files modified that session. Sub-decision §5.6.1 through §5.6.5 record options, status, remediation tasks, canonical-file-set placeholder, and closure conditions. Provisional canonical file set defined in §5.6.3 pending population of §5.6.4 in a future session.
+
+2. **ADR-039 §7.5 added — Threshold escalation alerts not persisted as `security_events` rows.** New Category C entry capturing Open Item 4 from Entry #009 as a scope clarification to ADR-038, not a remediation item. Documents that per-IP and global threshold escalation alerts intentionally do not write their own `security_events` rows; the underlying per-request rows are the audit record. Notes the design consequence (escalation-frequency cannot be answered from the database alone) and the documentation-only corrective action (ADR-038 §6 to be updated in a future session to reference §7.5).
+
+3. **Items 1 and 2 from Entry #009 Open Items held — not migrated to ADR-039 §6.** Per-IP rate counter wrong-IP value (Low) and router bot "unknown persona" reply (Low) explicitly held this session. They remain in Entry #009's Open Items table for future attention.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_039.docx` | Modified (§5.6 inserted between §5.5 and §6; §7.5 inserted between §7.4 and §8). Paragraph count 234 → 259. Validation PASSED. |
+| `~/openclaw/changelog.md` | Updated (Entry #010 added) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-039 | Two amendments. A6 sub-decision DECIDED at architectural level; remediation tasks open. §7.5 documents threshold-escalation design choice. |
+| ADR-031 | Three downstream obligations created by A6, each requiring a future changelog entry to close: (a) ADR-031 amendment to add the weekly Sunday refresh as a named change-management rule; (b) ADR-031 amendment to add canonical-file-set maintenance as a change trigger; (c) canonical file set populated in ADR-039 §5.6.4 and session-closing ritual updated. |
+| ADR-038 | One downstream obligation: ADR-038 §6 to be amended to reference ADR-039 §7.5. |
+
+### NIST Controls Touched
+
+CM-1, CM-3, CM-4, CM-9, SA-11
+
+### Risk Assessment
+
+No code changes. No schema changes. No egress changes. No tools enabled. Behavior of the running system unchanged. Changes are documentation-only — a governance amendment recording a decision and a scope clarification. ADR-039 itself remains OPEN; A6 is the sixth sub-decision and joins A1 and C2 as closed at the sub-decision level, with three Category A sub-decisions (A2, A3, A4, A5) and several remediation items still open.
+
+### Open Items Surfaced This Session
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| ADR-039 §7.3 May 15, 2026 federal_policy_brief shipping deadline has arrived without delivery | Medium | First PDF not delivered. Three open items from `Federal_Policy_Brief_Project_Spec.docx` §10 still block (email infra, sender domain, PDF library — though PDF library was decided as ReportLab+Platypus in May 7 chat without changelog capture). §7.3 in ADR-039 needs re-baselining or formal acknowledgment of the slip. |
+| PDF library decision (ReportLab + Platypus) made May 7 but never recorded in changelog | Low | Decision is on record in chat history only; not in `changelog.md` and not in `Federal_Policy_Brief_Project_Spec.docx` §10 Open Item #3. Should be captured in a future changelog entry. |
+| Carried forward from Entry #009: per-IP rate counter wrong-IP value | Low | Held this session. |
+| Carried forward from Entry #009: router bot "unknown persona" reply | Low | Held this session. |
+| Carried forward from Entry #009: project knowledge staleness pattern | Medium | A6 architecturally addresses this; remediation tasks remain open (canonical file set definition, ADR-031 amendment, session-closing ritual update). |
+
+### Verification
+
+ADR-039.docx new version (21,572 bytes, 259 paragraphs) confirmed saved to `~/openclaw/` and uploaded to claude.ai project knowledge. OneDrive backup updated.
