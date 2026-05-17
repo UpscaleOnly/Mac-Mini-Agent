@@ -15,7 +15,8 @@
 -- Updated: April 13, 2026 — channel-agnostic sessions (Entry #002)
 -- Updated: April 18, 2026 — sessions table aligned with running DB (Entry #003)
 -- Updated: April 19, 2026 — schema_version seeding replaced with single authoritative stamp
--- Updated: May 3, 2026 — security_events.source CHECK widened (Migration 004) — version 5
+-- Updated: May 17, 2026 — security_events source CHECK widened (Entry #009 May 3 catch-up)
+--                       scraped_content + scraper_runs added (Entry #011, ADR-039 H4)
 -- ============================================================================
 
 -- Enable UUID generation
@@ -302,7 +303,7 @@ CREATE TABLE IF NOT EXISTS security_events (
                                                        -- brute_force / unauthorized_user /
                                                        -- ssh_failure / ssh_success / ssh_key_rejected
     severity          TEXT NOT NULL DEFAULT 'medium',  -- low / medium / high / critical
-    source            TEXT NOT NULL DEFAULT 'interceptor', -- interceptor / ssh_forwarder / main_identity_check
+    source            TEXT NOT NULL DEFAULT 'interceptor', -- interceptor / ssh_forwarder
     persona           TEXT,                            -- NULL for SSH events
     session_id        UUID REFERENCES sessions(session_id) ON DELETE SET NULL,
     channel           TEXT,                            -- NULL for SSH events
@@ -339,6 +340,73 @@ CREATE INDEX IF NOT EXISTS idx_security_events_session
     ON security_events(session_id) WHERE session_id IS NOT NULL;
 
 -- ============================================================================
+-- 12. SCRAPED_CONTENT (federal_policy_brief and related projects)
+-- Raw scraped data from whitelisted source domains.
+-- Populated by BaseScraper subclasses in app/scheduling/scrapers/.
+-- Each row tagged with project (federal_policy_brief, medical_brief, etc.)
+-- and scraper_run_id for full audit traceability.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS scraped_content (
+    id                  SERIAL PRIMARY KEY,
+    source_domain       VARCHAR(255) NOT NULL,
+    url_path            TEXT NOT NULL,
+    content_hash        VARCHAR(64) NOT NULL,                 -- SHA-256 for dedup
+    raw_content         TEXT NOT NULL,
+    scrape_timestamp    TIMESTAMPTZ DEFAULT NOW(),
+    content_type        VARCHAR(50),                          -- final_rule / proposed_rule / notice / etc.
+    publishing_agency   VARCHAR(255),
+    document_title      TEXT,
+    publication_date    DATE,
+    is_new              BOOLEAN DEFAULT TRUE,                 -- FALSE after processed into brief
+    project             VARCHAR(64) NOT NULL,                 -- federal_policy_brief / medical_brief / durham_politics / ...
+    scraper_run_id      INTEGER,                              -- FK added after scraper_runs table created below
+    UNIQUE(source_domain, content_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_scraped_content_timestamp ON scraped_content(scrape_timestamp);
+CREATE INDEX IF NOT EXISTS idx_scraped_content_new ON scraped_content(is_new) WHERE is_new = TRUE;
+CREATE INDEX IF NOT EXISTS idx_scraped_content_project ON scraped_content(project);
+
+-- ============================================================================
+-- 13. SCRAPER_RUNS (ADR-039 H4 audit trail)
+-- One row per scraper execution. Populated by BaseScraper.run().
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS scraper_runs (
+    id              SERIAL PRIMARY KEY,
+    scraper_name    VARCHAR(64) NOT NULL,
+    project         VARCHAR(64) NOT NULL,
+    source_domain   VARCHAR(255) NOT NULL,
+    started_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ended_at        TIMESTAMPTZ,
+    status          VARCHAR(20) NOT NULL DEFAULT 'running',
+    docs_fetched    INTEGER NOT NULL DEFAULT 0,
+    docs_inserted   INTEGER NOT NULL DEFAULT 0,
+    docs_skipped    INTEGER NOT NULL DEFAULT 0,
+    retries_used   INTEGER NOT NULL DEFAULT 0,
+    error_message   TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT scraper_runs_status_check CHECK (
+        status = ANY (ARRAY['running', 'success', 'partial', 'failed'])
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_scraper_runs_name_started
+    ON scraper_runs(scraper_name, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scraper_runs_project_started
+    ON scraper_runs(project, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scraper_runs_status
+    ON scraper_runs(status);
+
+-- Add FK constraint to scraped_content.scraper_run_id now that scraper_runs exists.
+-- Using ON DELETE SET NULL — audit-row deletion (90-day retention) does not destroy data rows.
+ALTER TABLE scraped_content
+    ADD CONSTRAINT scraped_content_scraper_run_fk
+    FOREIGN KEY (scraper_run_id) REFERENCES scraper_runs(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_scraped_content_run ON scraped_content(scraper_run_id);
+
+-- ============================================================================
 -- SCHEMA VERSION TRACKING
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -352,16 +420,17 @@ CREATE TABLE IF NOT EXISTS schema_version (
 -- above and is guaranteed empty. No conflict handling needed.
 -- MUST match REQUIRED_SCHEMA_VERSION in app/db.py.
 INSERT INTO schema_version (version, description) VALUES
-    (5, 'Baseline schema — May 3, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038, ADR-038 §6 closure (Migration 004).');
+    (6, 'Baseline schema — May 17, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038 (with main_identity_check source), ADR-039 H4 (scraped_content + scraper_runs).');
 
 -- ============================================================================
 -- DONE
--- Tables created: 11 + 1 view + 1 version tracker
+-- Tables created: 13 + 1 view + 1 version tracker
 --   ADR-035: sessions, session_budget, tool_registry, session_state
 --   ADR-029/035: agent_actions (partitioned, 4 initial monthly partitions)
 --   ADR-037: session_transcripts, agent_heartbeat, service_health, knowledge_updates
 --   ADR-034: hardware_metrics + hardware_alerts view
 --   ADR-038: security_events
+--   ADR-039 H4: scraped_content, scraper_runs
 --   Meta: schema_version
 --
 -- Phase 1.5 deferred: workflow_runs, workflow_steps (ADR-035 §8)
