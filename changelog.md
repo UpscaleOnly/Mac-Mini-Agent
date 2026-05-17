@@ -545,3 +545,107 @@ No code changes. No schema changes. No egress changes. No tools enabled. Behavio
 ### Verification
 
 ADR-039.docx new version (21,572 bytes, 259 paragraphs) confirmed saved to `~/openclaw/` and uploaded to claude.ai project knowledge. OneDrive backup updated.
+---
+
+## Entry #011 — May 17, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Feature — first scraper for federal_policy_brief project (ADR-039 H4 closure)
+
+**Commits:** `3711a53`
+
+### Changes Made
+
+1. **BaseScraper abstract class created** — `app/scheduling/scrapers/base.py`. Provides retry-with-backoff (5 attempts × 120s sleep, retry only on TimeoutException/ConnectError/ReadError/5xx/429), Keychain-aware DB connection via `app.config.get_settings()` (no env-var fallback per A1 closure), run-record audit via the new scraper_runs table, dedup via `ON CONFLICT (source_domain, content_hash) DO NOTHING`. Subclasses implement `fetch()` and `parse()` only — everything else is inherited. `ScrapedRow` dataclass added as the contract between `parse()` and the base insert helper.
+
+2. **scraper_runs table created via migration_005.sql** — Audit trail for every scraper execution. Columns: scraper_name, project, source_domain, started_at, ended_at, status (CHECK: running/success/partial/failed), docs_fetched, docs_inserted, docs_skipped, retries_used, error_message, created_at. Indexes on (scraper_name, started_at DESC), (project, started_at DESC), and status. Status determination: failed if fetch() raised AND zero docs returned; partial if fetch() raised but some docs came back; success otherwise. Migration named 005 because Entry #009 (May 3, ADR-038 §6 closure) had used the 004 slot.
+
+3. **scraped_content schema extended** — Added `project VARCHAR(64) NOT NULL` and `scraper_run_id INTEGER` FK. Table had 18 pre-existing rows from an undocumented April 26 run of the old standalone scraper; backfilled to `project='federal_policy_brief'`, `scraper_run_id=NULL`. FK uses `ON DELETE SET NULL` so future scraper_runs retention pruning will not destroy content rows. New indexes on both columns.
+
+4. **FederalRegisterScraper subclass shipped** — First concrete BaseScraper at `app/scheduling/scrapers/federal_register.py`. Targets 6 HHS-adjacent agencies (HHS, CMS, USDA, ACF, IRS, SSA) via REST API only — no HTML parsing. Per-agency error isolation: one agency's retry exhaustion does not abort the run, just logs and continues. `parse()` skips docs with no `html_url` (unlinkable rows are worse than missing rows) and parses `publication_date` to a real date object with NULL fallback on malformed input. Replaces the old standalone `federal_register_scraper.py` which is deleted in this entry.
+
+5. **scrape_dispatcher_job added to jobs.py** — Bounded `asyncio.gather()` with concurrency cap of 3 (`DISPATCH_CONCURRENCY` module constant). Reads scrapers from `SCRAPERS` registry in `app/scheduling/scrapers/__init__.py`, filters by `project` parameter, runs each via `asyncio.to_thread()` to parallelize sync scraper code across threads while the asyncio loop bounds concurrency. Per-scraper failures isolated via try/except in `_run_one`. Scales to N scrapers per project without changes to this code; adding a scraper is one import + one line in the registry.
+
+6. **federal_policy_scrape cron registered** — Daily 01:00 ET. Uses `functools.partial(scrape_dispatcher_job, project="federal_policy_brief")` to pre-bind the project parameter. Misfire grace 600 seconds. Same pattern will apply to future per-project crons (medical_brief, durham_politics — both Research persona).
+
+7. **schema.sql brought current** — `scraped_content` and `scraper_runs` definitions added for fresh installs. `security_events_source_check` CHECK constraint widened to include `'main_identity_check'` (catching up the May 3 Entry #009 change that never made it back to schema.sql in project knowledge — see Open Items below). Version stamp bumped to 6 with corrected description.
+
+8. **REQUIRED_SCHEMA_VERSION bumped 5 → 6** — One-line edit in `app/db.py`. Bumped after migration applied, per the ordering rule (raising the required version before applying the migration crashes startup hard; raising it after just logs a warning if anything).
+
+9. **Old standalone scraper deleted** — `app/scheduling/federal_register_scraper.py` removed. Stale nano artifact `app/scheduling/jobs.py.save` also deleted. Stray empty `~/openclaw/main` file (May 15 typo) removed before git commit.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/migration_005.sql` | Created and applied to live DB |
+| `~/openclaw/schema.sql` | Modified (scraped_content + scraper_runs added, security_events CHECK widened, version → 6) |
+| `~/openclaw/app/db.py` | Modified (REQUIRED_SCHEMA_VERSION 5 → 6) |
+| `~/openclaw/app/scheduling/scrapers/__init__.py` | Created (SCRAPERS registry + scrapers_for_project helper) |
+| `~/openclaw/app/scheduling/scrapers/base.py` | Created (BaseScraper ABC + ScrapedRow dataclass + retry logic) |
+| `~/openclaw/app/scheduling/scrapers/federal_register.py` | Created (first concrete subclass) |
+| `~/openclaw/app/scheduling/jobs.py` | Modified (scrape_dispatcher_job added with bounded asyncio.gather) |
+| `~/openclaw/app/scheduling/scheduler.py` | Modified (federal_policy_scrape cron registered at 01:00 ET) |
+| `~/openclaw/app/scheduling/federal_register_scraper.py` | Deleted (replaced by scrapers/federal_register.py) |
+| `~/openclaw/app/scheduling/jobs.py.save` | Deleted (stale nano artifact) |
+| `~/openclaw/main` | Deleted (stray empty file from May 15) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-039 | H4 sub-decision CLOSED — first scraper shipped two days past the §7.3 May 15 target. Inverts the governance-to-feature ratio flagged by the adversarial review (38 ADRs, 0 features → first feature shipped). Many §7 items still open. |
+| ADR-029 | scraper_runs is the audit table for scrapers, analogous to agent_actions for the agent pipeline. Scrapers operate below the agent pipeline; no /agent hop, no LLM tokens, no interceptor. Separate audit trail by design. |
+| ADR-030 | Reaffirmed: scrapers fetch from pinned source-domain URLs only. No Brave Search, no discovery. BaseScraper class documentation makes this explicit constraint visible. |
+| ADR-031 | Migration applied via the documented workflow: backup → apply → verify → rebuild → commit. STOP POINTS observed at each verification stage. |
+| ADR-035 | Schema version model from Entry #006 followed end-to-end: migration to live DB, schema.sql updated for fresh installs, REQUIRED_SCHEMA_VERSION kept in lockstep with live state. |
+| ADR-038 §6 | schema.sql caught up to live state — `main_identity_check` value now present in `security_events_source_check` CHECK constraint. Closes a project-knowledge drift gap not addressed in Entry #009. |
+
+### NIST Controls Touched
+
+AU-2 (audit events — scraper_runs is the audit record for scraping operations), AU-3 (content of audit records — full run summary captured including counts and error_message), AU-12 (audit generation — every scraper execution generates exactly one scraper_runs row), CM-3 (configuration change control — migration applied via ADR-031 workflow with STOP POINTS), SA-11 (developer testing — manual dry-run verified end-to-end before scheduled fire), SI-12 (information management — `ON CONFLICT DO NOTHING` dedup prevents corruption from re-runs).
+
+### Risk Assessment
+
+No egress changes — `federalregister.gov` was already on the Automate persona network whitelist per project spec. No new tools enabled — scrapers operate below the agent pipeline and do not appear in `tool_registry`. No cost or budget changes — zero LLM tokens consumed. Schema changes are additive — new table, new nullable column then `SET NOT NULL` after backfill of (effectively) an empty table, new FK with `ON DELETE SET NULL`. Behavior change: a daily cron now fires at 01:00 ET — verified to complete in 7 seconds on dry-run, comfortable within the 04:00 ET pg_dump window. End-to-end verified via manual run (98 fetched, 70 inserted, 28 skipped, status=success) and dedup verified via second consecutive run (98 fetched, 0 inserted, 98 skipped, status=success). Rollback path documented in deployment plan Phase 2.3 (drop FK, drop columns, drop scraper_runs, delete version 6 row).
+
+### Verification
+
+- Manual backup taken pre-deployment: 82,706 bytes, May 17, 2026, in Mac-Mini-Backups iCloud folder ✓
+- Migration applied: schema_version moved 5 → 6 ✓
+- `scraped_content` shape verified via `\d`: 13 columns, new project (NOT NULL) + scraper_run_id (FK) ✓
+- `scraper_runs` shape verified via `\d`: 13 columns, 4 indexes, status CHECK constraint with 4 valid values ✓
+- FastAPI clean startup post-rebuild: `Schema version OK — live database is at version 6 (required 6)` ✓
+- 3 jobs registered: `APScheduler started. Active jobs: 3` — federal_policy_scrape visible in the registration log ✓
+- Manual dry-run #1: scraper_runs row id=1, status=success, 98/70/28, 7-second duration ✓
+- Manual dry-run #2 (dedup check): scraper_runs row id=2, status=success, 98/0/98, 7-second duration ✓
+- Spot-check of 5 newest rows: real Federal Register data, correct content_type mapping, correct date parsing, correct agency names ✓
+- Git commit `3711a53` pushed to GitHub (`9dfd2d1..3711a53` on main) ✓
+- Scheduled run for 01:00 ET on May 18, 2026 — **pending verification next session** ✗
+
+### Open Items Surfaced This Session
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| Backup gap discovered | High | Only one backup in `Mac-Mini-Backups/` pre-session, dated April 19 — 28 days old. IR Runbook SEV-2 threshold is 48h. No Telegram failure-alert was received during the 28-day gap, implying the failure-alert path itself is also broken. Manual backup taken this session as a baseline. Root-cause investigation deferred as a separate session ("Option B" in this session's exchange). |
+| A6 remediation overdue | High | ADR-039 §5.6 (project-knowledge refresh cadence, decided Session 21) hit live during this session. schema.sql was stale by 14 days, missing the May 3 ADR-038 §6 change. Caused mid-session rework: renumbering migration 004 → 005, retargeting schema versions 4→5 → 5→6, db.py bump 5 → 6 instead of 4 → 5. A6 implementation now overdue, not just open. |
+| Missing migration_004.sql source file | Medium | Entry #009 (May 3) applied a migration widening `security_events_source_check` to include `'main_identity_check'`. The migration was applied to live DB and the description recorded in `schema_version`, but no `.sql` file exists in project knowledge or the git repo. Should be reconstructed from live DB state in a follow-up session and committed to the repo for a complete migration history on disk. |
+| 18 pre-existing rows in scraped_content | Low | Pre-existing rows from an undocumented manual run of the old standalone scraper on April 26 at 14:01 UTC, all from federalregister.gov. Backfilled by migration_005 to `project='federal_policy_brief'`, `scraper_run_id=NULL` (predate scraper_runs existence). Dedup will prevent reinsertion. No changelog record of the original run. Documented here for historical completeness. |
+| 15 remaining federal_policy_brief scrapers | Medium | H4 only ships `federal_register`. Still needed: cms, hhs.gov (separate from FR agency filter), usda.gov, acf.hhs.gov, ssa.gov, congress.gov, kff.org, cbpp.org, clasp.org, nashp.org, ncsl.org, nga.org, aphsa.org, macpac.gov, plus any others identified during build. Each is one subclass file + one registry line. Pattern is now proven. |
+| `retries_used` counter always records 0 | Low | The counter is declared in `BaseScraper.run()` but the HTTP helper does not thread the count back to it. Counter is cosmetic in the audit table — retry behavior itself works correctly. Threading the count from `_http_get_with_retry` back to `run()` is a follow-up; not blocking. |
+| Phase 4 (db.py constant bump) executed out of order | Resolved | The constant was bumped to 6 before the migration was applied, briefly creating a window where FastAPI would have crashed on restart. No restart occurred during the window. Migration was then applied to bring the DB into sync. Document this as a known pre-flight check for future migrations: always confirm the deployment plan order before running any commands. |
+| ADR-039 §7.3 May 15 ship target | Medium | First scraper shipped May 17, two days past the §7.3 target. PDF delivery for federal_policy_brief still blocked on: email infrastructure (open), sender domain (open), PDF library decision (decided May 7 as ReportLab + Platypus, but still uncaptured in changelog — needs a separate entry). |
+| Backup file artifacts | Low | `app/scheduling/jobs.py.bak.s19`, `app/scheduling/jobs.py.bak.s22`, `app/scheduling/scheduler.py.bak.s22`, `schema.sql.bak.s22` all present on disk and gitignored. Delete in next session after 24-hour stability confirmed. |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Verify 01:00 ET scheduled run fired successfully | Next session, May 18 morning |
+| Delete backup file artifacts (`.bak.s22` files) | Next session, after Phase 9 verification |
+| Investigate backup-cron / failure-alert gap (Option B from this session) | Separate session, this week |
+| Implement A6 (project-knowledge refresh cadence) | Overdue, next priority session |
+| Reconstruct missing `migration_004.sql` source file from live DB | Follow-up session |
+| Begin `federal_policy_brief` PDF library work (ReportLab + Platypus) | After H4 stability confirmed |
+| Add scraper #2 (CMS) following the BaseScraper template | Once federal_register has 7 days of clean scheduled runs |
