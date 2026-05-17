@@ -649,3 +649,117 @@ No egress changes — `federalregister.gov` was already on the Automate persona 
 | Reconstruct missing `migration_004.sql` source file from live DB | Follow-up session |
 | Begin `federal_policy_brief` PDF library work (ReportLab + Platypus) | After H4 stability confirmed |
 | Add scraper #2 (CMS) following the BaseScraper template | Once federal_register has 7 days of clean scheduled runs |
+---
+
+## Entry #012 — May 17, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — A6 remediation closure (ADR-039 §5.6.4 populated; ADR-031 amended)
+
+**Commits:** (pending end-of-session push)
+
+### Changes Made
+
+1. **ADR-031 amended — §3.7 added (canonical file set maintenance as change trigger).** New seventh subsection under Section 3 "Change Trigger Categories". Triggers: adding a new project that introduces files matching the §5.6.4 canonical file set patterns; adding a new module under app/ or app/scheduling/scrapers/; removing a file currently named in the canonical set; renaming a canonical file; any change to §5.6.4 itself. Required ADR review: ADR-039 (§5.6.4 is the authoritative list) and ADR-037 (per-project markdown naming pattern). Closes the second of three downstream obligations created by Entry #010.
+
+2. **ADR-031 amended — §5 Scheduled Reviews gains weekly Sunday project-knowledge refresh row.** New row between the existing Sunday 08:00 digest row and the Monthly row. Cadence: weekly, Sunday operator session. Action: re-upload every file named in ADR-039 §5.6.4 to the Claude.ai project, verify byte sizes and counts match local disk, log completion in changelog.md as part of the Sunday session entry. End-of-session refresh during the week is encouraged but not load-bearing. Mechanism: manual operator action; optional `refresh_pk.sh` helper deferred per §5.6.3. NIST: CM-3, CM-4, CM-9, SA-11. Closes the first of three downstream obligations.
+
+3. **ADR-031 amended — §4 ADR Impact Map gains Canonical File Set Maintenance row.** Required ADR review: ADR-039 §5.6.4 and ADR-037. Approval: operator self-approval; log entry same day; §5.6.4 list updated in the same commit.
+
+4. **ADR-031 amended — §7 Retention Policy gains scraper_runs row.** 180 days, manual prune via scheduled task (Phase 1.5). Closes a small drift item from Entry #011 — the new table introduced in migration_005 had no retention entry in ADR-031.
+
+5. **ADR-031 amended — §9 NIST 800-53 Alignment updated.** CM-3 mechanism cites §3.7. CM-9 mechanism cites §5 project-knowledge refresh cadence. SA-11 IMPROVED with mechanism citing reduced stale-artifact risk during adversarial review. §10 ADR Cross-Reference gains ADR-039 row; ADR-037 row updated to reference per-project markdown pattern. §12 Future Considerations gains `refresh_pk.sh` helper as Phase 1.5 item.
+
+6. **ADR-039 §5.6.4 populated — canonical file set defined.** Replaces the May 15 placeholder with an explicit list grouped into seven categories: app/ Python modules (10 files), app/scheduling/ Python modules (3 files), app/scheduling/scrapers/ Python modules (3 files plus directory pattern for future scrapers), SQL (schema.sql, current latest migration, tool_registry_seed.sql), infrastructure (docker-compose.yml, .env.example, requirements.txt, .gitignore, .dockerignore), operations (changelog.md), and per-project markdown (4 files for federal_policy_brief plus a noted pattern for future projects). Out-of-scope section explicitly excludes ADR documents (refresh on amendment only), historical project-status docs, compliance docs, PDF references, backup files, and session-review markdown. Baseline total approximately 30 active canonical files. Closes the third of three downstream obligations.
+
+7. **ADR-039 §5.6.3 remediation tasks marked DONE.** Four of five tasks now closed (canonical file set defined, ADR-031 §5 amended, ADR-031 §3.7 amended, session-closing ritual updated). `refresh_pk.sh` helper remains explicitly OPEN and Phase 1.5.
+
+8. **ADR-039 §5.6.5 closure updated.** A6 is now closed in full at the architectural and remediation level except for the optional `refresh_pk.sh` task.
+
+9. **ADR-039 §10 closure-status footer added.** Records that as of May 17, 2026 Critical band A1 is DECIDED; High band A2/A3/A5 OPEN, H2/H4 closed; Medium band A4 OPEN, A6 DECIDED; Section 6 C2/M2/H4 closed, H5/L1 open.
+
+10. **ADR-039 §7.3 status note added.** Records that the H4 forcing-function deadline (May 15) slipped by two days per Entry #011, and that PDF delivery to inbox remains blocked on email infrastructure, sender domain, and the not-yet-changelog-captured May 7 ReportLab + Platypus decision.
+
+11. **Session-closing ritual updated — operator memory edit.** Memory entry now includes opportunistic end-of-session project-knowledge refresh for files modified that session, with the load-bearing rule being the Sunday weekly refresh.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_031.docx` | Modified (§3.7 added; §4, §5, §7, §9, §10, §12 amended; status, ADR References, NIST controls, scope wording updated). Paragraph count 234 → 417. Validation PASSED. Bytes: 21,408. |
+| `~/openclaw/ADR_039.docx` | Modified (§5.6.4 populated; §5.6.5 closure updated; §6 H4 row marked closed; §7.3 status note added; §10 closure-status footer added; §11 cross-reference updated). Paragraph count 259 → 306. Validation PASSED. Bytes: 24,255. |
+| `~/openclaw/changelog.md` | Updated (Entry #012 added — this entry) |
+| (operator memory) | Edited via `memory_user_edits` to add opportunistic end-of-session project-knowledge refresh as a session-closing ritual step. Not a file change, recorded here for completeness. |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-039 | §5.6.4 canonical file set populated. §5.6.5 closure updated. §5.6.3 four of five remediation tasks closed. §6 H4 row marked closed. §7.3 deadline-slip note added. §10 closure-status footer added. §11 cross-reference updated. A6 sub-decision now closed except for the explicitly optional `refresh_pk.sh` Phase 1.5 task. |
+| ADR-031 | Five amendments: §3.7 added; §4 impact map row added; §5 scheduled reviews row added; §7 retention table row added; §9 NIST mechanisms updated. §10 cross-reference adds ADR-039 row and updates ADR-037 row. §12 future considerations adds `refresh_pk.sh`. All three downstream obligations from Entry #010 are closed in this entry. |
+| ADR-037 | No edits to ADR-037 itself this entry. Cross-references in ADR-031 §10 and ADR-039 §11 updated to reflect that the per-project canonical markdown naming pattern (*_CURRENT_STATE / *_DECISIONS / *_CODE_REFERENCE / *_KNOWLEDGE) originates in ADR-037 and is now load-bearing for ADR-039 §5.6.4 and ADR-031 §3.7. |
+| ADR-038 | No change this entry. Downstream obligation from Entry #010 (ADR-038 §6 to reference ADR-039 §7.5) remains open. |
+
+### NIST Controls Touched
+
+CM-1, CM-3, CM-3(2), CM-4, CM-9, SA-11
+
+### Risk Assessment
+
+No code changes. No schema changes. No egress changes. No tools enabled. No cost or budget changes. Behavior of the running system unchanged. Changes are documentation-only — three governance amendments executed in one session to close the three downstream obligations created by Entry #010. Validation PASSED on both `.docx` files. No `docker compose build` required; session-closing ritual is `cp` files into `~/openclaw/`, append this entry to `changelog.md`, re-upload both `.docx` files to project knowledge (itself an A6-compliant act), and `git add -A && git commit && git push`.
+
+### A6 Closure Note
+
+A6 sub-decision was DECIDED on May 15, 2026 per Entry #010. The three downstream obligations from that entry are closed in this entry:
+
+| Obligation | Status | Implementation |
+|------------|--------|----------------|
+| (a) ADR-031 amendment — weekly Sunday refresh as a named change-management rule | CLOSED | ADR-031 §5 new row added; §4 impact map and §9 NIST CM-9 mechanism aligned |
+| (b) ADR-031 amendment — canonical-file-set maintenance as a change trigger | CLOSED | ADR-031 §3.7 added; §4 impact map row added; §9 NIST CM-3 mechanism aligned |
+| (c) Canonical file set populated in ADR-039 §5.6.4 and session-closing ritual updated | CLOSED | ADR-039 §5.6.4 populated with seven categories and ~30 baseline files; operator memory updated |
+
+The optional `refresh_pk.sh` helper from §5.6.3 remains explicitly OPEN as a Phase 1.5 item.
+
+The fact that the A6 remediation was overdue per Entry #011 Open Items — and would have prevented the mid-session migration renumber rework if it had been closed earlier — is acknowledged. This entry was the forcing function that re-aligned the working assumption (operator memory believed C2 / A1 were still pending) against actual changelog state.
+
+### Open Items Surfaced This Session
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| `refresh_pk.sh` helper script | Low | Optional per ADR-039 §5.6.3. Tracked as Phase 1.5 item in ADR-031 §12. |
+| ADR-038 §6 amendment to reference ADR-039 §7.5 | Low | Downstream obligation from Entry #010 unchanged; not closed this session. |
+| Operator memory drift discovered | Medium | Operator memory was tracking deferred-low-risk items (C2, A1, `.env` scrub, changelog entries, git commit) that had actually been closed in Entries #007 and #008 (April 24, 2026). Memory edit this session to remove the stale deferred-items list. Not a code or governance gap; a recurring operator-memory hygiene issue. Consider whether memory itself becomes a canonical-set entry or whether A6 Sunday refresh implicitly covers it through changelog state. |
+| Carried forward from Entry #011: 01:00 ET scheduled scraper run verification (Phase 9) | High | Pending May 18 morning. |
+| Carried forward from Entry #011: backup-cron / failure-alert investigation (Option B) | High | Pending this week. |
+| Carried forward from Entry #011: missing migration_004.sql reconstruction | Medium | Pending. |
+| Carried forward from Entry #011: 15 remaining federal_policy_brief scrapers | Medium | Pending. |
+| Carried forward from Entry #011: backup file artifacts (`.bak.s22`) | Low | Hold until 24h after Phase 9 verification. |
+| Carried forward from Entry #010: ADR-039 §7.3 federal_policy_brief PDF delivery target re-baselining | Medium | §7.3 status note added this entry; formal re-baseline still pending. |
+| Carried forward from Entry #010: PDF library decision (ReportLab + Platypus) May 7 not in changelog | Low | Should be captured in a future changelog entry. |
+| Carried forward from Entry #009 / earlier: per-IP rate counter wrong-IP value, router bot "unknown persona" reply | Low | Unchanged. |
+
+### Verification
+
+- ADR_031.docx new version: 21,408 bytes, 417 paragraphs, validation PASSED ✓
+- ADR_039.docx new version: 24,255 bytes, 306 paragraphs, validation PASSED ✓
+- Entry #012 (this entry) added to changelog.md ✓
+- Operator memory edit applied via memory_user_edits ✓
+- Three documents re-uploaded to claude.ai project knowledge (ADR-031, ADR-039, changelog.md) — pending operator action this session close
+- Git commit pending session close
+
+### What's Next
+
+Same as Entry #011 §What's Next, unchanged except this entry closes the three A6 obligations:
+
+| Action | When |
+|--------|------|
+| Verify 01:00 ET scheduled run fired successfully | Next session, May 18 morning |
+| Investigate backup-cron / failure-alert gap (Option B) | Separate session, this week |
+| Delete backup file artifacts (`.bak.s22` files) | Next session, after Phase 9 verification |
+| Reconstruct missing `migration_004.sql` source file from live DB | Follow-up session |
+| Amend ADR-038 §6 to reference ADR-039 §7.5 | Follow-up session |
+| Capture ReportLab + Platypus PDF library decision in changelog | Follow-up session |
+| Begin `federal_policy_brief` PDF library work | After H4 stability confirmed |
+| Add scraper #2 (CMS) following the BaseScraper template | Once federal_register has 7 days of clean scheduled runs |
+| Optional: implement `refresh_pk.sh` helper (ADR-039 §5.6.3) | Phase 1.5 |
