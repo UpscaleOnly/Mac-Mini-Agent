@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.openclaw.backup.plist
+  ──────────────────────────
+  Daily nightly backup job for OpenClaw on the MacBook Air interim hardware.
+  Schedules ~/openclaw/scripts/backup.sh at 04:00 local time every day.
+
+  Installation:
+    1. Place this file at:  ~/Library/LaunchAgents/com.openclaw.backup.plist
+    2. Load:                launchctl load -w ~/Library/LaunchAgents/com.openclaw.backup.plist
+    3. Verify:              launchctl list | grep openclaw
+
+  Manual test-fire (no waiting for 4 AM):
+                            launchctl start com.openclaw.backup
+
+  Removal (Mac Studio setup day):
+    1. launchctl unload -w ~/Library/LaunchAgents/com.openclaw.backup.plist
+    2. rm ~/Library/LaunchAgents/com.openclaw.backup.plist
+
+  Per ADR-019 interim deviation (changelog Entry #013), reverts to
+  ADR-020 'dev' account model on Mac Studio setup day.
+
+  Behavior:
+    - RunAtLoad=false   — do NOT run immediately when loaded; wait for the schedule
+    - StartCalendarInterval Hour=4 Minute=0  — fires at 04:00 local time daily
+    - KeepAlive=false   — fire once then exit; do not restart the script
+    - StandardOutPath / StandardErrorPath capture any output that escapes
+      backup.sh's internal logging (defense in depth)
+
+  Note: launchd respects machine sleep state. If the Mac is asleep at 04:00,
+  the job will fire when the Mac next wakes — but the dump will then be
+  timestamped at the wake time, not 04:00. The pmset wake schedule
+  (separate command, documented in pmset_reference.txt) explicitly wakes
+  the Mac at 03:55 so the 04:00 fire is on-time.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.openclaw.backup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/sheldonwheeler/openclaw/scripts/backup.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/sheldonwheeler/openclaw/scripts/backup.launchd.out</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/sheldonwheeler/openclaw/scripts/backup.launchd.err</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/sheldonwheeler</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
