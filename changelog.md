@@ -763,3 +763,125 @@ Same as Entry #011 §What's Next, unchanged except this entry closes the three A
 | Begin `federal_policy_brief` PDF library work | After H4 stability confirmed |
 | Add scraper #2 (CMS) following the BaseScraper template | Once federal_register has 7 days of clean scheduled runs |
 | Optional: implement `refresh_pk.sh` helper (ADR-039 §5.6.3) | Phase 1.5 |
+---
+
+## Entry #013 — May 17, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Infrastructure — Interim backup automation (Option B closure)
+
+**Commits:** (pending end-of-session push)
+
+### Changes Made
+
+1. **Root cause of 28-day backup gap identified.** Per Entry #011 Open Items, only one backup file existed in `Mac-Mini-Backups/` pre-Session 22 (April 19, 28 days old). Investigation this session via `crontab -l`, `launchctl list | grep -i openclaw`, and `ls /Users` confirmed: no cron job, no launchd agent, no `dev` user account exist on the MacBook Air. The Session 7 ADR-019 design ties backup automation to the `dev` account under the ADR-020 five-account split, scheduled for Mac Studio setup day. The five-account split has not been built on the interim MacBook Air. Therefore no scheduling mechanism was ever deployed — the gap is "automation never installed on interim hardware," not "automation broken." Failure-alert silence is consistent with this: nothing was scheduled that could fail. The original Entry #011 framing ("backup-cron / failure-alert investigation") is updated by this entry.
+
+2. **Interim backup automation installed under `sheldonwheeler` user via launchd.** New shell script at `~/openclaw/scripts/backup.sh`. Scheduled at 04:00 local time daily via a launchd user agent at `~/Library/LaunchAgents/com.openclaw.backup.plist`. Performs `docker exec openclaw_postgres pg_dump -U openclaw -d openclaw -Z 9` writing a gzip-compressed dump to `~/Documents/Mac-Mini-Backups-Interim/dumps/openclaw_YYYYMMDD_HHMMSS.sql.gz` (iCloud-synced via Desktop & Documents Folders sync). Logs to `~/Documents/Mac-Mini-Backups-Interim/logs/backup_YYYYMMDD.log`. Applies 30-day retention to dump files (per ADR-031 §7) and 90-day retention to log files (per ADR-019). Sends Telegram alert via curl to bot API on any failure stage (pg_dump_failed, pg_dump_empty, postgres_down, directory_unreachable). Reads the **router bot token from macOS Keychain** (service=`TELEGRAM_TOKEN_ROUTER`, account=`openclaw`, per A1 closure / Entry #008). Reads the **operator chat ID from `.env`** (variable `OPERATOR_TELEGRAM_ID`) since the chat ID is not in Keychain — only the six rotated secrets are. This matches the existing convention in `telegram_bot.py` which also reads `OPERATOR_TELEGRAM_ID` from environment. Folder-size alert at 5 GB threshold per ADR-019, one-time-per-crossing via marker file.
+
+3. **launchd chosen over cron after cron path failed.** Initial install attempt was `crontab -` (single-line install). macOS prompted with "Terminal would like to administer your computer" — a broad system-level admin grant prompt not appropriate for installing a per-user cron. Declined. `crontab -` then failed with `Operation not permitted` (TCC sandbox restriction on legacy cron subsystem). Pivoted to `launchctl load -w` of a user agent plist, which is the modern macOS-preferred scheduling mechanism. No admin prompt; the load command succeeds silently for user agents.
+
+4. **TCC permission grant required for launchd-spawned bash.** Initial launchd-fired run failed with `Operation not permitted` writing to iCloud paths. Confirmed via dump output that scripts spawned by launchd run in a restricted TCC sandbox that does not permit writes to `~/Library/Mobile Documents/` (iCloud Drive raw path) or `~/Documents/` (Desktop & Documents Folders sync target). Resolved by granting **Full Disk Access to `/bin/bash`** via System Settings → Privacy & Security → Full Disk Access → `+` → `/bin/bash`. After grant, launchd-fired runs succeed with no permission errors. The grant scopes Full Disk Access to any bash-interpreted script, which is a wide grant; acceptable on a single-user developer machine where the operator is the only entity running bash scripts. To be revisited on Mac Studio setup day under the `dev` account model.
+
+5. **Backup destination path changed from raw iCloud to Documents-synced iCloud.** Original script wrote to `~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/interim-macbook-air/`. Mid-session, after the first TCC failure on that raw path, the script was modified to write to `~/Documents/Mac-Mini-Backups-Interim/dumps/` instead. Both paths sync to the same iCloud account; the Documents-synced path is the cleaner pattern for non-iCloud-native processes. The change was made before FDA was granted, and the same TCC error then recurred on the new path — confirming the issue was permission scope, not path. FDA on bash then unblocked both paths; the Documents path was retained as the simpler convention.
+
+6. **Subfolder separation in iCloud.** New top-level iCloud folder `Mac-Mini-Backups-Interim/` containing `dumps/` and `logs/`. The two pre-existing manual backups (April 19, May 17) remain at the top level of the original `Mac-Mini-Backups/` folder as historical artifacts. Mac Studio setup day will use the original folder for the canonical `dev`-owned launchd output, keeping the production location pristine.
+
+7. **`pmset repeat wakeorpoweron`** scheduled for 03:55 daily, 5-minute buffer before launchd fires at 04:00. The MacBook Air must be plugged into AC overnight for the wake schedule to fire (battery-only wake is not honored by `pmset`).
+
+8. **Manual fire-test executed (B28).** Before relying on the schedule, script was run once by hand with `bash ~/openclaw/scripts/backup.sh` to verify: postgres container detected; `pg_dump` produces a non-empty `.sql.gz` file; log line written; folder size sum computes correctly. Result: clean three-line log, dump landed at 34,433 bytes.
+
+9. **Telegram alert path tested via deliberate failure injection (B11–B13).** Before relying on the alert, postgres container was stopped (`docker stop openclaw_postgres`), backup script run, alert received on operator phone within seconds. Container restarted, script re-run successfully. First end-to-end verification of the backup-alert path on this hardware.
+
+10. **Second alert delivery confirmed via launchd-fired run with TCC failure (B23).** During FDA troubleshooting, an unscheduled launchd-fired run failed on TCC. Script alert path fired correctly through the failure mode (`ALERT_SENT: pg_dump_failed` log line, Telegram message received). This is the second independent confirmation that the alert path is robust, and the only one that exercised the launchd-spawned alert path specifically.
+
+11. **launchd-fired run verified successful post-FDA (B41–B47).** After granting FDA to bash, launchd-fired job produces a fresh dump at `~/Documents/Mac-Mini-Backups-Interim/dumps/openclaw_YYYYMMDD_HHMMSS.sql.gz`, log line at `~/Documents/Mac-Mini-Backups-Interim/logs/backup_YYYYMMDD.log`, no alert (successful run). Verified at 22:00 UTC, 34,433 bytes.
+
+12. **ADR-019 interim deviation documented.** ADR-019 §1 specifies 4 AM cron under `dev` account writing via dev write-only ACL. On the MacBook Air interim there is no `dev` account; the launchd user agent runs under `sheldonwheeler` with Full Disk Access to `/bin/bash`. This is a known deviation explicitly bounded to interim hardware and explicitly reverted on Mac Studio setup day. Recorded in this changelog entry; permanent ADR-019 changes are not warranted since the deviation is interim-only and time-bounded.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/scripts/backup.sh` | Created — nightly backup script with Telegram failure alert and 30-day retention. Writes to `~/Documents/Mac-Mini-Backups-Interim/dumps/` and `~/Documents/Mac-Mini-Backups-Interim/logs/`. |
+| `~/Library/LaunchAgents/com.openclaw.backup.plist` | Created — launchd user agent. Label `com.openclaw.backup`, fires daily at 04:00 local. Loaded with `launchctl load -w`. |
+| `~/Documents/Mac-Mini-Backups-Interim/dumps/` | Created — folder for nightly compressed dumps. iCloud-synced via Desktop & Documents Folders. |
+| `~/Documents/Mac-Mini-Backups-Interim/logs/` | Created — folder for daily log files. Same sync. |
+| (pmset schedule) | Modified — added daily wake at 03:55 via `sudo pmset repeat wakeorpoweron MTWRFSU 03:55:00`. Verified via `pmset -g sched`. |
+| (TCC database) | Modified — granted Full Disk Access to `/bin/bash` via System Settings GUI. |
+| `~/openclaw/changelog.md` | Updated — this entry |
+
+Note: `backup.sh` is tracked in git under `~/openclaw/scripts/`. The launchd plist lives in `~/Library/LaunchAgents/`, outside the repo, so it is also not tracked by git. The plist file content is recorded in operator notes (pmset_reference.txt, this entry) for reproducibility.
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-019 | Interim deviation acknowledged for MacBook Air. Schedule 04:00 matches §1. Failure-alert via Telegram matches §1. 5GB folder-size alert matches §1. Deviations: (a) scheduling via launchd, not cron, due to cron TCC issues on modern macOS; (b) runs as `sheldonwheeler`, not `dev`, due to ADR-020 five-account split not being built on interim hardware; (c) destination is `~/Documents/Mac-Mini-Backups-Interim/` not `Mac-Mini-Backups/`, due to TCC restrictions on the original path for launchd-spawned processes. All three deviations revert on Mac Studio setup day. |
+| ADR-020 | Five-account split (admin / dev / openclaw / sheldon / spousal) is not built on interim hardware. Documented here as the reason for the ADR-019 deviation. ADR-020 not amended; remains the canonical Mac Studio plan. |
+| ADR-031 | §7 retention table: 30-day rolling window for nightly backups is enforced by `find -mtime +30 -delete` in backup.sh. 90-day log retention enforced similarly. |
+| ADR-039 | A4 (backup destination diversity) remains OPEN. Adding Backblaze B2 stays deferred to Mac Studio setup day per §5.4.2. This entry does not close A4. |
+| ADR-039 | A1 closure (Entry #008) — `backup.sh` reads bot token from Keychain via `security find-generic-password -a openclaw -s TELEGRAM_TOKEN_ROUTER -w`. No secrets in script or in launchd plist. |
+| IR Runbook | Scenario 2 (Backup Failure) Containment Step 2 (`cat /tmp/pg_backup.log`) is now obsolete — the log lives in `~/Documents/Mac-Mini-Backups-Interim/logs/backup_YYYYMMDD.log` during interim operation. IR Runbook to be amended in a follow-up session to reflect the interim log path and to add a note about the Mac Studio cutover path. |
+
+### NIST Controls Touched
+
+CP-9 (System Backup) — IMPROVED: scheduled backups now exist on interim hardware; no longer dependent on manual operator action.
+CP-10 (System Recovery and Reconstitution) — IMPROVED: restore window is no longer 28 days; aligns with IR Runbook SEV-2 48-hour threshold.
+IR-4 (Incident Handling) — IMPROVED: failure path now triggers an alert; alert path tested end-to-end this session (twice — manual stop test, and natural launchd-fired TCC failure).
+SI-4 (System Monitoring) — IMPROVED: backup success and folder size are monitored daily.
+AU-2 / AU-3 (Audit events): each run produces an audit log line in the daily log file.
+
+### Risk Assessment
+
+No egress changes — `api.telegram.org` was already permitted for the existing router bot. No tools enabled. No schema changes. No code-path changes inside the FastAPI container. The new shell script runs outside the container as a host-level launchd job; it does not touch the application code or alter the request pipeline. The only behavioral change visible from outside this script: a new `.sql.gz` file appears in iCloud each morning and a daily log line is written. Failure-mode behavior: a Telegram alert fires within seconds of the failure stage.
+
+Two interim deviations from canonical design constitute real reductions in principle-of-least-privilege posture, both acknowledged for interim duration:
+- Running under `sheldonwheeler` instead of `dev`: the script and its launchd-spawned bash have full FS access; ADR-020 canonical model would have dev with write-only ACL only.
+- Full Disk Access on `/bin/bash`: any bash-interpreted script on this machine now has elevated file access. On a single-user developer machine this is acceptable; in a multi-user or production environment it would not be.
+
+Both deviations revert on Mac Studio setup day under the dev account + launchd-or-cron-with-dedicated-grant model.
+
+### Verification
+
+- Script syntax check: `bash -n ~/openclaw/scripts/backup.sh` → no errors ✓
+- Manual fire-test #1: `bash ~/openclaw/scripts/backup.sh` → exit 0, 34,430-byte dump at 17:35:50 ✓
+- Telegram failure-injection test: stopped postgres, ran script manually → Telegram alert "postgres_down" received on operator phone within seconds ✓
+- Restored postgres, manual fire-test #2 → exit 0, 34,435-byte dump at 17:12:54 ✓
+- launchctl load: `launchctl load -w ~/Library/LaunchAgents/com.openclaw.backup.plist` → silent success ✓
+- launchctl list: `launchctl list | grep openclaw` → `- 0 com.openclaw.backup` registered ✓
+- First launchd-fired run pre-FDA: failed with TCC "Operation not permitted" → Telegram alert "pg_dump_failed" received → confirmed alert path works in launchd context too ✓
+- Full Disk Access granted to `/bin/bash` via System Settings → confirmed in privacy panel ✓
+- Second launchd-fired run post-FDA: clean three-line log, 34,433-byte dump at 18:00:39 ✓
+- pmset schedule registered: `pmset -g sched` → `wakepoweron at 3:55AM every day` ✓
+- File count in `~/Documents/Mac-Mini-Backups-Interim/dumps/`: 2 files at session close, both ~34KB ✓
+
+### Open Items Surfaced This Session
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| First fully autonomous scheduled run verification | High | Tomorrow morning, May 18, 04:00 ET. Verify a new `.sql.gz` lands in `~/Documents/Mac-Mini-Backups-Interim/dumps/`. Adjacent in time to 01:00 ET federal_register scheduled run from Entry #011. Both verified in one Monday-morning session. |
+| IR Runbook Scenario 2 path update | Medium | Log path during interim operation is `~/Documents/Mac-Mini-Backups-Interim/logs/backup_YYYYMMDD.log`, not `/tmp/pg_backup.log`. Runbook to be amended in a follow-up session. |
+| `.env` has two operator-id variables with same value | Low | Both `OPERATOR_TELEGRAM_ID` and `TELEGRAM_OPERATOR_ID` exist in `.env` with identical values. Pick one canonical name (likely `OPERATOR_TELEGRAM_ID` since `telegram_bot.py` reads that one). Remove the other in a future session. |
+| MacBook on battery overnight | Medium | If the Air ever runs on battery overnight, the 03:55 wake will not fire and the 04:00 launchd will be skipped. Telegram alert path will be silent because the script never ran. Operational practice: leave on AC overnight. Possible future enhancement: a separate "no backup landed in the last 30 hours" check (Phase 1.5 or Mac Studio day). |
+| Backblaze B2 second destination (A4) | Medium | Unchanged — still open, still deferred to Mac Studio setup day. Today's work does not address destination diversity. |
+| Encrypted backup before iCloud write | Medium | A1 remediation task (encrypt pg_dump output before iCloud) remains OPEN per ADR-039 §5.1.3. Deferred to Mac Studio setup day. |
+| Full Disk Access scope review | Low | Current grant is broad (`/bin/bash` gets FDA). Mac Studio setup day reverts to a narrower grant model under the dev account. Track for that day's setup checklist. |
+| Carried forward from Entry #012: all items unchanged | various | A6 closure complete; all prior open items still open. |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Verify 01:00 ET federal_register scheduled run fired successfully | Tomorrow morning, May 18 |
+| Verify 04:00 ET launchd-fired backup run fired successfully | Tomorrow morning, May 18 |
+| Spot-check `~/Documents/Mac-Mini-Backups-Interim/dumps/` for the new dump file | Tomorrow morning |
+| Spot-check `~/Documents/Mac-Mini-Backups-Interim/logs/backup_20260518.log` | Tomorrow morning |
+| Delete `.bak.s22` backup file artifacts (Entry #011) | After Phase 9 verification |
+| IR Runbook Scenario 2 amendment for interim log path | Follow-up session |
+| Reconstruct missing migration_004.sql source file | Follow-up session |
+| Amend ADR-038 §6 to reference ADR-039 §7.5 | Follow-up session |
+| Capture ReportLab + Platypus PDF library decision | Follow-up session |
+| Begin federal_policy_brief PDF library work | After H4 stability confirmed |
+| Add scraper #2 (CMS) | Once federal_register has 7 days of clean scheduled runs |
+| Mac Studio setup day: revert ADR-019 to canonical `dev` cron/launchd, remove interim subfolders, migrate any retained dumps to top-level Mac-Mini-Backups, narrow FDA grant scope | Mac Studio setup day |

@@ -16,3 +16,7 @@ docker-compose.yml.bak
 # Session-suffixed backup files (e.g., main.py.bak.session20, db.py.bak.s19)
 *.bak.*
 *.bak.session*
+
+# launchd-generated runtime logs (not version-controlled)
+scripts/*.launchd.*
+scripts/.*
