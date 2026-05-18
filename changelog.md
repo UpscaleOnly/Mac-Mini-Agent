@@ -885,3 +885,64 @@ Both deviations revert on Mac Studio setup day under the dev account + launchd-o
 | Begin federal_policy_brief PDF library work | After H4 stability confirmed |
 | Add scraper #2 (CMS) | Once federal_register has 7 days of clean scheduled runs |
 | Mac Studio setup day: revert ADR-019 to canonical `dev` cron/launchd, remove interim subfolders, migrate any retained dumps to top-level Mac-Mini-Backups, narrow FDA grant scope | Mac Studio setup day |
+---
+
+## Entry #014 — May 17, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Operational — Anthropic memory defect support ticket filed; follow-up decisions registered
+
+**Commits:** (pending end-of-session push)
+
+### Changes Made
+
+1. **Anthropic support ticket filed for memory persistence defect.** Conversation ID `215474340039847` opened via Fin (Anthropic's frontline triage bot). Ticket documents that `memory_user_edits` tool reports successful in-session writes but writes do not propagate to fresh sessions on this account. Pattern has been observed for approximately 2 months, dating to mid-March 2026. Tonight's evidence: in one conversation Claude added memory entry #11 (OpenClaw no-shell-execution architectural rule) and edited entry #7 (session-closing ritual), tool calls reported success, then a fresh session opened immediately afterward returned a memory snapshot reflecting approximately mid-April 2026 state — neither change present. Ticket includes billing-impact section requesting credit for plan-overage charges attributable to context-rebuilding work caused by the defect, dating from mid-March 2026 through resolution.
+
+2. **Reddit corroboration noted.** Multiple users reporting the same defect publicly. Reddit threads confirm this is not account-specific and not user error. Worth attaching as supplementary evidence if Anthropic support pushes back. Recommended action: if Fin (the support bot) attempts to close the ticket with FAQ-style suggestions, request human escalation explicitly using the phrase "please escalate this conversation to a human support agent."
+
+3. **ADR-041 created as placeholder for third-party memory injection evaluation.** Status OPEN. Evaluates whether to install Claude-mem, Ember, or another MCP-based memory server as a replacement for Anthropic's broken memory feature. Decision deferred pending support response; backstop deadline 14 days from ticket filing (May 31, 2026) or earlier if Anthropic responds with a clear fix-or-no-fix outcome. See ADR_041.docx for evaluation criteria.
+
+4. **OpenAI migration consideration logged as a single bullet in ADR-041 open items.** Not pursued as a separate analysis at this time per operator direction; placeholder only.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_041.docx` | Created — third-party memory injection evaluation, Status OPEN |
+| `~/openclaw/changelog.md` | Updated — this entry |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-041 | Created. New OPEN sub-decision A6 follow-up, addresses the same defect that A6 was a partial governance-layer workaround for. |
+| ADR-039 §5.6 (A6) | Tonight's events validate the original A6 finding. A6 is the governance-layer workaround for exactly this defect; if ADR-041 results in a technical replacement, A6 may be revisited (still load-bearing? superseded? both?). |
+
+### NIST Controls Touched
+
+None directly. Support-ticket filing and ADR placeholder do not change system posture. CM-3 (Configuration Change Control) noted because ADR-041 will trigger a configuration change if a memory tool is installed.
+
+### Risk Assessment
+
+No code changes. No schema changes. No egress changes (Anthropic support is an existing trust relationship). The new ADR is documentation only. Risk associated with potentially installing third-party memory tools (Claude-mem, Ember) is deferred to ADR-041's evaluation and explicitly listed there as a criterion (security posture review required before any install).
+
+### Open Items Surfaced This Session
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| Anthropic support response on conversation 215474340039847 | High | Track response time. If Fin closes with FAQ, escalate to human. If no response in 7 days, follow up. If billing credit denied, document for the record. |
+| Reddit thread links to attach to ticket | Low | Save URLs of representative Reddit threads about the same memory defect. Attach to support ticket as supplementary evidence in next exchange. |
+| ADR-041 evaluation when triggered | Medium | Decision deadline: Anthropic response OR 14 days, whichever first. |
+| Carried forward from Entry #013 | various | All items unchanged. |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Verify 01:00 ET federal_register scheduled run | Tomorrow morning |
+| Verify 04:00 ET launchd-fired backup run | Tomorrow morning |
+| Watch for Anthropic email response on ticket 215474340039847 | Daily check next 7 days |
+| Save Reddit thread URLs for ticket evidence | Next session |
+| Begin ADR-041 evaluation if Anthropic response is "no fix" or no response by May 31 | Per ADR-041 |
+| All Entry #013 next-steps unchanged | per Entry #013 |
