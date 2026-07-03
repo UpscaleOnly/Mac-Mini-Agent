@@ -1,0 +1,170 @@
+**MAC MINI AGENT SERVER**
+
+**ADR-034 — Hardware Telemetry Collector**
+
+**Status: DECIDED**
+
+Date: March 29, 2026
+
+Phase: 1.5  |  Deploys ~2 weeks post-setup-day
+
+Owner: Sheldon Wheeler
+
+**NIST Coverage:  AC · AU · SI**
+
+Tooling: mac-stats.com (Stats by exelban) · hw_collector.py · PostgreSQL hardware_metrics table
+
+# 1.  Context and Decision
+
+ADR-033 (Operator Dashboard Metrics Framework) identified hardware-layer metrics—thermals, CPU P/E-core utilization, GPU utilization, ANE power draw, memory pressure, fan speed, and system power draw—as Phase 1 requirements sourced from “iStat Menus / iStatistica Pro.” During Session 9 planning the operator elected to replace that commercial dependency with two free alternatives:
+
+•  mac-stats.com (Stats by exelban) — open-source MIT-licensed menu bar monitor for live ambient display. Free. No persistent storage. Covers the same menu bar instrument panel role as iStat Menus at zero cost.
+
+•  hw_collector.py — a purpose-built Python scraper (this ADR) that polls powermetrics at 60-second intervals and writes to a new hardware_metrics PostgreSQL table. Provides the persistent history, session recording, and presentation-quality data that MacPulse would have supplied commercially.
+
+The motivation follows the same principle applied to NemoClaw: borrow the concept, own the implementation. The result is a hardware telemetry layer that is fully integrated with the existing PostgreSQL audit infrastructure, inherits all existing backup and retention policies, and is queryable by the same SQL tooling already in use for agent_actions.
+
+Decision: Adopt hw_collector.py as the hardware telemetry data source for ADR-033 dashboard metrics. Deploy Stats (mac-stats.com) for live menu bar display. Retire MacPulse from the recommended tooling list. Add hardware_metrics as a Phase 1.5 PostgreSQL table under the same dev account and retention schedule as agent_actions.
+
+# 2.  Decision Record
+
+| **ADR Number** | ADR-034 |
+| --- | --- |
+| **Title** | Hardware Telemetry Collector |
+| **Status** | DECIDED — March 29, 2026 |
+| **Deciders** | Sheldon Wheeler (owner, sole operator) |
+| **ADR References** | ADR-020 (Account Structure) · ADR-023 (Encryption) · ADR-029 (agent_actions) · ADR-032 (NIST) · ADR-033 (Dashboard Metrics) |
+| **NIST Controls** | AC-6 · AC-6(9) · AU-2 · AU-3 · AU-12(1) · SI-4 · SI-4(2) · SI-4(4) · SI-4(5) |
+| **Phase Scope** | Phase 1.5 — deploy after core stack stable (approximately 2 weeks post-April 1 setup day) |
+| **Supersedes** | None. Extends ADR-033 by defining the hardware telemetry data source and persistence layer. |
+
+# 3.  Architecture
+
+## 3.1  Component Roles
+
+The hardware monitoring stack has three distinct layers:
+
+•  Stats (mac-stats.com) — always-on menu bar display. Installed on the dev account desktop session. Shows live CPU graph (P/E-core color-coded), temperature badge, fan RPM, network throughput, and memory pressure. No configuration required after install. Role: ambient credibility during presentations and day-to-day operations. No data persisted by Stats.
+
+•  hw_collector.py — runs as a LaunchDaemon under the dev account. Polls sudo /usr/bin/powermetrics every 60 seconds using the cpu_power, gpu_power, thermal, ane_power, smc, and memory_stats samplers. Parses the JSON output, extracts 17 metric fields, and writes one row to hardware_metrics. Role: historical data source and presentation proof layer.
+
+•  hardware_metrics (PostgreSQL) — new table in the existing agentdb database under the dev account. 17 metric columns + sampled_at timestamp. Indexed for dashboard query patterns. Alert view (hardware_alerts) pre-built for compliance_monitor integration in Phase 2. Role: persistent storage, 90-day retention, SQL queryable.
+
+## 3.2  Account and Privilege Model
+
+The collector runs under the dev account, not the openclaw account. This matches the existing pattern: dev owns the data layer (PostgreSQL, ChromaDB backups), openclaw owns the runtime layer (OpenClaw daemon, Telegram bot).
+
+powermetrics requires root-level access to read hardware performance counters. A single targeted sudoers entry grants the dev account the ability to run /usr/bin/powermetrics as root with no password prompt, and only that binary:
+
+dev ALL=(root) NOPASSWD: /usr/bin/powermetrics
+
+This entry is added via visudo to /etc/sudoers.d/hw_collector. It grants no shell, no write capability, no general root access. Every invocation is logged automatically to the macOS unified log under the sudo process, satisfying AU-12(1) without any additional configuration.
+
+## 3.3  powermetrics Samplers Used
+
+The following samplers are requested on each poll. Samplers not listed are excluded to minimize CPU overhead:
+
+•  cpu_power — CPU package power draw, cluster-level utilization, P-core vs E-core breakdown
+
+•  gpu_power — integrated GPU utilization, power draw, frequency
+
+•  ane_power — Apple Neural Engine (16-core on M1 Max) power draw
+
+•  thermal — macOS thermal pressure level (nominal / moderate / heavy / trapping / sleeping)
+
+•  smc — SMC sensor readings: die temperatures, fan speed, system power
+
+•  memory_stats — unified memory composition, swap usage, pressure state
+
+Note on SMC sensor keys: Apple changes sensor key assignments with each SoC generation. The collector includes the known M1 Max keys (Tp09, Tg05, F0Ac, PSTR). If any sensor reads null after setup, inspect the raw powermetrics JSON output and update the key list in hw_collector.py. This is a one-time calibration on setup day.
+
+# 4.  Hardware Metrics Table Schema
+
+One row per 60-second sample. 90-day full-resolution retention. All numeric columns are NULLABLE—a null value means the sensor was unavailable for that sample, not that the value was zero.
+
+| **Metric** | **Column** | **Type** | **Unit** | **Alert threshold** | **NIST** |
+| --- | --- | --- | --- | --- | --- |
+| CPU P-core utilization | cpu_p_core_pct | NUMERIC(6,2) | % | > 90% sustained | SI-4 |
+| CPU E-core utilization | cpu_e_core_pct | NUMERIC(6,2) | % | — | SI-4 |
+| CPU package power | cpu_power_mw | NUMERIC(10,1) | mW | > 40,000 sustained | SI-4 |
+| CPU clock frequency | cpu_freq_mhz | NUMERIC(8,1) | MHz | — | SI-4(2) |
+| CPU die temperature | cpu_temp_c | NUMERIC(6,1) | °C | > 85°C | SI-4(5) |
+| GPU utilization | gpu_active_pct | NUMERIC(6,2) | % | > 95% sustained | SI-4 |
+| GPU power draw | gpu_power_mw | NUMERIC(10,1) | mW | — | SI-4 |
+| GPU clock frequency | gpu_freq_mhz | NUMERIC(8,1) | MHz | — | SI-4(2) |
+| GPU die temperature | gpu_temp_c | NUMERIC(6,1) | °C | > 80°C | SI-4(5) |
+| Neural Engine power | ane_power_mw | NUMERIC(10,1) | mW | — | SI-4(2) |
+| Thermal pressure level | thermal_pressure | SMALLINT | 0–4 | >= 2 (heavy) | SI-4(5) |
+| Fan speed | fan_rpm | INTEGER | RPM | > 3,000 RPM | SI-4 |
+| System power draw | system_power_mw | NUMERIC(10,1) | mW | > 80,000 mW | SI-4 |
+| Memory used | mem_used_gb | NUMERIC(6,3) | GB | > 28 GB | SI-4 |
+| Memory free | mem_free_gb | NUMERIC(6,3) | GB | — | SI-4 |
+| Swap usage | mem_swap_gb | NUMERIC(6,3) | GB | > 0 GB (any) | SI-4(5) |
+| Memory pressure | mem_pressure | SMALLINT | 0–2 | >= 1 (warn) | SI-4(5) |
+
+A pre-built alert view (hardware_alerts) selects all rows where any threshold is breached. A retention function (purge_hardware_metrics_90d()) deletes rows older than 90 days. Both are defined in hardware_metrics.sql.
+
+# 5.  NIST 800-53 Alignment
+
+| **Control** | **Title** | **Status** | **Implementation** |
+| --- | --- | --- | --- |
+| **AC-6** | Least privilege | **MET** | sudoers entry scoped to single binary /usr/bin/powermetrics. No shell, no general root. dev account runs collector. |
+| **AC-6(9)** | Privileged function auditing | **MET** | Every sudo invocation auto-logged to macOS unified log. Auditable without additional tooling. |
+| **AU-2** | Event logging | **MET** | Every hardware_metrics row is a timestamped event record. 90-day retention matches ADR-029. |
+| **AU-3** | Content of audit records | **MET** | sampled_at + 17 metric fields provide who/what/when for every hardware state sample. |
+| **AU-12(1)** | System-wide audit trail | **PARTIAL → IMPROVED** | hardware_metrics adds hardware-layer events to the existing agent-layer audit trail (agent_actions). OS-level events still in macOS unified log. |
+| **SI-4** | System monitoring | **MET** | Continuous 60-second polling of all primary hardware subsystems with alert thresholds defined for each metric. |
+| **SI-4(2)** | Automated tools for real-time analysis | **PARTIAL** | Alert thresholds defined in schema view (hardware_alerts). Automated Telegram alerting is Phase 2 (compliance_monitor integration). |
+| **SI-4(4)** | Inbound/outbound traffic | **PARTIAL** | System power and thermal monitoring covers computational activity. Network traffic monitoring remains in ADR-033 scope. |
+| **SI-4(5)** | System-generated alerts | **PARTIAL** | Alert view defined. Telegram alerting on threshold breach wired in Phase 2. Phase 1: operator queries alert view manually. |
+
+# 6.  Deployment Sequence (Setup Day + 14 Days)
+
+## 6.1  Setup Day — April 1, 2026
+
+•  Install Stats (mac-stats.com) via Homebrew: brew install --cask stats
+
+•  Configure Stats menu bar: CPU graph (P/E cores separate colors), temperature badge, fan RPM, memory pressure, Tailscale network throughput
+
+•  Stats is the live display layer from this point forward. No further setup required.
+
+## 6.2  Phase 1.5 — Approximately April 14, 2026
+
+Deploy hw_collector.py only after the core stack (OpenClaw, PostgreSQL, ChromaDB, Ollama, Telegram) is confirmed stable. Do not add the collector on setup day—two failure domains on the same day is unnecessary risk.
+
+•  As dev account: pip3 install psycopg2-binary --break-system-packages
+
+•  As dev account: psql agentdb < hardware_metrics.sql — creates table, indexes, alert view, retention function
+
+•  As admin account: sudo visudo -f /etc/sudoers.d/hw_collector — add the single NOPASSWD line
+
+•  Smoke test: run sudo /usr/bin/powermetrics with json format, confirm output
+
+•  Run collector manually for 3 cycles (3 minutes), verify rows appear in hardware_metrics
+
+•  Install LaunchDaemon plist, load with launchctl, confirm daemon restarts on crash
+
+•  After 24 hours: run the presentation SQL queries to confirm 24h arc is populated
+
+# 7.  Presentation SQL Queries
+
+Three pre-written queries are maintained in hw_collector_setup.py and should be saved as named aliases in the dev account .bashrc before any presentation:
+
+•  hw_live — last 5 samples, all columns, formatted for screen readability
+
+•  hw_24h — hourly averages over 24 hours: P-core, GPU, ANE, temperature, power, fan peak, swap events
+
+•  hw_alerts — threshold breach count and peak values over 24 hours (target: all zeros)
+
+These queries run in under 100ms against the indexed table. No typing during demos—alias and paste only.
+
+# 8.  ADR Cross-Reference
+
+| **ADR** | **Title** | **Relationship** |
+| --- | --- | --- |
+| **ADR-020** | macOS Account Structure | dev account runs hw_collector.py and owns hardware_metrics table. openclaw account has no access to hardware_metrics. |
+| **ADR-023** | Encryption Posture | hardware_metrics data at rest protected by FileVault (same as all PostgreSQL data). No additional encryption required. |
+| **ADR-029** | agent_actions Audit Table | hardware_metrics follows the same 90-day retention policy and dev account ownership model. Backup via same pg_dump process (ADR-019). |
+| **ADR-031** | Change Management | sudoers entry addition triggers a security review per ADR-031. Document the entry, scope, and NIST rationale in the review log. |
+| **ADR-032** | NIST Compliance | hardware_alerts view is the integration point for Phase 2 compliance_monitor. Closes SI-4 and SI-4(5) gaps identified in ADR-032. |
+| **ADR-033** | Dashboard Metrics | hardware_metrics is the data source for all Phase 1 infrastructure metrics defined in ADR-033 Section 4. Replaces iStat Menus as the persistence layer. |

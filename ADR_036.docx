@@ -1,0 +1,264 @@
+**MAC MINI AGENT SERVER**
+
+**ADR-036 — GPU VRAM Allocation Policy**
+
+**Status: DECIDED**
+
+Date: April 4, 2026
+
+Phase: 1  |  Setup Day Deliverable
+
+Owner: Sheldon Wheeler
+
+NIST Coverage:  SA-2 · SC-5 · SI-4 · SI-4(5) · AU-2 · AU-3
+
+# **1.  Context and Decision**
+
+Apple Silicon M1 Max applies a default Metal GPU memory cap of 75% of unified memory. On the 32GB configuration this limits GPU-addressable memory to 24,576 MB. On the 64GB configuration the default cap is 49,152 MB. For local LLM inference via Ollama this cap is the binding constraint on which model tiers can be loaded entirely in GPU memory.
+
+The iogpu.wired_limit_mb sysctl kernel parameter allows the operator to raise this cap above the 75% default without disabling System Integrity Protection (SIP). The parameter resets to 0 (system default) on reboot unless re-applied by a LaunchDaemon at startup. The /etc/sysctl.conf persistence method requires SIP to be disabled and is rejected on security grounds.
+
+Decision: Raise the GPU memory allocation above the 75% default using iogpu.wired_limit_mb, persisted via a LaunchDaemon plist at /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist. SIP remains intact. The exact MB value is determined on setup day by the hardware configuration purchased. Two configurations are fully specified in this ADR; the operator selects the applicable values at setup time.
+
+# **2.  Decision Record**
+
+| **ADR Number** | ADR-036 |
+| --- | --- |
+| **Title** | GPU VRAM Allocation Policy |
+| **Status** | DECIDED — April 4, 2026 |
+| **Deciders** | Sheldon Wheeler (owner, sole operator) |
+| **ADR References** | ADR-002 (Hardware) · ADR-020 (Account Structure) · ADR-021 (LayerModel) · ADR-023 (Encryption) · ADR-027 (Interceptor) · ADR-031 (Change Management) · ADR-032 (NIST) · ADR-033 (Dashboard Metrics) · ADR-034 (Hardware Telemetry) |
+| **NIST Controls** | SA-2 · SC-5 · SI-4 · SI-4(5) · AU-2 · AU-3 |
+| **Phase Scope** | Phase 1 — applied on setup day before first Ollama model load |
+| **Supersedes** | None. Amends ADR-033 memory threshold values (Section 7). |
+
+# **3.  Problem Statement**
+
+The 75% Metal GPU cap is a macOS safety floor designed for general-purpose consumer use. OpenClaw is a headless server with no display, no GUI applications, and no interactive user sessions on the openclaw account. The OS memory floor required for this workload profile is substantially lower than Apple's conservative general-purpose default.
+
+Staying at the 75% default on the 32GB configuration means a Q4_K_M quantized 32B model (approximately 18-20 GB) loads partially in GPU memory and partially via CPU fallback. Raising the cap to 87.5% (28,672 MB) provides sufficient headroom to load the full model weight in GPU memory with context buffer capacity remaining.
+
+On the 64GB configuration the 75% default provides 49,152 MB. Raising to 90% (58,982 MB) increases headroom for larger model weights and longer context windows without approaching the OS starvation threshold.
+
+# **4.  Allocation Policy**
+
+Two configurations are fully specified. The operator selects the applicable row on setup day based on hardware purchased.
+
+| **Config** | **Total** | **GPU Allocation** | **OS Reserve** | **Effective %** | **MB Value** |
+| --- | --- | --- | --- | --- | --- |
+| 32 GB | 32,768 MB | 28,672 MB | ~4,096 MB (~4 GB) | 87.5% | **28672** |
+| 64 GB | 65,536 MB | 58,982 MB | ~6,554 MB (~6.4 GB) | 90.0% | **58982** |
+
+The OS reserve values above reflect a headless server profile. No GUI applications, no display server workload, and no interactive user sessions run under the openclaw account. The admin and dev accounts are inactive during normal operation. If the system exhibits memory pressure (swap > 0, memory pressure state yellow or red) the operator must reduce iogpu.wired_limit_mb and update this ADR.
+
+# **5.  Implementation — LaunchDaemon**
+
+The LaunchDaemon approach applies iogpu.wired_limit_mb at boot via launchd without modifying /etc/sysctl.conf. SIP remains intact. The plist is auditable, version-controlled, and reversible without a kernel mode change.
+
+## **5.1  Plist Location and Ownership**
+
+File: /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist
+
+Owner: root:wheel   Permissions: 0644   Written by: admin account on setup day
+
+## **5.2  Plist Content — 32 GB Configuration**
+
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+<plist version="1.0">
+
+  <dict>
+
+    <key>Label</key>
+
+    <string>com.openclaw.iogpu.wired_limit</string>
+
+    <key>ProgramArguments</key>
+
+    <array>
+
+      <string>/usr/sbin/sysctl</string>
+
+      <string>iogpu.wired_limit_mb=28672</string>
+
+    </array>
+
+    <key>RunAtLoad</key>
+
+    <true/>
+
+    <key>StandardOutPath</key>
+
+    <string>/var/log/openclaw/iogpu_wired_limit.log</string>
+
+    <key>StandardErrorPath</key>
+
+    <string>/var/log/openclaw/iogpu_wired_limit_error.log</string>
+
+  </dict>
+
+</plist>
+
+For the 64 GB configuration substitute iogpu.wired_limit_mb=58982 on the sysctl argument line. All other plist content is identical.
+
+## **5.3  Setup Day Commands**
+
+Run under the admin account. Substitute the correct MB value for the hardware purchased.
+
+# 1. Create log directory
+
+sudo mkdir -p /var/log/openclaw
+
+sudo chown root:wheel /var/log/openclaw
+
+sudo chmod 755 /var/log/openclaw
+
+# 2. Write plist (use 28672 for 32GB, 58982 for 64GB)
+
+sudo tee /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist << 'EOF'
+
+  [paste plist content from Section 5.2]
+
+EOF
+
+# 3. Set ownership and permissions
+
+sudo chown root:wheel /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist
+
+sudo chmod 0644 /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist
+
+# 4. Load the daemon
+
+sudo launchctl load /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist
+
+# 5. Verify — should return the MB value set above
+
+sysctl iogpu.wired_limit_mb
+
+# **6.  Audit and Logging**
+
+Three log sources provide a complete audit trail for this setting. SIP remains intact throughout.
+
+| **Log Source** | **Location** | **What It Records** |
+| --- | --- | --- |
+| LaunchDaemon stdout | /var/log/openclaw/iogpu_wired_limit.log | sysctl output on each boot confirming the value applied |
+| LaunchDaemon stderr | /var/log/openclaw/iogpu_wired_limit_error.log | Any error output from sysctl at boot — empty on success |
+| macOS Unified Log | log show --predicate 'process == "sysctl"' --last boot | Kernel-level record of the sysctl parameter change at boot |
+
+The openclaw log directory (/var/log/openclaw/) is included in the nightly pg_dump backup scope review (ADR-019). Log rotation is not required in Phase 1; files are small (one line per boot).
+
+Verification command — run after each boot to confirm active value:
+
+sysctl iogpu.wired_limit_mb
+
+Expected output for 32 GB config: iogpu.wired_limit_mb: 28672
+
+Expected output for 64 GB config: iogpu.wired_limit_mb: 58982
+
+# **7.  ADR-033 Threshold Amendment**
+
+ADR-033 Section 4 defines unified memory alert thresholds based on the 32GB default configuration with no VRAM allocation change. Those thresholds must be updated to reflect the reduced OS headroom introduced by this ADR. This section constitutes the formal amendment.
+
+| **Config** | **Metric** | **ADR-033 Original** | **ADR-036 Revised** | **Rationale** |
+| --- | --- | --- | --- | --- |
+| 32 GB | mem_used_gb yellow | 28 GB | **26 GB** | OS reserve is ~4 GB; alert when within 2 GB of GPU allocation ceiling |
+| 32 GB | mem_used_gb red | 30 GB | **28 GB** | Red at GPU allocation ceiling — any usage above this risks OS starvation |
+| 64 GB | mem_used_gb yellow | N/A (not previously defined) | **56 GB** | ~2.5 GB below GPU ceiling; early warning with headroom to act |
+| 64 GB | mem_used_gb red | N/A (not previously defined) | **58 GB** | At GPU allocation ceiling — OS starvation risk if crossed |
+
+The hardware_metrics.sql alert view (ADR-034) must be updated on setup day to use the revised thresholds above. The hw_collector.py alert logic is unchanged — it reads thresholds from the view definition.
+
+# **8.  SIP Posture**
+
+System Integrity Protection remains enabled throughout the lifecycle of this ADR. The following table documents the options considered and the rejection rationale for each alternative that would have required SIP modification.
+
+| **Method** | **SIP Required** | **Decision** |
+| --- | --- | --- |
+| LaunchDaemon plist (this ADR) | No — SIP intact | ADOPTED. Runtime kernel parameter applied via launchd. Auditable, reversible, survives updates. |
+| /etc/sysctl.conf modification | Yes — SIP must be disabled | REJECTED. SIP disablement degrades the security posture established in ADR-023 and ADR-032. Risk disproportionate to benefit. |
+| Manual sysctl on each boot | No | REJECTED. Requires operator action on every reboot. Not suitable for an unattended headless server. |
+| Kernel extension / kext patch | Yes — SIP must be disabled | REJECTED. Unsupported, high risk, not reversible without SIP re-enablement. |
+
+# **9.  Reversal Procedure**
+
+If the system exhibits instability (swap > 0, memory pressure red, thermal stress, kernel panic) the operator reverses this setting in two steps:
+
+Step 1 — Immediate (no reboot required):
+
+sudo sysctl iogpu.wired_limit_mb=0
+
+This resets the GPU cap to the macOS 75% default immediately. No reboot required. Takes effect within seconds.
+
+Step 2 — Prevent reapplication on next reboot:
+
+sudo launchctl unload /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist
+
+To permanently remove the setting:
+
+sudo rm /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist
+
+On reboot without the LaunchDaemon, the system returns to the macOS default (75% cap). No kernel modification, no SIP change, and no data loss occurs at any stage of reversal.
+
+If the 32 GB configuration is unstable at 87.5% (28,672 MB), reduce to 85% (27,648 MB) before attempting full reversal. Intermediate values may provide stable operation at a reduced but still above-default GPU allocation.
+
+# **10.  NIST 800-53 Alignment**
+
+| **Control** | **Title** | **Status** | **Implementation** |
+| --- | --- | --- | --- |
+| SA-2 | Allocation of Resources | MET | GPU memory allocation explicitly planned and documented. MB values and OS reserve rationale recorded per configuration. |
+| SC-5 | Denial of Service Protection | IMPROVED | Increased GPU headroom reduces probability of model load failure causing agent denial-of-service. Swap > 0 alert (ADR-033) detects OS starvation before it becomes a service failure. |
+| SI-4 | System Monitoring | MET (extended) | hw_collector.py monitors mem_used_gb and mem_swap_gb at 60-second intervals. Revised thresholds (Section 7) reflect actual OS headroom post-allocation. |
+| SI-4(5) | System-Generated Alerts | MET | Swap > 0 triggers critical Telegram alert. Memory pressure red triggers alert. Both conditions indicate OS starvation risk under the aggressive GPU allocation. |
+| AU-2 | Event Logging | MET | LaunchDaemon stdout log records the value applied on each boot. macOS Unified Log records the kernel parameter change independently. |
+| AU-3 | Content of Audit Records | MET | Log entries include timestamp, process, parameter name, and value applied. Sufficient for forensic review if a memory-related incident occurs. |
+
+# **11.  Setup Day Sequence**
+
+All steps run under the admin account on setup day. Step 1 is a decision gate — it determines which MB value is used in all subsequent steps.
+
+| **Step** | **Action** | **Account** | **Dependency** |
+| --- | --- | --- | --- |
+| 1 | Confirm hardware configuration (32 GB or 64 GB). Select MB value: 28672 or 58982. | operator | Hardware in hand |
+| 2 | Create /var/log/openclaw/ directory with root:wheel ownership and 755 permissions. | admin | Step 1 complete |
+| 3 | Write LaunchDaemon plist to /Library/LaunchDaemons/com.openclaw.iogpu.wired_limit.plist using the MB value selected in Step 1. | admin | Step 2 complete |
+| 4 | Set ownership (root:wheel) and permissions (0644) on the plist file. | admin | Step 3 complete |
+| 5 | Load the daemon: sudo launchctl load [plist path]. Verify with: sysctl iogpu.wired_limit_mb | admin | Step 4 complete |
+| 6 | Test reboot. Verify sysctl iogpu.wired_limit_mb returns the correct value after restart. Check /var/log/openclaw/iogpu_wired_limit.log for boot entry. | admin | Step 5 complete |
+| 7 | Update hardware_metrics.sql alert view with revised mem_used_gb thresholds from ADR-036 Section 7. | dev | Step 6 complete, PostgreSQL running |
+| 8 | Load first Ollama model (7B Tier 1). Run ollama ps to confirm GPU memory allocation reflects the new ceiling. Record observed value in ADR-031 change log. | openclaw | Step 7 complete, Ollama running |
+
+# **12.  ADR Cross-Reference**
+
+| ADR-002 | Hardware Selection. GPU MB values derived from confirmed 32 GB or 64 GB unified memory configuration. |
+| --- | --- |
+| ADR-020 | macOS Account Structure. LaunchDaemon is written and loaded under admin account. openclaw account has no write access to /Library/LaunchDaemons/. |
+| ADR-021 | LayerModel Authority. GPU allocation directly enables Tier 2 model loads (32B) without CPU fallback. This ADR is a prerequisite for reliable Tier 2 inference. |
+| ADR-023 | Encryption Posture. SIP remains enabled — no change to encryption posture. FileVault continues to protect all data at rest. |
+| ADR-027 | Middleware Interceptor. No change. Interceptor token budget and circuit breaker are unaffected by GPU allocation. |
+| ADR-031 | Change Management. LaunchDaemon installation triggers an ADR-031 change log entry on setup day. Any future modification to the MB value requires a new entry. |
+| ADR-032 | NIST Compliance. SA-2 MET extended; SC-5 and SI-4 improved by this ADR. |
+| ADR-033 | Dashboard Metrics. mem_used_gb alert thresholds amended in Section 7. hardware_metrics.sql alert view must be updated on setup day. |
+| ADR-034 | Hardware Telemetry Collector. hw_collector.py reads mem_used_gb and mem_swap_gb. Revised thresholds apply to alert view only — no change to collector logic. |
+
+# **13.  Risk Assessment**
+
+| **Risk** | **Likelihood** | **Mitigation** |
+| --- | --- | --- |
+| OS memory starvation (swap > 0) | Low — headless workload with no GUI applications | Swap > 0 triggers critical Telegram alert (ADR-033). Reversal procedure in Section 9 resets to 75% default immediately without reboot. |
+| System instability on 32 GB config at 87.5% | Low-Medium — tighter OS reserve than 64 GB | Reboot resets to 75% default if LaunchDaemon is unloaded. Intermediate value (85%) available as fallback before full reversal. |
+| macOS update changes iogpu.wired_limit_mb behavior | Low — parameter stable since Sonoma 14.x | LaunchDaemon log captures applied value on each boot. Any behavioral change detected at next boot verification. ADR-031 review triggered on OS major version update. |
+| Setting silently fails to apply at boot | Very Low | Boot log verification (Step 6 of setup sequence) and sysctl read confirm active value. LaunchDaemon stderr log captures any failure. |
+
+# **14.  Future Considerations**
+
+- If a 64 GB configuration is purchased and proves stable at 90% over 30 days of operation, the operator may evaluate raising to 92-93% (up to 61,440 MB). Any change requires a new ADR-031 change log entry and a 48-hour observation period with swap monitoring before the LaunchDaemon is updated.
+
+- Phase 2 compliance_monitor should include a boot-time verification check confirming iogpu.wired_limit_mb matches the value recorded in this ADR. A mismatch (e.g., after an OS update that resets the parameter) should generate a Telegram alert.
+
+- MLX vs. Ollama (ADR-027 open question, deferred to Phase 2) may affect the optimal GPU allocation. MLX uses a different memory management model than llama.cpp Metal backend. Revisit this ADR when MLX evaluation is conducted.
+
+*ADR-036 recorded April 4, 2026. Configuration-specific MB values selected on setup day. SIP intact throughout.*

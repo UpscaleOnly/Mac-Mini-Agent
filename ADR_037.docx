@@ -1,0 +1,662 @@
+MAC MINI AGENT SERVER
+
+ADR-037 — Session Transcript & Heartbeat Monitoring Framework
+
+Status: DECIDED
+
+Date: March 15, 2026
+
+Phase: 1  |  COMPLETE IMPLEMENTATION (Setup Day Deliverable)
+
+Owner: Sheldon Wheeler
+
+NIST Coverage:  AU-2 · AU-3 · AU-6 · IR-4 · SI-4 · SI-4(2) · SI-4(5)
+
+# 1.  Context and Decision
+
+Agent sessions produce valuable reasoning traces, decisions, code snippets, and learned facts. Without persistent capture and knowledge updates, agents waste tokens re-learning the same content in subsequent sessions. Additionally, agents running nightly jobs or long-running tasks need to emit heartbeats so the operator knows they are alive and progressing.
+
+This ADR formalizes three concurrent capabilities:
+
+- Session Transcript Capture — store user input, agent reasoning, and final output to PostgreSQL and markdown files
+
+- Knowledge Base Auto-Update — extract decisions, code, and facts from transcripts and update agent-owned markdown files (DECISIONS.md, CODE_REFERENCE.md, KNOWLEDGE.md)
+
+- Heartbeat Monitor — concurrent service that polls agent health, service availability (PostgreSQL, Ollama, ChromaDB, Telegram), and emits alerts to Telegram on failure or silence
+
+Decision: Adopt persistent session transcripts with auto-updating knowledge files, and deploy a concurrent health monitor as a separate service running in Docker. Both systems write to PostgreSQL for audit and historical analysis. All logging is structured for NIST compliance and operator visibility.
+
+# 2.  Decision Record
+
+| ADR Number | ADR-037 |
+| --- | --- |
+| Title | Session Transcript & Heartbeat Monitoring Framework |
+| Status | DECIDED — March 15, 2026 |
+| Deciders | Sheldon Wheeler (owner, sole operator) |
+| ADR References | ADR-027 (Interceptor) · ADR-028 (Approval) · ADR-029 (Audit Table) · ADR-031 (Change Mgmt) · ADR-032 (NIST) · ADR-033 (Dashboard) · ADR-034 (Hardware Telemetry) |
+| NIST Controls | AU-2 · AU-3 · AU-6 · IR-4 · SI-4 · SI-4(2) · SI-4(5) |
+| Phase Scope | Phase 1: Session capture + heartbeat monitor + health checks deployed on setup day. Complete implementation. Phase 2+: Knowledge indexing, anomaly detection, compliance integration are enhancements, not Phase 1 requirements. |
+
+# 3.  Problem Statement
+
+Without session transcript capture, agent knowledge is ephemeral. A Work agent reasons about SnapChat architecture, makes critical decisions, and generates code snippets — but on the next session, it has zero memory of that work. It re-learns the same patterns, burning tokens, duplicating effort, and losing continuity.
+
+Without a heartbeat system, long-running nightly jobs (scraping, RAG ingestion, test loops) can fail silently. The operator has no visibility into whether an agent is working, stalled, or crashed. Infrastructure components (PostgreSQL, Ollama, ChromaDB, Telegram bot connection) can fail without immediate detection.
+
+This ADR solves both problems: captured transcripts enable agents to load context from prior work, avoiding re-learning; heartbeats provide continuous visibility into agent and service health.
+
+# 4.  Solution Overview
+
+Three concurrent systems run together in Docker:
+
+| System | Purpose | Runs As |
+| --- | --- | --- |
+| Agent (FastAPI) | Process user requests, execute tasks, emit heartbeats | Service container |
+| TranscriptManager | Capture sessions, extract knowledge, update markdown | Agent-embedded (synchronous) |
+| HealthMonitor | Poll services, detect failures, send Telegram alerts | Independent background service |
+
+All three write to PostgreSQL. PostgreSQL is the source of truth for audit, compliance, and historical analysis.
+
+# 5.  PostgreSQL Schema
+
+Four new tables store transcripts, heartbeats, service health, and knowledge updates. All timestamps use ISO 8601 format with timezone.
+
+## 5.1  session_transcripts Table
+
+CREATE TABLE session_transcripts (
+
+  id SERIAL PRIMARY KEY,
+
+  session_id UUID UNIQUE NOT NULL,
+
+  agent_id VARCHAR NOT NULL,
+
+  user_id VARCHAR,
+
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  user_input TEXT,
+
+  agent_reasoning TEXT,
+
+  final_output TEXT,
+
+  tokens_used INTEGER,
+
+  duration_seconds INTEGER,
+
+  status VARCHAR(20),  -- completed, failed, timeout
+
+  markdown_file_path VARCHAR,
+
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+);
+
+Indexes: session_id (unique), agent_id + timestamp (query history)
+
+## 5.2  agent_heartbeat Table
+
+CREATE TABLE agent_heartbeat (
+
+  id SERIAL PRIMARY KEY,
+
+  agent_id VARCHAR NOT NULL,
+
+  job_id VARCHAR,
+
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  status VARCHAR(20),  -- running, paused, completed, failed
+
+  progress TEXT,  -- e.g., 'Page 847 of 1000'
+
+  checkpoint INTEGER,  -- numerical progress marker
+
+  message TEXT,  -- optional custom message
+
+  next_run_scheduled TIMESTAMP WITH TIME ZONE,
+
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+);
+
+Indexes: agent_id + timestamp (query recent heartbeats), job_id (track specific jobs)
+
+## 5.3  service_health Table
+
+CREATE TABLE service_health (
+
+  id SERIAL PRIMARY KEY,
+
+  service_name VARCHAR NOT NULL,  -- postgresql, ollama, chromadb, telegram
+
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  is_healthy BOOLEAN,
+
+  response_time_ms INTEGER,
+
+  error_message TEXT,
+
+  action_taken VARCHAR(50),  -- none, restart, alert
+
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+);
+
+Indexes: service_name + timestamp (track service health history)
+
+## 5.4  knowledge_updates Table
+
+CREATE TABLE knowledge_updates (
+
+  id SERIAL PRIMARY KEY,
+
+  agent_id VARCHAR NOT NULL,
+
+  session_id UUID,
+
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  update_type VARCHAR(20),  -- decision, code, fact, insight
+
+  content TEXT,  -- extracted knowledge
+
+  markdown_file_updated VARCHAR,  -- DECISIONS.md, CODE_REFERENCE.md, etc.
+
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+
+);
+
+Indexes: agent_id + timestamp, update_type (query by knowledge category)
+
+# 6.  Session Transcript Capture
+
+## 6.1  Capture Flow
+
+At session end (after agent produces output), the TranscriptManager executes:
+
+- Store transcript to PostgreSQL session_transcripts
+
+- Write session markdown file to /agents/{agent_id}/sessions/{timestamp}__{session_id}.md
+
+- Parse transcript for knowledge (decisions, code, facts)
+
+- Auto-update agent knowledge files (DECISIONS.md, CODE_REFERENCE.md, KNOWLEDGE.md)
+
+- Log update to knowledge_updates table
+
+## 6.2  Markdown Session Format
+
+Each session file uses this structure (under /agents/{agent_id}/sessions/):
+
+# Session {session_id}
+
+**Time:** 2026-03-15T14:23:17Z
+
+**Agent:** work
+
+**Tokens:** 2847
+
+**Status:** completed
+
+## User Input
+
+...
+
+## Agent Reasoning
+
+...
+
+## Final Output
+
+...
+
+Session markdown files are immutable after creation. They serve as a read-only transcript record for audit and historical review.
+
+## 6.3  Knowledge Extraction & Auto-Update
+
+TranscriptManager parses agent_reasoning and final_output for three knowledge types:
+
+- Decisions — Lines marked 'DECISION:' or explicitly made architectural choices
+
+- Code Snippets — Markdown code blocks extracted from output
+
+- Facts — Lines marked 'FACT:' or domain-specific knowledge learned
+
+Each knowledge type updates a dedicated markdown file in /agents/{agent_id}/:
+
+- DECISIONS.md — Append new decisions with session ID and timestamp
+
+- CODE_REFERENCE.md — Append code blocks with language, session ID, timestamp
+
+- KNOWLEDGE.md — Append facts with session ID, timestamp, and optional source/category
+
+All updates are append-only. Each entry includes the session_id for traceability and linking back to the full transcript.
+
+# 7.  Heartbeat Protocol
+
+## 7.1  Agent-Emitted Heartbeat
+
+While a task is running (e.g., scraping 1000 articles), the agent emits a heartbeat at regular intervals:
+
+- Interval: Every N iterations or every 30 seconds (configurable per task)
+
+- Content: agent_id, job_id, timestamp, status, progress text, checkpoint integer
+
+- Destination: agent_heartbeat table in PostgreSQL
+
+Example (scraping task):
+
+INSERT INTO agent_heartbeat (agent_id, job_id, status, progress, checkpoint)
+
+VALUES ('build', 'scrape_001', 'running', 'Page 847 of 1000', 847);
+
+If the task fails mid-way (page 847), the next run reads the checkpoint and resumes from page 848. Zero wasted work.
+
+## 7.2  Heartbeat Timeout & Alert
+
+HealthMonitor continuously polls agent_heartbeat. If an agent exceeds its timeout window without reporting a new heartbeat, an alert is triggered.
+
+- Default timeout: 2 hours (configurable per agent)
+
+- Alert: Telegram message to operator: '⚠️ work agent silent for 2 hours'
+
+- Log: service_health table, action_taken = 'alert'
+
+Timeouts indicate either a long-running task (normal) or a crashed task (abnormal). The operator manually investigates.
+
+# 8.  Health Monitor Service
+
+## 8.1  Concurrent Execution
+
+HealthMonitor runs as an independent Docker service alongside FastAPI. It polls continuously:
+
+while True:
+
+  check_agents()
+
+  check_services()
+
+  await sleep(30)  # Poll every 30 seconds
+
+If the main agent crashes, HealthMonitor continues running and immediately detects the absence of heartbeats.
+
+## 8.2  Agent Health Checks
+
+For each agent (work, build, personal), HealthMonitor queries:
+
+SELECT timestamp FROM agent_heartbeat
+
+WHERE agent_id = 'work'
+
+ORDER BY timestamp DESC LIMIT 1
+
+If last heartbeat is older than timeout (2 hours), Telegram alert is sent and service_health is logged.
+
+## 8.3  Service Health Checks
+
+HealthMonitor probes four infrastructure services:
+
+| Service | Endpoint | Check | Timeout |
+| --- | --- | --- | --- |
+| PostgreSQL | localhost:5432 | SELECT 1 | 5s |
+| Ollama | localhost:11434/api/tags | GET /api/tags | 5s |
+| ChromaDB | localhost:8000/api/v1/heartbeat | GET /heartbeat | 5s |
+| Telegram | api.telegram.org | bot.get_me() | 10s |
+
+If any service is unreachable, Telegram alert is sent and service_health is logged.
+
+# 9.  Logging & Audit Trail
+
+## 9.1  Structured Log Levels
+
+All logging uses four levels: INFO, WARNING, ERROR, CRITICAL. Each log entry includes timestamp (ISO 8601), level, source, and message.
+
+## 9.2  Transcript Logging
+
+Location: /var/log/openclaw/transcript.log
+
+- INFO: Session saved (session_id, agent_id, tokens_used, duration_seconds)
+
+- INFO: Markdown session file written (path, bytes written)
+
+- INFO: Knowledge extracted (decisions, code_snippets, facts count)
+
+- INFO: Knowledge files updated (DECISIONS.md, CODE_REFERENCE.md, KNOWLEDGE.md)
+
+- ERROR: Parse failure (what failed to parse, why)
+
+- ERROR: PostgreSQL write failure (table, error message)
+
+- ERROR: File write failure (path, error message)
+
+## 9.3  Heartbeat Logging
+
+Location: /var/log/openclaw/heartbeat.log
+
+- INFO: Heartbeat received (agent_id, job_id, checkpoint, progress)
+
+- WARNING: Heartbeat timeout (agent_id, time_since_last, threshold)
+
+- CRITICAL: Agent marked as failed (agent_id, job_id, checkpoint reached)
+
+- ERROR: PostgreSQL write failure (agent_id, error message)
+
+## 9.4  Service Health Logging
+
+Location: /var/log/openclaw/service_health.log
+
+- INFO: Service check OK (service_name, response_time_ms)
+
+- WARNING: Service slow (service_name, response_time_ms > threshold)
+
+- ERROR: Service unreachable (service_name, error message, timestamp)
+
+- CRITICAL: Service failure alert sent (service_name, action_taken, Telegram sent)
+
+## 9.5  Telegram Alert Logging
+
+Every Telegram message sent by HealthMonitor or TranscriptManager is logged:
+
+- chat_id: operator's Telegram chat ID
+
+- message_text: full alert text
+
+- sent_at: ISO 8601 timestamp
+
+- http_status: 200 (success) or error code
+
+Location: /var/log/openclaw/telegram.log
+
+This provides a complete record of operator notifications for compliance and incident review.
+
+# 10.  Log Rotation
+
+All logs in /var/log/openclaw/ are rotated via logrotate or similar. Phase 1 configuration:
+
+- Size trigger: 50 MB per log file
+
+- Retention: 30 days (ADR-031 retention policy)
+
+- Compression: gzip
+
+- Backup path: Included in nightly pg_dump backup scope (ADR-019)
+
+Operator runs logrotate manually or via cron:
+
+logrotate /etc/logrotate.d/openclaw
+
+# 11.  PostgreSQL Query Examples
+
+## 11.1  Agent Continuity: Load Prior Context
+
+SELECT agent_reasoning, final_output FROM session_transcripts
+
+WHERE agent_id = 'work'
+
+ORDER BY timestamp DESC LIMIT 10
+
+Agent loads this as context at session start to avoid re-learning.
+
+## 11.2  Agent Health: Check Heartbeat Status
+
+SELECT agent_id, MAX(timestamp) as last_heartbeat,
+
+  EXTRACT(EPOCH FROM (NOW() - MAX(timestamp))) as seconds_ago
+
+FROM agent_heartbeat
+
+WHERE agent_id IN ('work', 'build', 'personal')
+
+GROUP BY agent_id
+
+ORDER BY last_heartbeat DESC;
+
+Returns the last heartbeat for each agent and time elapsed. Missing result = no heartbeat ever recorded.
+
+## 11.3  Knowledge Base: Decisions Made in Session X
+
+SELECT content FROM knowledge_updates
+
+WHERE agent_id = 'work' AND update_type = 'decision'
+
+ORDER BY timestamp DESC;
+
+Operator reviews all decisions made by the work agent in historical order.
+
+## 11.4  Service Health: Downtime Incidents
+
+SELECT service_name, timestamp, error_message, action_taken
+
+FROM service_health
+
+WHERE is_healthy = false
+
+ORDER BY timestamp DESC;
+
+Identifies all service failures, when they occurred, and what action was taken.
+
+# 12.  NIST 800-53 Alignment
+
+| Control | Title | Status | Implementation |
+| --- | --- | --- | --- |
+| AU-2 | Audit Events | MET | All agent sessions, heartbeats, service health logged to PostgreSQL with timestamps. |
+| AU-3 | Content of Audit Records | MET | Logs include session_id, agent_id, duration, tokens, status, error messages, checkpoint progress. |
+| AU-6 | Audit Review, Analysis, & Reporting | MET | PostgreSQL queries enable operator to review session history, decisions, heartbeat gaps, service incidents. |
+| IR-4 | Incident Handling | IMPROVED | Heartbeat timeouts detected within 30 seconds. Service failures trigger immediate Telegram alert. Checkpoint recovery enables task resumption. |
+| SI-4 | System Monitoring | IMPROVED | Concurrent HealthMonitor tracks agent status, service availability, response times. Data written to PostgreSQL for historical analysis. |
+| SI-4(2) | Inbound/Outbound Communications | MET | Telegram connection monitored. WireGuard (Tailscale) already in ADR-033. Network anomalies logged. |
+| SI-4(5) | System-Generated Alerts | MET | HealthMonitor generates Telegram alerts on heartbeat timeout, service failure, or unhealthy status. |
+
+# 13.  Phase Scope: Phase 1 Complete Implementation
+
+## 13.1  Phase 1 (Setup Day — COMPLETE IMPLEMENTATION)
+
+ADR-037 is a complete Phase 1 deliverable. All core functionality is deployed on setup day:
+
+- PostgreSQL schema created and indexed (session_transcripts, agent_heartbeat, service_health, knowledge_updates tables)
+
+- TranscriptManager fully integrated into FastAPI (capture → PostgreSQL + markdown + extract knowledge + auto-update DECISIONS.md, CODE_REFERENCE.md, KNOWLEDGE.md)
+
+- HealthMonitor deployed as independent Docker service with restart policy (polls agents and services every 30 seconds)
+
+- Four structured log files with ISO 8601 timestamps, severity levels, and rotation (transcript.log, heartbeat.log, service_health.log, telegram.log)
+
+- Telegram alerts for heartbeat timeout (2-hour default), service failures (postgres, ollama, chromadb, telegram), and critical incidents
+
+- Agent knowledge base auto-updated with append-only writes (session_id + timestamp for full traceability)
+
+- Quiet hours enforcement (7pm–7am) with critical alert override per ADR-028
+
+- Error handling and resilience (PostgreSQL fallback writes, heartbeat retry logic, service crash recovery)
+
+- Operational PostgreSQL queries documented and ready for use (health check, service status, session history, incident review)
+
+## 13.2  Phase 2+ Enhancements (Optional, Not Required for Phase 1)
+
+- Knowledge base full-text indexing and search (Elasticsearch or PostgreSQL full-text search)
+
+- Anomaly detection on heartbeat patterns (statistical models for unusual agent behavior)
+
+- compliance_monitor integration (daily/weekly compliance reports incorporating transcript & heartbeat data)
+
+- Dashboard visualization (speedometer dials, heatmaps, knowledge growth charts)
+
+- Automated self-healing (HealthMonitor restarts failed services with operator notification)
+
+# 14.  Docker Compose Integration
+
+Health monitor runs as a separate service with proper dependencies:
+
+services:
+
+  fastapi:
+
+    image: openclaw-agent-server
+
+    command: uvicorn main:app --host 0.0.0.0 --port 8080
+
+    depends_on:
+
+      postgres:
+
+        condition: service_healthy
+
+  health-monitor:
+
+    image: openclaw-agent-server
+
+    command: python -m health_monitor
+
+    depends_on:
+
+      postgres:
+
+        condition: service_healthy
+
+    environment:
+
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+
+      AGENT_IDS: work,build,personal
+
+Health monitor starts only after PostgreSQL is healthy. Both services share the same database connection pool.
+
+# 15.  Error Handling & Resilience
+
+## 15.1  Transcript Capture Failure
+
+If PostgreSQL write fails during session capture:
+
+- Log ERROR to transcript.log
+
+- Attempt retry (3 attempts with exponential backoff)
+
+- If all retries fail, write transcript to local disk as JSON fallback: /var/log/openclaw/transcript_fallback_{session_id}.json
+
+- Operator manually recovers failed transcripts on next review
+
+Session markdown file is still written to disk even if PostgreSQL fails. Operator has access to local record.
+
+## 15.2  Heartbeat Write Failure
+
+If agent cannot write heartbeat to PostgreSQL (network down, DB full):
+
+- Log to stderr (stdout not available in background task)
+
+- Retry with exponential backoff (max 3 attempts)
+
+- If all retries fail, agent continues working (heartbeat loss is preferable to task failure)
+
+- HealthMonitor detects the heartbeat gap within 30 seconds and alerts operator
+
+Task loss is minimal; the operator gains visibility that heartbeats are failing.
+
+## 15.3  HealthMonitor Crash
+
+If HealthMonitor container crashes:
+
+- Docker restart policy restarts the container (configured as: restart: always)
+
+- HealthMonitor logs 'restarted' event on boot-up
+
+- Previous service_health checks are preserved in PostgreSQL history
+
+- Operator is alerted via Telegram when HealthMonitor restarts (if monitoring self-health is enabled in Phase 2)
+
+# 16.  Quiet Hours & Telegram Escalation
+
+Per ADR-028, quiet hours are 7pm–7am. Telegram alerts respect this:
+
+- Non-critical alerts (service slow, heartbeat warning) → queued until 7am, delivered as batch summary
+
+- Critical alerts (service down, agent failed, heartbeat critical timeout) → sent immediately, even during quiet hours
+
+- Definition: CRITICAL alerts are those that indicate data loss or inability to recover (e.g., PostgreSQL down)
+
+Alert severity is logged in telegram.log along with quiet-hours decision.
+
+# 17.  Setup Day Sequence
+
+| Step | Action | Account | Dependency |
+| --- | --- | --- | --- |
+| 1 | Create /var/log/openclaw/ directory with 755 permissions | admin | None |
+| 2 | Run PostgreSQL schema creation script (session_transcripts, agent_heartbeat, service_health, knowledge_updates) | dev | PostgreSQL running |
+| 3 | Create /agents/{work,build,personal}/sessions/ directories with proper ownership | openclaw | None |
+| 4 | Create /agents/{work,build,personal}/ markdown files (DECISIONS.md, CODE_REFERENCE.md, KNOWLEDGE.md, INDEX.md) | openclaw | None |
+| 5 | Integrate TranscriptManager into FastAPI app.py (import, instantiate, call on session end) | dev | Step 1–4 complete |
+| 6 | Create health_monitor.py service with Telegram integration | dev | Step 1–2 complete |
+| 7 | Add health-monitor service to docker-compose.yml with restart policy | dev | All services running |
+| 8 | Deploy and test: start docker-compose, emit test heartbeat, verify PostgreSQL and Telegram logs | openclaw | Step 1–7 complete |
+
+# 18.  Operational Queries for Operator
+
+The operator uses these PostgreSQL queries to monitor and manage the system:
+
+## 18.1  Quick Health Check
+
+-- Agent heartbeat status (< 2 hours = healthy)
+
+SELECT agent_id,
+
+  EXTRACT(EPOCH FROM (NOW() - MAX(timestamp))) as seconds_since_heartbeat,
+
+  status, checkpoint, progress
+
+FROM agent_heartbeat
+
+GROUP BY agent_id, status, checkpoint, progress
+
+ORDER BY agent_id;
+
+## 18.2  Service Status
+
+-- Most recent check for each service
+
+SELECT DISTINCT ON (service_name) service_name, timestamp,
+
+  is_healthy, response_time_ms, error_message
+
+FROM service_health
+
+ORDER BY service_name, timestamp DESC;
+
+## 18.3  Recent Sessions by Agent
+
+SELECT agent_id, timestamp, status, tokens_used, duration_seconds
+
+FROM session_transcripts
+
+WHERE agent_id = 'work'
+
+ORDER BY timestamp DESC LIMIT 20;
+
+# 19.  ADR Cross-Reference
+
+| ADR | Relationship |
+| --- | --- |
+| ADR-028 | Approval & Quiet Hours. Telegram alerts respect quiet hours (7pm–7am). Critical alerts override quiet hours per ADR-028. |
+| ADR-029 | Audit Table. ADR-037 adds four new tables to the audit schema. All logs are written to PostgreSQL for compliance. |
+| ADR-031 | Change Management. Heartbeat timeouts and service failures trigger change log entries. Log rotation follows ADR-031 retention (30 days). |
+| ADR-032 | NIST Compliance. AU-2, AU-3, AU-6, IR-4, SI-4 controls met/improved by ADR-037. |
+| ADR-033 | Dashboard Metrics. Phase 2 shall visualize heartbeat health, service status, transcript volume on operator dashboard. |
+| ADR-034 | Hardware Telemetry. Heartbeat data complements hw_collector.py. Both feed into dashboard. |
+| ADR-019 | Backup Strategy. Log directory (/var/log/openclaw/) included in nightly PostgreSQL backup scope. |
+
+# 20.  Future Considerations
+
+- Phase 2: Anomaly detection on heartbeat data — detect unusual patterns (e.g., checkpoint regressing, jobs taking 10x longer)
+
+- Phase 2: Knowledge base full-text search — operator queries learned facts across all agents and sessions
+
+- Phase 2: Automated recovery — HealthMonitor restart failed services and notify operator of action taken
+
+- Phase 2: Transcript archival — compress old session transcripts and move to cold storage after 90 days
+
+- Phase 3: Multi-user auditing — extend Telegram alerts to include other operators if team expands
+
+- Cost optimization: Evaluate Elasticsearch for large-scale transcript indexing and full-text search (deferred to Phase 3)
+
+ADR-037 recorded March 15, 2026. Session transcript capture, knowledge base auto-update, and concurrent health monitor framework formally adopted for Phase 1 implementation.

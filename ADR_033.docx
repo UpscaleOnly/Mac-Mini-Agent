@@ -1,0 +1,498 @@
+*MAC MINI AGENT SERVER*
+
+*ADR-033 — Operator Dashboard Metrics Framework*
+
+*Status: DECIDED*
+
+Date: March 29, 2026
+
+Phase: Pre-Phase 1  |  Architecture Complete — v2.9
+
+Owner: Sheldon Wheeler
+
+*ADR Coverage:  AC · AU · CM · IA · IR · SA · SC · SI*
+
+NIST 800-53 Alignment:  ADR-032
+
+# **1.  Context and Decision**
+
+The operator has identified a need for a structured, visual monitoring framework spanning infrastructure, agent behavior, security posture, and compliance status. The architecture decisions recorded in ADR-001 through ADR-032 produce observable events and metrics at every layer of the stack. This ADR formalizes which metrics are collected, how they are displayed, and when they become available (Phase 1 vs Phase 2).
+
+Decision: Adopt a layered Operator Dashboard Metrics Framework organized into four domains: Infrastructure, Agent Layer, Approval and Workflow, and Security and Compliance. Phase 1 metrics are available from setup day using native macOS tooling and direct PostgreSQL queries. Phase 2 metrics are delivered by the compliance_monitor sub-agent (ADR-032) via scheduled Telegram reports.
+
+This ADR supersedes no prior ADR. It extends ADR-029 (audit table), ADR-031 (scheduled reviews), and ADR-032 (NIST compliance monitoring) by defining the full observable metric surface and display format recommendations.
+
+# **2.  Decision Record**
+
+| **ADR Number** | **ADR-033** |
+| --- | --- |
+| Title | Operator Dashboard Metrics Framework |
+| Status | DECIDED — March 29, 2026 | Updated March 30, 2026 (Session 10: Skill Layer revised — custom-only policy, build-local-first, token conservation principles adopted) |
+| Deciders | Sheldon Wheeler (owner, sole operator) |
+| ADR References | ADR-027 (Interceptor) · ADR-028 (Approval) · ADR-029 (Audit Table) · ADR-030 (Network Policy) · ADR-031 (Change Mgmt) · ADR-032 (NIST) · ADR-034 (Hardware Telemetry) |
+| NIST Controls | AC-2(4) · AU-2 · AU-3 · AU-6 · AU-6(1) · AU-12(1) · CM-7(1) · IR-4 · IR-5 · SC-10 · SI-4 · SI-4(2) · SI-4(4) · SI-4(5) |
+| Phase Scope | Phase 1: Infrastructure + Agent Layer metrics available from setup day.  Phase 2: Security/Compliance metrics delivered by compliance_monitor sub-agent. |
+
+# **3.  Metric Domains Overview**
+
+| **Domain** | **Coverage** | **Phase** | **Source** |
+| --- | --- | --- | --- |
+| Infrastructure | Thermals · Memory · CPU · Storage · Network · Uptime | Phase 1 | Stats (mac-stats.com) · hw_collector.py · hardware_metrics (ADR-034) |
+| Agent Layer | Session volume · Routing · Cost · Circuit breaker · Replay buffer | Phase 1 | agent_actions |
+| Approval & Workflow | Pending approvals · Auto-NO · Quiet hours · Staging dir | Phase 1 | agent_actions |
+| Security & Compliance | NIST gap status · Behavioral anomalies · PII scan · Service drift | Phase 2 | compliance_monitor |
+
+# **4.  Infrastructure Metrics**
+
+Source: macOS native APIs, Stats (mac-stats.com) for live display, hw_collector.py + hardware_metrics table (ADR-034) for persistent history, pmset, shell queries. All available from setup day (live display) or Phase 1.5 (persistent history). Stats is the recommended live display tool for the hardware layer; hw_collector.py provides the 60-second-resolution PostgreSQL history.
+
+| **Metric** | **Detail / Alert Threshold** | **Display Format** | **Phase** | **NIST** |
+| --- | --- | --- | --- | --- |
+| THERMALS |
+| CPU Temperature | All P-cores + E-cores. Alert > 85°C sustained | Speedometer dial + sparkline 24h | Phase 1 | SI-4 |
+| GPU Temperature | Integrated GPU. Alert > 80°C sustained | Speedometer dial + sparkline 24h | Phase 1 | SI-4 |
+| Thermal Pressure State | nominal / fair / serious / critical. Maps to m1_thermal_state in ADR-029. Alert on serious or critical. | Traffic light | Phase 1 | AU-3 · SI-4(5) |
+| Fan Speed (RPM) | M1 Max has one fan. Log duration above 3000 RPM. Alert if sustained > 30 min. | Speedometer dial + duration counter | Phase 1 | SI-4 |
+| System Power Draw | Watts. Idle target: 15–30W. Alert > 80W sustained (indicates thermal stress or runaway process). | Line chart 24h | Phase 1 | SI-4 |
+| MEMORY |
+| Unified Memory Used / Available | Total 32GB. Critical thresholds: 28GB used = yellow, 30GB = red. | Bar + percentage | Phase 1 | SI-4 |
+| Memory Pressure State | macOS green / yellow / red. Yellow = near limit, Red = paging active. | Traffic light | Phase 1 | SI-4(5) |
+| Swap Usage | Apple Silicon swap = unified memory overflow. Any swap > 0 = alert. Signals model load exceeds physical RAM. | Badge + alert | Phase 1 | SI-4(5) |
+| GPU Memory Pressure | Maps directly to gpu_memory_pressure field in ADR-029 agent_actions schema. | Sparkline per session | Phase 1 | AU-3 · SI-4 |
+| Per-Process Memory | Named processes: Ollama, Docker, PostgreSQL, ChromaDB. Track per-model load footprint. | Stacked bar | Phase 1 | SI-4(2) |
+| CPU |
+| P-Core vs E-Core Utilization | Performance cores vs efficiency cores separately. Ollama inference runs on P-cores. | Dual speedometer gauge | Phase 1 | SI-4 |
+| System Load Average | 1-min, 5-min, 15-min. Alert if 15-min load exceeds 8.0 (of 10 P+E cores on M1 Max). | 3-number badge | Phase 1 | SI-4 |
+| Ollama Inference Utilization | CPU/GPU % during active model inference. Compare across Tier 1/2/3 model sizes. | Line chart per session | Phase 1 | SI-4(2) |
+| STORAGE |
+| SSD Used / Available | 512GB total. Alert at 80% used (410GB), critical at 90% (460GB). | Bar + percentage | Phase 1 | AU-4 · SI-4 |
+| Mac-Mini-Backups Folder Size | iCloud Drive folder. Alert threshold: 5GB (matches ADR-019 Telegram alert). Track growth trend. | Bar against 5GB threshold | Phase 1 | AU-4 · AU-9 |
+| PostgreSQL Data Directory | Track growth rate. Flag if > 5GB/month — informs ADR-031 retention review. | Line chart weekly | Phase 1 | AU-4 |
+| ChromaDB Vector Store Size | Per-persona namespace sizes. Track RAG corpus growth. | Stacked bar by persona | Phase 1 | AU-4 |
+| Docker Image Cache | Total Docker image storage. Alert if > 30GB — pull accumulation. | Single number | Phase 1 | CM-8 |
+| NETWORK |
+| Tailscale Interface Throughput | Bytes in/out on Tailscale WireGuard interface. Baseline for anomaly detection. | Line chart 24h + heatmap | Phase 1 | AC-17(1) · SC-7 |
+| Active SSH Sessions | Count of active SSH connections via Tailscale. Alert on concurrent count > 1 (single operator). | Badge + count | Phase 1 | AC-17(1) · AU-14 |
+| WireGuard Tunnel Status | Up / Down. Alert immediately on tunnel drop — operator access lost. | Traffic light | Phase 1 | SC-7(3) · SI-4(5) |
+| Telegram API Connection | OpenClaw Telegram polling status. Alert on disconnect > 5 min. | Traffic light | Phase 1 | SI-4(5) |
+| UPTIME AND RECOVERY |
+| System Uptime | Days:hours:minutes since last boot. Log all reboot events with timestamps. | Counter + history table | Phase 1 | SI-4 |
+| OpenClaw Daemon Uptime | Uptime of openclaw LaunchAgent process. Gap between system uptime and daemon uptime = recovery lag. | Counter + gap indicator | Phase 1 | SI-4(2) · IR-4 |
+| Autorestart Events | Count of reboots triggered by pmset autorestart (power failure recovery). Each event = anomaly to investigate. | Count + timestamps | Phase 1 | IR-4 · IR-8 |
+| LaunchAgent Start Latency | Time from system boot to OpenClaw daemon running. Baseline this — increases indicate boot-time issues. | Single number per event | Phase 1 | SI-4(2) |
+
+# **5.  Agent Layer Metrics**
+
+Source: PostgreSQL agent_actions table (ADR-029). All 21 fields are observable on Phase 1 setup day. Queries run from the dev account SSH session or via Telegram natural-language queries to the agent.
+
+| **Metric** | **Detail / Alert Threshold** | **Display Format** | **ADR Ref** | **NIST** |
+| --- | --- | --- | --- | --- |
+| SESSION AND VOLUME |
+| Total Actions — Today / 7-Day / 30-Day | Rolling counters from agent_actions. Baseline after 30 days of operation. | 3-number badge row | ADR-029 | AU-2 · SI-4 |
+| Actions per Persona | Prototype / Automate / Research breakdown. Stacked bar shows relative load per persona. | Stacked bar chart | ADR-029 | AU-3 · SI-4(2) |
+| Actions per Hour Heatmap | 7-day rolling heatmap (hour × day). Validates quiet hours enforcement 7pm–7am. Should be zero in quiet window. | Heatmap grid | ADR-028 · ADR-029 | AC-12 · AU-6 |
+| ROUTING AND TIER DISTRIBUTION |
+| Tier Distribution — 1 / 2 / 3 / 4 | Percentage of calls routed to each tier. Phase 1 target: Tier 4 = 0%. Informs whether confidence thresholds (0.85 / 0.90) are well-calibrated. | Pie chart + percentages | ADR-003 · ADR-027 | AU-2 · AU-6(1) |
+| Escalation Rate Trend | Tier 1→2 and Tier 2→3 escalation rates over rolling 30 days. Rising rate = recalibration signal. | Line chart 30-day | ADR-027 | AU-6 · SI-4(2) |
+| Opus Usage Counter | Phase 1 target: zero. Any Opus call = hard alert + Telegram escalation. Track lifetime count. | Red badge if > 0, green if 0 | ADR-028 | AU-6(1) · SI-4(5) |
+| Local vs Cloud Call Ratio | Percentage of calls resolved locally (Tier 1/2 Ollama) vs cloud (Tier 3/4 OpenRouter). Cost and privacy indicator. | Donut chart | ADR-021 · ADR-027 | SA-9 · SC-7 |
+| COST TRACKING |
+| Estimated API Spend — Today / 7-Day / 30-Day | Aggregated from estimated_cost field in agent_actions. Threshold alerts from ADR-028 ($1.00 per batch). | 3-number badge + trend arrow | ADR-028 · ADR-029 | AU-2 · SI-4(5) |
+| Spend by Tier | Tier 3 Sonnet vs Tier 4 Opus cost split. Opus should remain $0.00 in Phase 1. | Stacked bar by tier | ADR-029 | AU-6(1) |
+| Spend by Persona | Cost attribution per persona. Identifies high-spend agents. | Stacked bar by persona | ADR-029 | AU-6(1) |
+| Cost Threshold Breaches | Count of actions that hit the $1.00 batch threshold and triggered Telegram escalation. | Counter + timestamps | ADR-028 | SI-4(5) |
+| CIRCUIT BREAKER — ADR-027 |
+| Circuit Breaker Hit Count — 24h / 7-Day | Threshold: 10 calls / 60 seconds. Each hit = runaway agent or calibration issue. Rolling counters. | Badge + trend | ADR-027 | SC-5 · SI-4(5) |
+| Circuit Breaker Event Timeline | Per-event log: timestamp, persona, call rate at trip, model tier. Sparkline shows event distribution over time. | Timeline + event table | ADR-027 · ADR-029 | AU-6 · IR-4 |
+| Token Volume per Session | Context window trimmer triggers at 8,000 tokens. Track trim events as a signal of prompt inflation. | Line chart per session | ADR-027 | SI-4(2) |
+| Replay Buffer Utilization | Count of entries in 30-day replay buffer. Percentage of calls that have full context replay available. | Single number + % | ADR-027 · ADR-029 | AU-3(1) |
+| OUTPUT VALIDATION — ADR-022 |
+| Validation Verdict Distribution | Pass vs Block breakdown. For blocks: which of the 7 pipeline stages triggered (schema / safety / irreversibility / prompt-inject / cost / format / approve). | Donut chart by stage | ADR-022 · ADR-029 | SI-6 · SI-10 |
+| Prompt Injection Detections | Count of prompt injection flags caught at validation. Any non-zero = immediate alert. Lifetime counter. | Red badge if > 0 | ADR-022 · ADR-030 | SI-3 · SI-4(5) |
+| Irreversibility Score Distribution | Histogram of irreversibility scores for all actions in rolling 30 days. Visualizes how close to the approval threshold (score > 20) actions are clustering. | Histogram | ADR-022 · ADR-028 | AC-6 · AU-2 |
+| Safety Check Blocks | Count of actions blocked at the safety stage of the 7-step pipeline. Track trend. | Counter + trend | ADR-022 | SI-3 · SI-4 |
+
+# **6.  Approval and Workflow Metrics**
+
+Source: PostgreSQL agent_actions table (ADR-029) and ~/openclaw/staging directory. Approval_status, approval_response, and resolved_at fields cover the workflow layer. Little Snitch event log covers the OS-level network layer.
+
+| **Metric** | **Detail / Alert Threshold** | **Display Format** | **ADR Ref** | **NIST** |
+| --- | --- | --- | --- | --- |
+| OPERATOR APPROVAL GATE — ADR-028 |
+| Pending Approvals Count | Open Y/N requests awaiting operator response. Alert if any pending request is > 25 min (approaching 30-min auto-NO timeout). | Badge + age of oldest request | ADR-028 | AC-12 · IR-4 |
+| Approval Response Time Distribution | Histogram of operator response times. Identifies patterns in how close to the 30-min timeout responses occur. | Histogram | ADR-028 · ADR-029 | AU-6 · AC-12 |
+| Auto-NO Events — 24h / 7-Day | Requests that timed out (30 min) and were auto-rejected. Indicates operator unavailability or miscalibrated irreversibility thresholds. | Counter + trend | ADR-028 | IR-4 · SI-4(5) |
+| Quiet Hours Enforcement Events | Count of requests queued or blocked during 7pm–7am window. Should be non-zero only on active evening/night agent runs. | Counter + heatmap overlap | ADR-028 | AC-12 |
+| Approval vs Rejection Ratio | Y responses vs N responses over rolling 30 days. High rejection rate = miscalibrated thresholds or misuse pattern. | Donut chart | ADR-028 · ADR-029 | AU-6 |
+| STAGING DIRECTORY — ADR-028 |
+| Staging Directory File Count | Files in ~/openclaw/staging awaiting operator review. Alert if count > 10 (backlog building). | Badge + age of oldest file | ADR-028 | SC-7(10) · IR-4 |
+| Staging File Age Distribution | Oldest file in staging. Alert if any file is > 48 hours old — review backlog. | Single number (oldest age) | ADR-028 | IR-4 |
+| NETWORK POLICY — ADR-030 |
+| Policy Violation Attempts | Count of agent attempts to reach unlisted destinations. Any non-zero = immediate Telegram escalation. Lifetime counter by persona. | Red badge + destination log | ADR-030 | SC-7(5) · SI-4(4) |
+| Session-Only Approval Grants | One-time destination exceptions granted by operator. Track to identify recurring needs that should become permanent allowlist entries. | Counter + destination list | ADR-030 | AC-20 · AU-6 |
+| Little Snitch Block Events | OS-level blocks from Little Snitch deny-by-default policy. Separate from YAML policy layer — catches any attempt to bypass the agent layer. | Counter + trend | ADR-024 · ADR-030 | SC-7(5) · SI-4(4) |
+
+# **7.  Security and Compliance Metrics**
+
+Phase 1 metrics come from the macOS unified log, sshd_config checks, and direct file system verification. Phase 2 metrics are delivered by the compliance_monitor sub-agent (ADR-032) via scheduled Telegram reports. All Phase 2 entries correspond to NIST OPEN or PARTIAL gaps identified in the compliance mapping document.
+
+| **Metric** | **Detail / Alert Threshold** | **Display Format** | **Phase** | **NIST** |
+| --- | --- | --- | --- | --- |
+| OS-LEVEL SECURITY — Phase 1 |
+| SSH Login Events per Day | From macOS unified log. Alert on count > expected baseline (solo operator) or logins from unexpected Tailscale device. | Bar chart daily | Phase 1 | AC-17(1) · AU-12(1) |
+| Sudo Events per Day | From macOS unified log. Admin account only. Alert on any sudo from dev or openclaw accounts. Note: hw_collector.py sudo invocations (scoped to /usr/bin/powermetrics) are expected and logged here. | Counter + timestamp log | Phase 1 | AC-6(9) · AU-12(1) |
+| Account Modification Events | macOS unified log: account creation, deletion, password change. Alert immediately on any unexpected event. | Event log + alert | Phase 1 | AC-2(4) · AU-12(1) |
+| FileVault Encryption Status | On/off. Alert immediately if FileVault is disabled — all data-at-rest protection lost. | Traffic light (green = on) | Phase 1 | SC-28 |
+| Backup Last-Run Status | 7-day green/red table. Green = successful dump. Red = failed dump (also triggers Telegram alert per ADR-019). | 7-day status grid | Phase 1 | AU-4 · IR-8 |
+| Backup Dump File Integrity | Verify most recent pg_dump file is non-zero bytes and can be listed. Catches silent write failures. | Badge (pass/fail) | Phase 1 | SI-7 · IR-8 |
+| SSH Idle Timeout Status | Confirm sshd_config ClientAliveInterval is set (SC-10 gap). Alert if not configured. | Traffic light | Phase 1 | SC-10 |
+| Docker Image Digest Pinning | Confirm all images in Compose file have pinned digest (@sha256:...). Alert on any image running without digest. | Badge per image | Phase 1 | SI-7(1) |
+| WiFi Interface Status | Confirm WiFi is disabled or firewall-blocked (AC-18 gap). Alert if WiFi is active on headless system. | Traffic light (green = disabled) | Phase 1 | AC-18 |
+| NIST COMPLIANCE STATUS — Phase 2 (compliance_monitor) |
+| NIST Control Status Summary | MET / PARTIAL / OPEN count by family (AC, AU, CM, IA, IR, SA, SC, SI). Weekly update from compliance_monitor. | 8-row scorecard table | Phase 2 | AU-6(1) |
+| Open Gap Count Trend | 12 OPEN gaps at baseline (March 2026). Track reduction over Phase 1 and Phase 2 actions. Goal: 0 OPEN by Phase 2 completion. | Line chart (target = 0) | Phase 2 | CA-7 |
+| PII Scan Results — Daily | Scan agent_actions output fields for PII indicators (email, SSN, phone patterns). Alert on any hit. | Daily pass/fail badge | Phase 2 | AU-13 |
+| Service Enumeration Delta | New LaunchAgents or services vs prior-month baseline. Alert on any new addition not in ADR record. | Delta count + diff table | Phase 2 | CM-7(1) |
+| Behavioral Anomaly Score | Calls per session vs 30-day rolling baseline. Standard deviation alert on > 2σ deviation from normal. | Trend line + anomaly flags | Phase 2 | SI-4(2) |
+| Weekly Cost and Routing Digest | Aggregate spend, tier distribution, escalation rate, circuit breaker hits. Delivered via Telegram by compliance_monitor. Addresses AU-6(1) open gap. | Formatted Telegram message | Phase 2 | AU-6(1) |
+
+# **8.  Display Format Reference Guide**
+
+Each metric in this ADR is assigned a recommended display format. The table below defines each format, its best use case, and example metrics from this framework.
+
+| **Format** | **Best Used For** | **Example Metrics** | **Tool / Source** |
+| --- | --- | --- | --- |
+| Traffic Light | Binary OK / warning / critical states where threshold crossings matter more than trend. | Thermal pressure · Memory pressure · WireGuard status · FileVault · Opus usage (0 = green) | Stats (mac-stats.com) · Telegram badge |
+| Speedometer Dial | Continuous gauges with alert-zone arc. Best for metrics with a clear safe operating range and a threshold that must not be sustained. | CPU temp · GPU temp · Fan RPM · Power draw · P-core % · Memory % | Stats (mac-stats.com) · hw_collector.py · hardware_metrics |
+| Sparkline | Compact time-series showing trend without detail. Ideal for Telegram message embeds. | CPU temp 24h · API spend 7-day · Escalation rate 30-day · GPU memory per session | Stats (mac-stats.com) · Telegram chart |
+| Bar Chart | Comparing discrete categories at a point in time or over a defined window. | Actions per persona · Spend by tier · Spend by persona · SSH logins by day | SQL → Telegram · compliance_monitor |
+| Stacked Bar Chart | Comparing composition across categories — shows both individual and total. | Tier distribution per persona · Memory by process · ChromaDB by namespace | SQL → Telegram · dashboard Phase 2 |
+| Donut / Pie Chart | Proportional composition where the parts-of-a-whole relationship is the key insight. | Local vs cloud call ratio · Validation verdict breakdown · Approval vs rejection ratio | SQL → Telegram · compliance_monitor |
+| Histogram | Distribution shapes — clustering, outliers, long tails. Not the same as a bar chart. | Irreversibility score distribution · Approval response time · Calls per session | SQL → Telegram · compliance_monitor |
+| Heatmap Grid | Hour × day patterns. Immediately reveals time-of-day behavior, quiet hours compliance, and anomalous off-hours spikes. | Actions per hour heatmap · Approval events by hour · Cost per hour | SQL → Telegram · dashboard Phase 2 |
+| Timeline / Event Log | Sequential events where timestamp and ordering matter more than aggregation. | Circuit breaker events · Autorestart events · Policy violations · Backup status log | SQL · macOS unified log |
+| 3-Number Badge Row | Quick rolling-window summary (Today / 7-Day / 30-Day) for high-level situational awareness. | Total actions · API spend · System load average · Backup count | Telegram natural language query |
+| Status Grid Table | Multi-item pass/fail status where each item has a binary state and recency matters. | 7-day backup status · NIST control family scorecard · Docker image digest status | compliance_monitor · Telegram |
+
+# **9.  Phase 1 vs Phase 2 Summary**
+
+| **Phase** | **Metric Categories Available** | **Source** | **Trigger** |
+| --- | --- | --- | --- |
+| Phase 1 Setup Day | All infrastructure metrics (thermals, memory, CPU, storage, network, uptime). All agent_actions metrics (volume, routing, cost, circuit breaker, validation). All approval/workflow metrics. OS-level security checks (FileVault, SSH events, sudo events, backup status). | Stats (mac-stats.com) · macOS · PostgreSQL · SSH shell | Available from first agent run |
+| Phase 1.5 (hw_collector.py) | Full 60-second-resolution hardware telemetry: CPU P/E-core utilization, GPU utilization, ANE power, temperatures, fan RPM, system power draw, unified memory history, swap events. 90-day PostgreSQL retention. Three pre-written presentation SQL queries. | hw_collector.py · hardware_metrics (ADR-034) · PostgreSQL | ~14 days post-setup. Deploy after core stack is confirmed stable. |
+| Phase 2 compliance_monitor | NIST compliance status summary (weekly). PII scan results (daily). Service enumeration delta (monthly). Behavioral anomaly detection (daily). Weekly cost/routing Telegram digest. Open gap count trend tracking. Hardware alert digest from hardware_metrics (ADR-034). | compliance_monitor sub-agent · PostgreSQL · macOS unified log · hardware_alerts view | Phase 2 sub-agent deployment under Personal persona |
+
+# **10.  Recommended Tooling**
+
+*Hardware Layer — Live Display (Phase 1 · Setup Day)*
+
+- Stats by exelban (mac-stats.com) — open-source, MIT-licensed, free. Menu bar monitor for thermals, memory, CPU (P-core / E-core color-coded), storage, network, fan, GPU, and sensors. Replaces iStat Menus. Install: brew install --cask stats. No persistent storage — live display only. Actively maintained; M5 sensor support added March 2026. Configure menu bar: CPU graph (P/E cores separate colors) + temperature badge + fan RPM + memory pressure + Tailscale network throughput.
+
+- pmset — macOS power management tool. Query sleep settings, autorestart status, and historical power events. Unchanged.
+
+- macOS Activity Monitor — process-level memory and CPU during development and troubleshooting. Not used for presentations. Unchanged.
+
+*Hardware Layer — Persistent History (Phase 1.5 · ~14 days post-setup · ADR-034)*
+
+- hw_collector.py — purpose-built Python scraper running as a LaunchDaemon under the dev account. Polls sudo /usr/bin/powermetrics every 60 seconds using cpu_power, gpu_power, thermal, ane_power, smc, and memory_stats samplers. Writes 17 metric fields to the hardware_metrics PostgreSQL table. Provides the persistent history, session-arc data, and presentation-quality SQL queries that MacPulse would have supplied commercially. Governed by a single scoped sudoers entry: dev ALL=(root) NOPASSWD: /usr/bin/powermetrics.
+
+- hardware_metrics table (ADR-034) — PostgreSQL table in agentdb under the dev account. 17 metric columns, 90-day full-resolution retention matching ADR-029. Alert view (hardware_alerts) pre-built for Phase 2 compliance_monitor integration. Backed up by the existing nightly pg_dump (ADR-019). Three pre-written presentation queries (hw_live, hw_24h, hw_alerts) maintained in hw_collector_setup.py.
+
+*MacPulse** (**macpulse.app**) was evaluated during Session 9 planning and not adopted. Its historical data and session recording functions are replaced by hw_collector.py + **hardware_metrics** at zero cost. Stats (mac-stats.com) replaces **iStat** Menus for the live display layer at zero cost.*
+
+*Agent Layer (Phase 1)*
+
+- PostgreSQL direct queries via SSH — all agent_actions metrics are SQL aggregations. No additional tooling required at Phase 1.
+
+- Telegram natural language queries — OpenClaw can answer structured questions against agent_actions on demand.
+
+- macOS unified log (log show command) — SSH login events, sudo events, account modifications for OS-level security metrics. Also captures all hw_collector.py sudo invocations automatically (AC-6(9)).
+
+*Compliance Layer (Phase 2)*
+
+- compliance_monitor sub-agent (ADR-032) — scheduled queries, Telegram reports, behavioral anomaly detection. All inference local (Tier 1/2). Read-only. Irreversibility score ≤ 20 on all tools. Phase 2 integration with hardware_alerts view (ADR-034) adds daily hardware threshold breach digest to Telegram reporting, closing SI-4(5) gap.
+
+- Phase 2 dashboard — PostgreSQL-backed web dashboard (tech stack TBD at Phase 2 planning) for visual chart rendering. Telegram remains the primary operator interface.
+
+*Skill Layer — Custom Implementation Only (Phase 1)*
+
+No community skills from ClawHub or any external registry are installed or approved without explicit operator approval. All agent skills are custom-built and locally owned by default.
+
+Three community skills were evaluated during Session 10 (March 30, 2026) and rejected. security-check was rejected because the threat surface does not justify installation — the operator manually reviews all skill source before any install, and the stack installs no community skills by default. domain-trust-check was rejected because all Prototype and Automate persona scrape targets are fixed, curated government URLs (Federal Register, HHS, USDA, state legislature, NH municipal domains) — not dynamically discovered links from untrusted sources. The community web-search skill was rejected in favor of a custom local implementation that routes results through Tier 1 local inference before context injection, eliminating unnecessary token use and keeping all credential handling internal.
+
+Approved custom skill:
+
+- web-search-local — Research persona only. Queries the Brave Search API (free tier, 2,000 queries/month). Raw results are summarized by a local Tier 1 Ollama model before injection into agent context, capping context contribution at 200–400 tokens per query regardless of result set size. Maximum 5 results per query. Maximum 3 queries per session without explicit operator approval. Every call logged to agent_actions with query string, result count, and summarized output. Brave API key stored in environment variables under the openclaw account only.
+
+Build-local-first principle: All new agent capabilities are implemented as custom skills before any community or third-party skill is evaluated. A community skill may only be considered if a local implementation is technically infeasible or disproportionately complex. Any community skill evaluation requires explicit operator approval before installation.
+
+Token conservation principle: Skills and agent behaviors that generate non-critical token use — context inflation, redundant tool calls, speculative queries — are explicitly prohibited. Any proposed agent action with unclear token cost requires explicit operator approval before implementation. Local Tier 1 inference is always preferred over cloud escalation for skill-layer processing.
+
+# **11.  ADR Cross-Reference Map**
+
+| **ADR** | **Title** | **Metrics Derived** |
+| --- | --- | --- |
+| ADR-019 | Backup Configuration | Backup success/failure status · Mac-Mini-Backups folder size · backup_logs growth trend |
+| ADR-020 | macOS Account Structure | Account modification events · sudo events by account · SSH login events |
+| ADR-021 | LayerModel Authority | Local vs cloud call ratio · OpenRouter call attribution |
+| ADR-022 | Output Validation Pipeline | Validation verdict distribution · Prompt injection detections · Irreversibility score histogram · Safety check blocks |
+| ADR-023 | Encryption Posture | FileVault status · PostgreSQL TLS status · Backup dump integrity |
+| ADR-024 | Little Snitch Egress Control | Little Snitch block events · WiFi interface status · Allowlist hit rate |
+| ADR-026 | Docker microVM Sandboxes | Docker image digest pinning status · Container memory per persona · Sandbox escape attempts (should be zero) |
+| ADR-027 | Middleware Interceptor | Circuit breaker hit count/timeline · Token volume per session · Context trim events · Replay buffer utilization |
+| ADR-028 | Operator Approval Workflow | Pending approvals · Auto-NO events · Quiet hours enforcement · Approval response time · Staging directory file count |
+| ADR-029 | agent_actions Audit Table | All agent-layer metrics: volume, routing, tier distribution, cost, validation, session tracking |
+| ADR-030 | Network Policy YAML | Policy violation attempts · Session-only approval grants · Per-persona destination attempts |
+| ADR-031 | Change Management Triggers | Weekly review completion status · Scheduled trigger compliance |
+| ADR-032 | NIST Compliance Adoption | NIST control status by family · Open gap count trend · PII scan results · Service enumeration delta · Behavioral anomaly score |
+| ADR-034 | Hardware Telemetry Collector | All infrastructure hardware metrics: CPU P/E-core utilization · GPU utilization · ANE power draw · CPU and GPU temperatures · fan RPM · system power draw · unified memory used/free/swap · thermal pressure state. Source: hardware_metrics PostgreSQL table via hw_collector.py + powermetrics. Also provides hardware_alerts view for Phase 2 compliance_monitor integration. |
+
+*ADR-034 row highlighted in green — added March 29, **2026** per Session 9 decision.*
+
+*Skill Layer Cross-Reference*
+
+| **Skill** | **Persona** | **Source** | **Token Strategy** | **Status** |
+| --- | --- | --- | --- | --- |
+| web-search-local | Research | Custom — Brave API + Tier 1 Ollama summarizer | Raw results summarized locally before context injection. Max 200–400 tokens per call. Max 5 results. Max 3 queries/session without operator approval. | Phase 1 — build at stack setup |
+| security-check | — | Community (ClawHub) — evaluated Session 10 | — | Rejected — manual source review and minimal community skill footprint make runtime scanning unnecessary |
+| domain-trust-check | — | Community (ClawHub) — evaluated Session 10 | — | Rejected — scrape targets are fixed curated government URLs, not dynamic untrusted sources |
+
+*No community skill may be installed without explicit operator approval. Build-local-first and token conservation principles adopted March 30, 2026.*
+
+# **12.  Visual Reference — Dashboard Display Examples**
+
+This section was merged from the standalone Dashboard Metrics Visual Reference document (March 30, 2026). It provides concrete display format examples, example data values, SQL implementation notes, and the phased implementation roadmap. All examples use illustrative data — not live production values.
+
+## **12.1  System Status At-a-Glance**
+
+The Telegram-accessible system status summary. Traffic lights represent binary OK / warning / critical states. Sparklines show 24-hour trends. Badges show current instantaneous values.
+
+*Traffic Light Status Board — Infrastructure*
+
+Format: Three-state indicator. Green = nominal. Yellow = warning threshold crossed. Red = critical — immediate action required. These are the first items checked in any operator review session.
+
+| **Metric** | **Green** | **Yellow** | **Red** | **Target State** |
+| --- | --- | --- | --- | --- |
+| Thermal Pressure | Nominal | Fair | Serious / Critical | Nominal |
+| Memory Pressure | < 85% used | 85–93% used | > 93% / swap active | Nominal |
+| Swap Usage | Zero | < 1 GB | > 1 GB | Nominal |
+| WireGuard Tunnel | Connected | Reconnecting | Down > 5 min | Nominal |
+| OpenClaw Daemon | Running | Restart in progress | Down > 2 min | Nominal |
+| Telegram Connection | Connected | Reconnecting | Down > 5 min | Nominal |
+| Backup Last Run | Success < 24h | Success > 24h | Failed | Nominal |
+| FileVault Encryption | Enabled | — | Disabled | Nominal |
+| Opus Usage (Phase 1) | Zero calls | — | Any Opus call | Nominal |
+| Policy Violations | Zero | — | Any violation | Nominal |
+| Prompt Injection | Zero detections | — | Any detection | Nominal |
+
+*Sparklines — Hardware Thermals (24-Hour Rolling)*
+
+Format: Compact trend over the last 24 hours. Current value badge on right. Alert threshold shown for reference. Delivered via Stats (mac-stats.com) menu bar or Telegram query.
+
+| **Metric** | **Current (Example)** | **Alert Threshold** |
+| --- | --- | --- |
+| CPU Temperature | 54 °C | Alert: > 85 °C |
+| GPU Temperature | 41 °C | Alert: > 80 °C |
+| System Power Draw | 17 W | Alert: > 80 W |
+| Fan Speed | 1,200 RPM | Alert: > 3,000 RPM |
+
+*3-Number Badge Rows — Rolling Volume Summary*
+
+Format: Three rolling-window badges per metric (Today / 7-Day / 30-Day). Designed for Telegram query response.
+
+| **Metric** | **Today** | **7-Day** | **30-Day** |
+| --- | --- | --- | --- |
+| Total Agent Actions | 47 actions | 312 actions | 1,247 actions |
+| Estimated API Spend | $0.23 | $1.84 | $7.62 |
+| Circuit Breaker Hits | 0 | 2 | 5 |
+| Opus Usage (Phase 1 target: 0) | 0 ✓ | 0 ✓ | 0 ✓ |
+| Pending Approvals | 2 open | — | — |
+| Backup Last Run (Age) | 6h 14m ago ✓ | 7 / 7 success | 30 / 30 success |
+| Auto-NO Timeouts | 0 | 1 | 3 |
+
+## **12.2  Routing and Tier Distribution**
+
+*Tier Call Distribution — Proportional Bar*
+
+Format: Proportional horizontal bar. Width represents percentage share. Color-coded by tier. Phase 1 goal: Tier 4 (Opus) = 0% at all times. A rising Tier 3 percentage signals confidence threshold recalibration may be needed.
+
+| **Tier** | **Description** | **Share (Example)** |
+| --- | --- | --- |
+| Tier 1 | Local 7B (Ollama) — Simple tasks | 52% |
+| Tier 2 | Local 14B / 32B (Ollama) — Moderate tasks | 34% |
+| Tier 3 | Cloud Sonnet (OpenRouter) — Complex tasks | 14% |
+| Tier 4 | Cloud Opus (OpenRouter) — Phase 1: BLOCKED | 0% |
+
+*Persona Activity — Stacked Bar by Day (7-Day Example)*
+
+Format: Stacked bar chart. Each bar = one day. Segments = Prototype / Automate / Research. Mismatched patterns between personas may signal a miscalibrated agent.
+
+| **Persona** | **Mon** | **Tue** | **Wed** | **Thu** | **Fri** | **Sat** | **Sun** | **7-Day Total** |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Prototype | 18 | 22 | 15 | 24 | 19 | 8 | 6 | 112 |
+| Automate | 12 | 14 | 11 | 16 | 13 | 5 | 4 | 75 |
+| Research | 8 | 10 | 7 | 11 | 9 | 4 | 3 | 52 |
+| Daily Total | 38 | 46 | 33 | 51 | 41 | 17 | 13 | 239 |
+
+## **12.3  Actions Per Hour Heatmap**
+
+Format: 7-day rolling heatmap. Rows = day of week. Columns = hour (0–23). Color intensity = action count. Cells in quiet hours columns (19–23 and 0–6) should always be empty. Any non-empty quiet hours cell = investigate immediately.
+
+Color scale: 0 actions = white · 1–2 = light · 3–4 = medium · 5–6 = dark · 7+ = darkest · Quiet hours violation = red.
+
+Example reading: Peak activity concentrated 9am–4pm weekdays. Quiet hours columns clean. Weekend volume lighter but consistent. This is the target pattern.
+
+| **Day** | **Peak Hour Range** | **Peak Count** | **Quiet Hours Clean** |
+| --- | --- | --- | --- |
+| Monday | 09:00–16:00 | 6 actions/hr | Yes |
+| Tuesday | 09:00–16:00 | 7 actions/hr | Yes |
+| Wednesday | 09:00–16:00 | 5 actions/hr | Yes |
+| Thursday | 09:00–16:00 | 8 actions/hr | Yes |
+| Friday | 09:00–16:00 | 6 actions/hr | Yes |
+| Saturday | 09:00–15:00 | 3 actions/hr | Yes |
+| Sunday | 09:00–13:00 | 2 actions/hr | Yes |
+
+SQL: SELECT DATE_PART('hour', created_at) AS hour, DATE_PART('dow', created_at) AS dow, COUNT(*) FROM agent_actions WHERE created_at > NOW() - INTERVAL '7 days' GROUP BY hour, dow ORDER BY dow, hour;
+
+## **12.4  Irreversibility Score Distribution**
+
+Format: Horizontal bar histogram. Each bucket = a range of irreversibility scores. Approval gate triggers at score > 20 (ADR-028). A healthy distribution shows the vast majority of actions well below 20, with a small tail in the 15–20 range.
+
+| **Score Range** | **Description** | **Count (Example)** | **% of Total** |
+| --- | --- | --- | --- |
+| 0–4 | Read-only / informational | 510 | 41% |
+| 5–9 | Low-risk write | 380 | 30% |
+| 10–14 | Moderate write | 220 | 18% |
+| 15–19 | Approaching threshold | 110 | 9% |
+| 20–29 | Approval required | 25 | 2% |
+| 30+ | High-consequence action | 5 | 0% |
+
+Signal interpretation: If the 20–29 and 30+ buckets are growing over time, recalibrate the task classification table (ADR-018). If the 15–19 bucket is large, many actions are near threshold — review whether they should be classified higher.
+
+SQL: SELECT WIDTH_BUCKET(irreversibility_score, 0, 40, 8) AS bucket, COUNT(*) FROM agent_actions WHERE created_at > NOW() - INTERVAL '30 days' GROUP BY bucket ORDER BY bucket;
+
+## **12.5  Approval Workflow Status**
+
+*Pending Approvals Queue*
+
+Format: Table with age indicator. Each row = one open approval request. Color-coded by age relative to the 30-minute auto-NO timeout. Actions approaching timeout highlighted.
+
+| **Persona** | **Action Description** | **Irrev. Score** | **Age** | **Timeout In** |
+| --- | --- | --- | --- | --- |
+| Prototype | Write report to /outputs/Q1_brief.md | 24 — Approval required | 8 min | 22 min remaining |
+| Automate | Execute shell command: npm run build | 31 — Approval required | 22 min | 8 min remaining ⚠ |
+
+SQL: SELECT agent_persona, action_description, irreversibility_score, created_at, NOW() - created_at AS age FROM agent_actions WHERE approval_status = 'pending' ORDER BY created_at ASC;
+
+*7-Day Backup Status Grid*
+
+Format: One cell per day. Green = successful backup. Red = backup failure (also triggers Telegram alert via ADR-019). Goal: 7 consecutive successful runs.
+
+| **Run** | **Mon** | **Tue** | **Wed** | **Thu** | **Fri** | **Sat** | **Sun** |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Status | OK | OK | OK | OK | OK | OK | OK |
+| Duration | 1m 12s | 1m 08s | 1m 15s | 1m 11s | 1m 18s | 1m 09s | 1m 14s |
+| Dump Size | 142 MB | 143 MB | 144 MB | 144 MB | 145 MB | 145 MB | 146 MB |
+
+## **12.6  NIST 800-53 Compliance Scorecard  (Phase 2 — compliance_monitor)**
+
+Format: 8-row scorecard table. One row per control family. Delivered by compliance_monitor sub-agent weekly via Telegram.
+
+| **Family** | **Name** | **MET** | **PARTIAL** | **OPEN** | **N/A** | **Applicable** | **Score** |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| AC | Access Control | 12 | 9 | 2 | 3 | 23 | 52% MET |
+| AU | Audit and Accountability | 6 | 10 | 2 | 0 | 18 | 33% MET |
+| CM | Configuration Management | 3 | 10 | 4 | 0 | 17 | 18% MET |
+| IA | Identification and Authentication | 6 | 7 | 0 | 2 | 13 | 46% MET |
+| IR | Incident Response | 0 | 4 | 2 | 3 | 6 | 0% MET |
+| SA | System and Services Acquisition | 6 | 8 | 0 | 1 | 14 | 43% MET |
+| SC | System and Communications Protection | 16 | 10 | 0 | 0 | 26 | 62% MET |
+| SI | System and Information Integrity | 5 | 11 | 2 | 0 | 18 | 28% MET |
+| TOTAL | All Families | 54 | 69 | 12 | 9 | 135 | 40% MET |
+
+*Open Gap Count Trend — Target: Zero by Phase 2 Completion*
+
+| **Milestone** | **OPEN Gaps** | **PARTIAL** | **MET** | **Notes** |
+| --- | --- | --- | --- | --- |
+| Baseline — March 2026 | 12 | 69 | 54 | ADR-032 compliance mapping complete. 12 OPEN gaps identified. |
+| Phase 1 Target — Post April 1 Setup | 6 | 69+ | 60+ | IR runbook, macOS audit logging, SSH timeout, Docker digest pinning, WiFi confirm close Phase 1 gaps. |
+| Phase 2 Target — compliance_monitor deployed | 0 | 40–50 | 80+ | All OPEN gaps closed. compliance_monitor automates remaining PARTIAL controls. |
+
+## **12.7  Memory and Storage Utilization**
+
+*Unified Memory — Per-Process Breakdown*
+
+Format: Stacked bar. The Mac Studio M1 Max has 32GB unified memory shared by CPU and GPU. The 32B Ollama model consumes 18–20GB alone. This visualization makes remaining headroom immediately visible during model inference.
+
+| **Process** | **Typical Usage** | **Peak Usage** | **Alert At** | **Notes** |
+| --- | --- | --- | --- | --- |
+| Ollama (32B model active) | 18–20 GB | ~22 GB | > 24 GB | Tier 2 high — load on demand only. Unload after session. |
+| Ollama (14B model active) | 8–9 GB | ~10 GB | > 12 GB | Tier 2 standard. Can run alongside Docker + PostgreSQL. |
+| Docker (all containers) | 2–4 GB | ~5 GB | > 8 GB | PostgreSQL + ChromaDB + OpenClaw containers. |
+| macOS system + OpenClaw | 4–6 GB | ~7 GB | > 10 GB | OS baseline. Does not include model weights. |
+| Available Headroom | ~12 GB (32B) | ~8 GB (32B) | < 4 GB = alert | Any swap > 0 = over budget. |
+
+*Storage Growth Tracker*
+
+Format: Table with current size, 30-day growth rate, and projected fill date. SSD has 80% alert threshold (410GB). iCloud backup folder tracked separately against 5GB Telegram alert threshold (ADR-019).
+
+| **Storage Location** | **Current Size** | **30-Day Growth** | **Alert Threshold** | **ADR** |
+| --- | --- | --- | --- | --- |
+| SSD Total (512 GB) | 187 GB | +12 GB / month | 410 GB (80%) | — |
+| Mac-Mini-Backups (iCloud) | 1.4 GB | +146 MB / month | 5 GB (Telegram alert) | ADR-019 |
+| PostgreSQL Data Directory | 842 MB | +80 MB / month | 5 GB (review trigger) | ADR-029 |
+| ChromaDB Vector Store | 340 MB | +60 MB / month | 10 GB (advisory) | ADR-011 |
+| Docker Image Cache | 14 GB | +2 GB / month | 30 GB (prune trigger) | ADR-026 |
+
+## **12.8  Dashboard Implementation Roadmap**
+
+*Phase 1 — Available from Setup Day (April 1, 2026)*
+
+Live display via Stats (mac-stats.com) — open-source, free, Homebrew-installable. All agent-layer metrics from direct PostgreSQL queries via SSH.
+
+| **Metric Category** | **Implementation** | **Tooling** |
+| --- | --- | --- |
+| Traffic light status board | Stats menu bar — live ambient display. Telegram query for text version. | Stats · mac-stats.com |
+| Sparklines — thermals / power / fan | Stats native sparkline mode. Configure P/E-core colors, temperature badge, fan RPM. | Stats · mac-stats.com |
+| 3-Number badge rows | SELECT COUNT(*) FROM agent_actions WHERE created_at > NOW() - INTERVAL '24 hours' | PostgreSQL SSH |
+| Tier distribution | SELECT model_tier, COUNT(*) FROM agent_actions — rolling 30 days GROUP BY model_tier | PostgreSQL SSH |
+| Persona activity stacked bar | SELECT agent_persona, DATE(created_at), COUNT(*) FROM agent_actions — rolling 7 days | PostgreSQL SSH |
+| Approval workflow queue | SELECT * FROM agent_actions WHERE approval_status = 'pending' | PostgreSQL SSH |
+| Circuit breaker timeline | SELECT * FROM agent_actions WHERE action_type = 'circuit_breaker_hit' | PostgreSQL SSH |
+| Backup status 7-day grid | SELECT * FROM backup_logs ORDER BY run_date DESC LIMIT 7 | PostgreSQL SSH |
+| Memory / storage | Stats for live memory pressure. du -sh for storage directories. | Stats + SSH |
+| OS security events | log show --predicate from macOS unified log. Captures hw_collector.py sudo invocations (AC-6(9)). | macOS unified log |
+
+*Phase 1.5 — Hardware Telemetry Persistence (hw_collector.py · ADR-034 · ~14 days post-setup)*
+
+Deploy after core stack is confirmed stable. Requires one sudoers entry scoped to /usr/bin/powermetrics. Setup commands in hw_collector_setup.py. Alias hw_live, hw_24h, hw_alerts in .bashrc before any demo.
+
+| **Metric Category** | **Implementation** | **Tooling** |
+| --- | --- | --- |
+| CPU P/E-core utilization history | SELECT sampled_at, cpu_p_core_pct, cpu_e_core_pct FROM hardware_metrics ORDER BY sampled_at DESC | hw_collector.py + PostgreSQL |
+| GPU utilization + ANE power history | SELECT gpu_active_pct, ane_power_mw FROM hardware_metrics — reveals inference load on GPU and Neural Engine | hw_collector.py + PostgreSQL |
+| CPU + GPU temperature history | SELECT cpu_temp_c, gpu_temp_c FROM hardware_metrics — hardware_alerts view flags threshold breaches | hw_collector.py + PostgreSQL |
+| Fan RPM + system power history | SELECT fan_rpm, system_power_mw FROM hardware_metrics — demo arc: inference session power spike + thermal recovery | hw_collector.py + PostgreSQL |
+| Unified memory + swap event history | SELECT mem_used_gb, mem_free_gb, mem_swap_gb, mem_pressure FROM hardware_metrics | hw_collector.py + PostgreSQL |
+| 24-hour summary — hw_24h alias | Hourly averages: P-core, GPU, ANE, temp, power, fan peak, swap events. Runs in < 100ms. | PostgreSQL SSH |
+| Pre-demo alert check — hw_alerts alias | Threshold breach count and peak values over 24h. Target: all zeros before any presentation. | PostgreSQL SSH |
+
+Phase 1.5 replaces MacPulse entirely at zero cost. All data lives in agentdb, backed up by nightly pg_dump (ADR-019).
+
+*Phase 2 — compliance_monitor Sub-Agent (Post Phase 1 Stable)*
+
+All inference local (Tier 1/2). All tools irreversibility score ≤ 20. Read-only operations only.
+
+| **Metric Category** | **Frequency** | **Telegram Delivery Format** |
+| --- | --- | --- |
+| NIST compliance scorecard | Weekly | 8-row table: family / MET / PARTIAL / OPEN / score% |
+| Open gap count trend | Weekly | Gap count + delta from prior week + trend direction |
+| PII scan results | Daily | Pass/fail badge + count of hits if any |
+| Weekly cost and routing digest | Weekly | Spend by tier + tier distribution + escalation rate + CB hits |
+| Service enumeration delta | Monthly | List of added/removed LaunchAgents vs prior baseline |
+| Behavioral anomaly detection | Daily | Calls per session vs baseline. Flag if > 2σ deviation |
+| Hardware alert digest (ADR-034) | Daily | hardware_alerts view: threshold breaches in last 24h. Closes SI-4(5) gap. |
+| Account modification event summary | Weekly | Count of macOS account events. Alert on unexpected changes. |
+| Docker image digest drift check | Weekly | Pass/fail per image. Flag any image without pinned digest. |
+
+*Section 12 merged from standalone Dashboard Metrics Visual Reference document. March 30, 2026.*

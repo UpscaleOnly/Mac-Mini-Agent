@@ -1,0 +1,460 @@
+**MAC MINI AGENT SERVER**
+
+**ADR-035 — Agent Runtime Plumbing: Token Budget, Tool Registry, Session Trust, Workflow State**
+
+**Status: DECIDED**
+
+Date: April 3, 2026
+
+Phase: 1  |  Required Before First Agent Tool Call
+
+Owner: Sheldon Wheeler
+
+ADR Coverage:  AC · AU · CM · IR · SC · SI
+
+NIST 800-53 Alignment:  ADR-032
+
+# 1.  Context and Decision
+
+ADR-001 through ADR-034 establish the OpenClaw architecture: model routing, output validation, operator approval gating, hardware telemetry, and the agent_actions audit table. A gap review conducted April 3, 2026 identified six implementation gaps that, if left unaddressed before the first agent tool call, create failure modes in production that cannot be resolved by tuning or patching after the fact:
+
+- Token budget tracking: input and output tokens tracked as a combined cost float, not separately. No per-session budget ceiling. No pre-call token estimate before tool dispatch.
+
+- Tool registry: agent capabilities defined in code (Python module imports), not as a data structure. No registry governs what tools exist, which personas may use them, or what their risk profile is.
+
+- Session trust tiers: LayerModel tiers (ADR-021) govern model escalation. No separate session-level trust tier governs what actions the agent may take during a given session independently of model tier.
+
+- Crash recovery: no continuous session state write. A process crash during a multi-step workflow loses all in-flight state. The replay buffer (ADR-029) captures completed actions, not in-progress ones.
+
+- Workflow state vs. conversation state: not formally distinguished. Multi-step background workflows (Automate persona nightly jobs) share the same state model as interactive sessions. They have fundamentally different recovery and resumption requirements.
+
+- agent_actions table partitioning: unpartitioned. At sustained Automate persona volume, query performance degrades without partitioning. Partitioning is significantly harder to add after rows accumulate.
+
+Decision: Address all six gaps in a single ADR covering the agent runtime plumbing layer. Each gap is recorded as a sub-decision with its own schema, enforcement point, and NIST alignment. This ADR extends ADR-021 (LayerModel), ADR-027 (Interceptor), ADR-028 (Approval), ADR-029 (agent_actions), and ADR-033 (Dashboard Metrics). It supersedes no prior ADR.
+
+# 2.  Decision Record
+
+| **Field** | **Value** |
+| --- | --- |
+| ADR Number | ADR-035 |
+| Title | Agent Runtime Plumbing: Token Budget, Tool Registry, Session Trust, Workflow State |
+| Status | DECIDED — April 3, 2026 |
+| Deciders | Sheldon Wheeler (owner, sole operator) |
+| ADR References | ADR-018 (Task Classification) · ADR-021 (LayerModel) · ADR-022 (Output Validation) · ADR-027 (Interceptor) · ADR-028 (Approval) · ADR-029 (agent_actions) · ADR-031 (Change Mgmt) · ADR-032 (NIST) · ADR-033 (Dashboard) |
+| NIST Controls | AU-2 · AU-3 · AU-9 · AC-3 · AC-6 · CM-7(1) · IR-4 · IR-8 · SC-5 · SI-4 · SI-4(2) · SI-12 |
+| Phase Scope | Phase 1 — all six decisions required before first agent tool call. Partitioning may be deferred to Phase 1.5 if agent_actions has fewer than 10,000 rows at Phase 1 completion. |
+| Supersedes | None. Extends ADR-021, ADR-027, ADR-028, ADR-029, ADR-033. |
+
+# 3.  Gap Summary
+
+| **Gap** | **Failure Mode Without It** | **Enforcement Point** | **Phase** |
+| --- | --- | --- | --- |
+| Token budget tracking | Cloud escalation overruns $1.00 threshold with no attribution by call | Middleware interceptor (ADR-027) | Phase 1 |
+| Tool registry as data structure | Agent capability boundary enforced only in code; drift possible as tools are added | session startup query | Phase 1 |
+| Session trust tier | Model tier (ADR-021) and action risk level (ADR-018) not independently gated by session context | Interceptor pre-dispatch check | Phase 1 |
+| Crash-recovery session state | Automate persona nightly job loses workflow position on process crash; no resume path | session_state table + heartbeat | Phase 1 |
+| Workflow vs. conversation state | Nightly multi-step jobs share state model with interactive sessions; incompatible recovery semantics | workflow_runs + workflow_steps tables | Phase 1 |
+| agent_actions partitioning | Query performance degrades at scale; retroactive partitioning is disruptive | PostgreSQL declarative partitioning | Phase 1 / 1.5 |
+
+# 4.  Token Budget Tracking
+
+## 4.1  Problem
+
+ADR-027 (Middleware Interceptor) defines a circuit breaker (10 calls/60 seconds) and a context trimmer (8k tokens). ADR-028 defines a $1.00 cost escalation threshold. ADR-029 records a cost field in agent_actions. None of these mechanisms track input tokens and output tokens as separate values, enforce a per-session ceiling, or estimate token cost before a call is dispatched. The $1.00 threshold in ADR-028 has no enforcement mechanism below the Telegram approval gate — it cannot trigger automatically without a running budget.
+
+## 4.2  Decision
+
+Adopt a two-table token budget model: a session_budget table tracks running per-session token consumption; agent_actions is amended to record input_tokens and output_tokens as separate INTEGER columns.
+
+## 4.3  session_budget Table Schema
+
+| **Column** | **Type** | **Description** |
+| --- | --- | --- |
+| session_id | UUID PRIMARY KEY | Foreign key to sessions table |
+| persona | TEXT NOT NULL | prototype / automate / research |
+| budget_ceiling_tokens | INTEGER NOT NULL | Hard ceiling for this session. Default 50,000. Operator sets at session creation. |
+| input_tokens_consumed | INTEGER NOT NULL DEFAULT 0 | Running total of prompt/context tokens sent across all calls in session |
+| output_tokens_consumed | INTEGER NOT NULL DEFAULT 0 | Running total of completion tokens received across all calls in session |
+| total_tokens_consumed | INTEGER GENERATED ALWAYS AS (input_tokens_consumed + output_tokens_consumed) STORED | Computed total for threshold comparison |
+| cost_usd | NUMERIC(10,6) NOT NULL DEFAULT 0 | Running dollar cost. Used to enforce ADR-028 $1.00 escalation threshold. |
+| escalation_triggered | BOOLEAN NOT NULL DEFAULT FALSE | Set true when cost_usd crosses $1.00. Triggers Telegram approval gate. |
+| created_at | TIMESTAMPTZ NOT NULL DEFAULT NOW() | Session budget record creation time |
+| last_updated | TIMESTAMPTZ NOT NULL DEFAULT NOW() | Updated on every token write |
+
+## 4.4  agent_actions Schema Amendment
+
+The existing agent_actions table (ADR-029) is amended to add two columns. The existing cost_usd column is retained for backward compatibility and continues to reflect the per-action cost. The new columns provide the input/output split.
+
+| **Column Added** | **Type** | **Replaces / Augments** |
+| --- | --- | --- |
+| input_tokens | INTEGER | New. Tokens in prompt + context for this action. |
+| output_tokens | INTEGER | New. Tokens in model completion for this action. |
+| cost_usd | NUMERIC(10,6) | Existing. Retained. Per-action cost computed from input_tokens + output_tokens at the tier's rate. |
+
+## 4.5  Enforcement in Middleware Interceptor (ADR-027)
+
+The interceptor enforces three budget checks in sequence before dispatching any tool call:
+
+- Pre-call estimate: before dispatch, estimate input token count from the current context window. If estimated total would push session total_tokens_consumed within 10% of budget_ceiling_tokens, escalate to Telegram for operator confirmation.
+
+- Post-call write: after the model returns, record actual input_tokens and output_tokens to agent_actions. Update session_budget running totals atomically.
+
+- Cost threshold check: after each post-call write, evaluate cost_usd against $1.00 threshold (ADR-028). If crossed and escalation_triggered is false, set escalation_triggered = true and send Telegram alert before next tool call proceeds.
+
+## 4.6  NIST Alignment
+
+| **Control** | **Title** | **Coverage** |
+| --- | --- | --- |
+| AU-2 | Event logging | Every token consumption event recorded with session attribution. |
+| AU-3 | Content of audit records | Input and output split provides complete cost attribution per action. |
+| SC-5 | Denial of service protection | Budget ceiling prevents runaway agent from consuming unbounded tokens. |
+| SI-12 | Information management and retention | Token records retained per ADR-029 90-day policy. |
+
+# 5.  Tool Registry — Metadata-First Design
+
+## 5.1  Problem
+
+Agent capabilities are currently defined by Python module imports. There is no runtime-queryable data structure describing what tools exist, which personas may use them, what their risk level is, or what network destinations they require. Adding a tool is a code change with no governance checkpoint. A misconfigured or mistakenly imported tool has no data-layer barrier.
+
+## 5.2  Decision
+
+Adopt a metadata-first tool registry: all agent tools are defined as rows in a tool_registry PostgreSQL table before any implementation code runs. The OpenClaw runtime reads this table at session startup to build its capability set. A tool not in the registry does not exist to the agent regardless of whether its code is present. This provides a data-layer security boundary independent of the code layer.
+
+## 5.3  tool_registry Table Schema
+
+| **Column** | **Type** | **Description** |
+| --- | --- | --- |
+| tool_name | TEXT PRIMARY KEY | Canonical name. Used as the dispatch key in the runtime. |
+| description | TEXT NOT NULL | Plain-language description of what the tool does. Included in agent context at session startup. |
+| permitted_personas | TEXT[] NOT NULL | Array of persona names that may invoke this tool. e.g. ARRAY['prototype','research'] |
+| risk_level | TEXT NOT NULL | low / medium / high / critical. Informational label aligned with irreversibility_score. |
+| irreversibility_score | INTEGER NOT NULL | 0–100. Maps directly to ADR-018 task classification table. Approval gate triggers at > 20 (ADR-028). |
+| min_trust_tier | INTEGER NOT NULL DEFAULT 1 | Minimum session trust tier required to invoke this tool. See Section 6. |
+| requires_approval | BOOLEAN NOT NULL DEFAULT FALSE | If true, every invocation requires operator Telegram approval regardless of irreversibility_score. |
+| permitted_network_destinations | TEXT[] | Allowed egress targets for this tool. Must be a subset of ADR-030 persona network policy YAML. |
+| max_calls_per_session | INTEGER | NULL = unlimited within session budget. Set for tools with per-session cost implications. |
+| input_schema | JSONB | Expected input parameter shape. Validated by interceptor before dispatch. |
+| output_schema | JSONB | Expected return shape. Validated by ADR-022 output validation pipeline. |
+| phase_available | TEXT NOT NULL DEFAULT 'phase1' | phase1 / phase1.5 / phase2. Tools not yet available are registered but disabled. |
+| enabled | BOOLEAN NOT NULL DEFAULT TRUE | Master enable/disable switch. Disabled tools are invisible to the agent. |
+| created_at | TIMESTAMPTZ NOT NULL DEFAULT NOW() | Registration date. |
+| last_reviewed_at | TIMESTAMPTZ | Date of last operator security review. ADR-031 change management trigger if > 90 days stale. |
+
+## 5.4  Runtime Behavior
+
+At session startup, the OpenClaw runtime executes a single query:
+
+SELECT * FROM tool_registry WHERE enabled = TRUE AND phase_available <= current_phase AND $persona = ANY(permitted_personas);
+
+The result set is the agent's complete capability set for the session. It is cached in memory and not re-queried during the session. No tool outside this result set can be dispatched.
+
+## 5.5  Adding a New Tool — Required Steps
+
+- INSERT a row into tool_registry with all fields populated. Disabled = TRUE initially.
+
+- Operator reviews: risk_level, irreversibility_score, permitted_personas, permitted_network_destinations against ADR-030 YAML.
+
+- If the tool requires new egress destinations, update the relevant persona network policy YAML and close an ADR-031 change management entry.
+
+- Set enabled = TRUE. The tool is now available on next session startup.
+
+- No code may dispatch a tool before its registry row is active. This is the sequence invariant.
+
+## 5.6  NIST Alignment
+
+| **Control** | **Title** | **Coverage** |
+| --- | --- | --- |
+| AC-3 | Access enforcement | Registry row controls which personas may invoke each tool. Enforced at session startup, not at call time. |
+| AC-6 | Least privilege | Permitted_personas and permitted_network_destinations implement least-privilege at the tool level. |
+| CM-7(1) | Least functionality — periodic review | last_reviewed_at enables ADR-031 periodic review trigger. Tools not reviewed in 90 days flag for operator attention. |
+| SI-4(2) | Automated tools for real-time analysis | input_schema and output_schema enable pre- and post-dispatch validation by the interceptor. |
+
+# 6.  Session Trust Tiers
+
+## 6.1  Problem
+
+ADR-021 (LayerModel) defines four model tiers governing which model handles a request. ADR-018 defines irreversibility scores governing when operator approval is required. Neither mechanism governs what the agent is permitted to do during a session based on the context in which that session was initiated. An interactive session and an unattended Automate persona nightly job currently have identical action permissions. A session trust tier provides an independent runtime gate.
+
+## 6.2  Decision
+
+Define four session trust tiers assigned at session creation. Trust tier is stored in the sessions table and the session_state table. The middleware interceptor checks session trust tier against tool_registry.min_trust_tier before every dispatch. A tool whose min_trust_tier exceeds the session's trust tier is hard-blocked regardless of irreversibility score.
+
+## 6.3  Trust Tier Definitions
+
+| **Tier** | **Name** | **Permitted Actions** | **Assigned To** |
+| --- | --- | --- | --- |
+| 1 | Read-only | Read operations only. No writes to any external system, file, or database row other than agent_actions logging. | Automated research queries. compliance_monitor sub-agent (ADR-032). |
+| 2 | Low-risk write | Tier 1 plus low-risk writes (irreversibility score ≤ 9). File writes to staging directory only. No shell execution. | Standard Automate persona background jobs. Research persona sessions. |
+| 3 | Operator-approved | Tier 2 plus moderate writes (irreversibility score ≤ 29). Shell execution permitted within ADR-014 guardrails. Requires operator Telegram approval for each action above score 20. | Interactive Prototype persona sessions. Operator-initiated sessions. |
+| 4 | Manual gate | All actions. No automatic dispatch for any tool with irreversibility score > 40. Every action requires explicit operator confirmation. | Reserved for Phase 1 Opus-equivalent actions. Currently blocked in Phase 1 (ADR-021). |
+
+## 6.4  sessions Table Amendment
+
+The existing sessions table is amended to add:
+
+| **Column Added** | **Type** | **Description** |
+| --- | --- | --- |
+| trust_tier | INTEGER NOT NULL DEFAULT 2 | Session trust tier (1–4). Set at session creation. Cannot be elevated mid-session. |
+| trust_tier_reason | TEXT | Plain-language reason for tier assignment. Logged for audit. |
+| tier_elevation_requested | BOOLEAN NOT NULL DEFAULT FALSE | If true, an elevation request is pending operator Telegram approval. |
+
+## 6.5  Tier Elevation Rule
+
+A session's trust tier cannot be elevated mid-session without a new operator Telegram approval. If an agent action requires a higher trust tier than the current session holds, the interceptor sends a Telegram prompt with the specific tool name, requested tier, and irreversibility score. The operator may approve (new session spawned at elevated tier) or deny (action blocked, original session continues). The original session trust tier is never modified in place.
+
+## 6.6  NIST Alignment
+
+| **Control** | **Title** | **Coverage** |
+| --- | --- | --- |
+| AC-3 | Access enforcement | Trust tier enforced at dispatch. Hard block if session tier < tool min_trust_tier. |
+| AC-6 | Least privilege | Automated sessions default to Tier 2. Tier 1 assigned to read-only sub-agents. Principle of least privilege at session level. |
+| IR-4 | Incident handling | Trust tier prevents automated sessions from taking high-consequence actions during an incident scenario. |
+| AU-3 | Content of audit records | trust_tier recorded in session record. Tier elevation requests logged to agent_actions with action_type = 'trust_tier_elevation_request'. |
+
+# 7.  Crash-Recovery Session State
+
+## 7.1  Problem
+
+The current architecture has no mechanism for the OpenClaw runtime to recover a workflow that was in progress when the process crashed. The replay buffer (ADR-029) records completed actions but not in-progress state. A crashed Automate persona nightly job restarts from the beginning on the next scheduled run, potentially re-executing completed steps with side effects. There is no operator visibility into the crash until the next Telegram alert window.
+
+## 7.2  Decision
+
+Introduce a session_state table written continuously during active sessions. The runtime writes a heartbeat every 30 seconds. On startup, OpenClaw checks for sessions with status = 'active' and a stale heartbeat (> 90 seconds), marks them crashed, and sends a Telegram alert. Crashed sessions may be resumed from their last recorded current_step by operator instruction. This mechanism is the crash recovery reference point for the IR runbook required before Phase 1 first agent tool call.
+
+## 7.3  session_state Table Schema
+
+| **Column** | **Type** | **Description** |
+| --- | --- | --- |
+| session_id | UUID PRIMARY KEY | Foreign key to sessions table. |
+| persona | TEXT NOT NULL | prototype / automate / research |
+| workflow_id | UUID | NULL for interactive sessions. Foreign key to workflow_runs for background jobs. |
+| trust_tier | INTEGER NOT NULL | Session trust tier at time of state write. Mirrors sessions.trust_tier. |
+| current_step | TEXT | Name or identifier of the step currently executing. NULL if between steps. |
+| completed_steps | JSONB NOT NULL DEFAULT '[]' | Ordered array of completed step names with timestamps and output summaries. |
+| pending_steps | JSONB NOT NULL DEFAULT '[]' | Ordered array of remaining step names. |
+| inputs | JSONB | Session input parameters. Stored at session start. Enables exact replay. |
+| partial_outputs | JSONB NOT NULL DEFAULT '{}' | Intermediate outputs accumulated so far. Keyed by step name. |
+| status | TEXT NOT NULL DEFAULT 'active' | active / completed / crashed / recovered / cancelled |
+| failure_reason | TEXT | Populated on crash or cancellation. Human-readable. |
+| created_at | TIMESTAMPTZ NOT NULL DEFAULT NOW() | Session state record creation time. |
+| last_heartbeat | TIMESTAMPTZ NOT NULL DEFAULT NOW() | Updated by runtime every 30 seconds. Stale > 90s = crash detected. |
+| completed_at | TIMESTAMPTZ | Populated when status transitions to completed or cancelled. |
+
+## 7.4  Startup Crash Detection Sequence
+
+- On every OpenClaw daemon startup, query: SELECT * FROM session_state WHERE status = 'active' AND last_heartbeat < NOW() - INTERVAL '90 seconds'
+
+- For each result: UPDATE session_state SET status = 'crashed', failure_reason = 'Process restart detected — heartbeat stale' WHERE session_id = <id>
+
+- Send Telegram alert for each crashed session: persona name, workflow_id if applicable, current_step at time of crash, count of completed_steps.
+
+- Operator may respond with resume command. Runtime loads session_state, skips completed_steps, resumes from current_step.
+
+- Resumed session is assigned status = 'recovered' and a new session_id linked to the original via a parent_session_id column.
+
+## 7.5  IR Runbook Reference
+
+The IR runbook required before Phase 1 first agent tool call (ADR-032 deliverable) must include a section covering agent crash recovery. The runbook entry must reference session_state table, the startup crash detection sequence above, and the Telegram alert format. This closes the IR-8 gap identified in the ADR-032 gap analysis for automated background job failure recovery.
+
+## 7.6  NIST Alignment
+
+| **Control** | **Title** | **Coverage** |
+| --- | --- | --- |
+| IR-4 | Incident handling | Crash detection and Telegram alerting provides immediate operator notification of process failure. |
+| IR-8 | Incident response plan | session_state is the technical basis for the agent crash recovery section of the IR runbook. |
+| AU-9 | Protection of audit information | session_state records are append-preferred. Status transitions logged with reason. No silent deletion of crash records. |
+| SI-4(2) | Automated monitoring | Heartbeat staleness check is automated. Operator does not need to poll for crashes. |
+
+# 8.  Workflow State vs. Conversation State
+
+## 8.1  Distinction
+
+The current architecture uses a single session/messages state model for all agent activity. This is appropriate for interactive sessions but is the wrong model for multi-step background workflows. The two state types have fundamentally different characteristics:
+
+| **Dimension** | **Conversation State** | **Workflow State** |
+| --- | --- | --- |
+| What it is | Message history, context window contents, persona instructions | A defined sequence of named steps with expected inputs and outputs |
+| Lifetime | One interactive session. Ends when the user closes the session. | Can span multiple sessions. Survives crashes and resumes from last step. |
+| Storage | PostgreSQL sessions + messages tables (ADR-012 / ADR-016) | workflow_runs + workflow_steps tables (this ADR) |
+| Crash recovery | No. Context is rebuilt from message history on next session. | Yes. Resume from current_step using session_state (Section 7). |
+| Token budget | Per session budget ceiling (Section 4) | Per workflow budget ceiling. Can span multiple session budgets. |
+| Operator visibility | Not surfaced directly. Observable via agent_actions. | Telegram step-completion updates. Workflow status in dashboard. |
+| Triggering mechanism | Operator message or Telegram command | Scheduler (cron), operator command, or agent-generated sub-workflow |
+| Primary persona | Prototype (interactive SaaS prototyping) | Automate (nightly background jobs) |
+
+## 8.2  workflow_runs Table Schema
+
+| **Column** | **Type** | **Description** |
+| --- | --- | --- |
+| workflow_id | UUID PRIMARY KEY DEFAULT gen_random_uuid() | Canonical workflow run identifier. |
+| workflow_name | TEXT NOT NULL | Human-readable name. e.g. 'federal_policy_daily_ingest', 'nh_municipal_scrape' |
+| persona | TEXT NOT NULL | Persona executing this workflow. |
+| session_id | UUID | Current or most recent session_id. Updated on resume. |
+| triggered_by | TEXT NOT NULL | operator / schedule / agent |
+| steps_total | INTEGER NOT NULL DEFAULT 0 | Total steps defined at workflow creation. |
+| steps_completed | INTEGER NOT NULL DEFAULT 0 | Incremented on each step success. |
+| steps_failed | INTEGER NOT NULL DEFAULT 0 | Incremented on each step failure. |
+| input_tokens_total | INTEGER NOT NULL DEFAULT 0 | Cumulative input tokens across all sessions in this workflow run. |
+| output_tokens_total | INTEGER NOT NULL DEFAULT 0 | Cumulative output tokens across all sessions in this workflow run. |
+| cost_total_usd | NUMERIC(10,6) NOT NULL DEFAULT 0 | Cumulative cost for this workflow run. |
+| started_at | TIMESTAMPTZ NOT NULL DEFAULT NOW() | Workflow run start time. |
+| completed_at | TIMESTAMPTZ | Populated on terminal status. |
+| status | TEXT NOT NULL DEFAULT 'running' | running / completed / failed / cancelled / paused |
+| failure_reason | TEXT | Populated on failed status. |
+| resume_count | INTEGER NOT NULL DEFAULT 0 | Number of times this workflow was resumed after a crash or pause. |
+
+## 8.3  workflow_steps Table Schema
+
+| **Column** | **Type** | **Description** |
+| --- | --- | --- |
+| step_id | UUID PRIMARY KEY DEFAULT gen_random_uuid() | Step record identifier. |
+| workflow_id | UUID NOT NULL REFERENCES workflow_runs(workflow_id) | Parent workflow run. |
+| step_name | TEXT NOT NULL | Named step identifier. e.g. 'fetch_federal_register', 'chunk_documents', 'embed_to_chromadb' |
+| step_sequence | INTEGER NOT NULL | Execution order. 1-based. |
+| status | TEXT NOT NULL DEFAULT 'pending' | pending / running / completed / failed / skipped |
+| started_at | TIMESTAMPTZ | Step execution start. |
+| completed_at | TIMESTAMPTZ | Step execution completion. |
+| input_tokens | INTEGER | Input tokens for this step. |
+| output_tokens | INTEGER | Output tokens for this step. |
+| tool_name | TEXT | Tool invoked for this step. Foreign key to tool_registry.tool_name. |
+| action_id | UUID | Foreign key to agent_actions row for this step invocation. |
+| output_summary | TEXT | Brief plain-language summary of step output. Max 500 chars. |
+| failure_reason | TEXT | Populated on failed status. Included in Telegram alert. |
+
+## 8.4  Telegram Workflow Notifications
+
+For workflows triggered by the scheduler (Automate persona), the following Telegram messages are sent:
+
+- Workflow start: workflow_name, steps_total, estimated token budget, start timestamp.
+
+- Step completion (optional, configurable per workflow): step_name, step_sequence / steps_total, step output_summary.
+
+- Workflow completion: workflow_name, steps_completed, steps_failed, cost_total_usd, duration.
+
+- Workflow failure: workflow_name, failed step_name, failure_reason, resume instructions.
+
+Quiet hours (7pm–7am, ADR-028) suppress step-completion notifications. Start, completion, and failure messages are always delivered regardless of quiet hours.
+
+## 8.5  NIST Alignment
+
+| **Control** | **Title** | **Coverage** |
+| --- | --- | --- |
+| AU-2 | Event logging | Every workflow step is a logged event with timestamps, tool attribution, and token consumption. |
+| AU-3 | Content of audit records | workflow_steps links to agent_actions via action_id. Complete audit chain from workflow to tool call to model response. |
+| IR-4 | Incident handling | Workflow failure triggers immediate Telegram alert with step context and resume path. |
+| CM-7(1) | Least functionality | workflow_name and step definitions form a change-management-traceable capability inventory for background automation. |
+
+# 9.  agent_actions Table Partitioning
+
+## 9.1  Problem
+
+The agent_actions table (ADR-029) is defined as a single unpartitioned table with 90-day retention. At Automate persona nightly job volume (estimated 500–2,000 actions per night), the table reaches 150,000–600,000 rows within 90 days. PostgreSQL full-table scans degrade on unpartitioned tables at this scale. Adding declarative partitioning after rows accumulate requires a table rebuild, which is disruptive and cannot be done online without extension tooling.
+
+## 9.2  Decision
+
+Adopt PostgreSQL declarative range partitioning on agent_actions.created_at by month. Partitions are created monthly by the nightly maintenance job. The 90-day retention function (ADR-029) is updated to DROP the partition for the month that falls outside the retention window rather than DELETE individual rows. This is significantly faster than row-level deletion at scale.
+
+## 9.3  Implementation
+
+The existing agent_actions table is replaced at schema creation time with a partitioned parent table. Data already present at Phase 1 launch (zero rows) requires no migration.
+
+CREATE TABLE agent_actions (
+  -- existing 21 columns plus new input_tokens, output_tokens columns --
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE agent_actions_2026_04 PARTITION OF agent_actions
+  FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
+
+CREATE TABLE agent_actions_2026_05 PARTITION OF agent_actions
+  FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
+-- etc. -- created monthly by maintenance job
+
+## 9.4  Retention Update
+
+The ADR-029 retention function is replaced with:
+
+-- Run monthly by cron under dev account --
+DROP TABLE IF EXISTS agent_actions_<month_91_days_ago>;
+
+This DROP executes in milliseconds regardless of row count. The nightly pg_dump (ADR-019) includes all partitions automatically. No change to backup configuration required.
+
+## 9.5  Deferral Condition
+
+If agent_actions has fewer than 10,000 rows at Phase 1 completion, this decision may be deferred to Phase 1.5 with no architectural penalty. The schema definition above must still be used from initial table creation — partitioning cannot be retroactively added to an existing table without a rebuild. The deferral window is: create partitioned schema on setup day, populate initial partitions, defer DROP-based retention and monthly partition creation until Phase 1.5.
+
+## 9.6  NIST Alignment
+
+| **Control** | **Title** | **Coverage** |
+| --- | --- | --- |
+| AU-9 | Protection of audit information | Partitioned retention ensures clean, auditable removal of expired records. No silent row-level purges. |
+| SI-12 | Information management and retention | Partition DROP enforces 90-day retention policy reliably at scale. |
+| AU-4 | Audit log storage capacity | Partition-based cleanup prevents unbounded table growth that would eventually threaten storage capacity thresholds (ADR-033 Section 4). |
+
+# 10.  Dashboard Extensions (ADR-033 Amendment)
+
+ADR-033 (Dashboard Metrics Framework) is amended to add the following metrics sourced from the new tables defined in this ADR. All metrics are Phase 1.
+
+| **Metric** | **Source Table** | **Display Format** | **Alert Condition** |
+| --- | --- | --- | --- |
+| Session token budget remaining | session_budget | Speedometer dial: consumed / ceiling | < 10% remaining → yellow. Escalation triggered → red. |
+| Input vs. output token ratio | agent_actions (input_tokens / output_tokens) | Stacked bar per session | Output tokens > 3x input tokens → investigate (possible runaway completion) |
+| Tool registry enabled count | tool_registry WHERE enabled = TRUE | Single number badge | Count decreases unexpectedly → alert |
+| Tools not reviewed > 90 days | tool_registry WHERE last_reviewed_at < NOW() - 90 days | Count badge | > 0 → yellow. ADR-031 review trigger. |
+| Active session trust tier distribution | sessions (trust_tier) | Badge: Tier 1 / 2 / 3 / 4 counts | Any Tier 4 session active → immediate alert (Phase 1 should be zero) |
+| Trust tier elevation requests | agent_actions WHERE action_type = 'trust_tier_elevation_request' | Count + last request timestamp | > 3 in 24h → investigate |
+| Crashed sessions (24h) | session_state WHERE status = 'crashed' | Count badge | > 0 → red. Link to Telegram alert. |
+| Workflow success rate (7 days) | workflow_runs | Percentage: completed / (completed + failed) | < 90% → yellow. < 75% → red. |
+| Active workflow step progress | workflow_runs + workflow_steps | Progress bar: steps_completed / steps_total | Stalled (no step update > 10 min) → alert |
+| agent_actions partition sizes | pg_catalog partition size query | Table: partition name / row count / size | Any partition > 500MB → review |
+
+# 11.  Implementation Sequence
+
+All items below are required before the first agent tool call is dispatched. Sequence is mandatory — each item depends on the prior.
+
+| **Step** | **Action** | **Account** | **Dependency** |
+| --- | --- | --- | --- |
+| 1 | Create session_budget table. Add input_tokens and output_tokens columns to agent_actions. | dev | PostgreSQL running |
+| 2 | Create tool_registry table. Populate with initial tool rows (all disabled=TRUE). | dev | Step 1 complete |
+| 3 | Add trust_tier and trust_tier_reason columns to sessions table. | dev | Step 1 complete |
+| 4 | Create session_state table. | dev | Step 1 complete |
+| 5 | Create workflow_runs and workflow_steps tables. | dev | Step 4 complete |
+| 6 | Create partitioned agent_actions table (if net-new install) OR note deferral condition. | dev | Step 1 complete |
+| 7 | Update middleware interceptor (ADR-027) with: pre-call token estimate, post-call token write, session_budget update, trust tier check against tool_registry. | openclaw | Steps 1–6 complete |
+| 8 | Update OpenClaw startup sequence with crash detection query against session_state. | openclaw | Step 4 complete |
+| 9 | Enable tool_registry rows for tools confirmed ready for Phase 1. | operator | Step 7 complete |
+| 10 | Verify ADR-031 change management log entry for this ADR. | operator | Step 9 complete |
+
+# 12.  ADR Cross-Reference
+
+| **ADR** | **Title** | **Relationship** |
+| --- | --- | --- |
+| ADR-018 | Task Classification Table | irreversibility_score values in tool_registry must match ADR-018 task classification. ADR-018 is the authoritative source; tool_registry inherits from it. |
+| ADR-021 | LayerModel Authority | Session trust tier (Section 6) is independent of model tier. Both must be satisfied before dispatch. Trust tier gates the action; model tier gates the reasoning quality. |
+| ADR-022 | Output Validation Pipeline | output_schema in tool_registry feeds the ADR-022 schema validation step. tool_registry formalizes what the pipeline should expect. |
+| ADR-027 | Middleware Interceptor | Interceptor is the enforcement point for token budget, trust tier, and tool registry checks. Three new pre-dispatch checks added by this ADR. |
+| ADR-028 | Operator Approval Workflow | Trust tier elevation requests use the ADR-028 Telegram Y/N gate. Token budget escalation also routes through ADR-028 approval flow. |
+| ADR-029 | agent_actions Audit Table | Two columns added (input_tokens, output_tokens). Partitioning adopted. 90-day retention mechanism changed from DELETE to DROP PARTITION. |
+| ADR-031 | Change Management | Adding a tool to tool_registry triggers an ADR-031 review if it introduces new egress destinations or a risk level above medium. Tools not reviewed in 90 days trigger periodic review. |
+| ADR-032 | NIST Compliance | Session trust tier closes AC-3 PARTIAL gap. Crash recovery closes IR-8 gap. Workflow state closes AU-2 PARTIAL gap for background automation events. |
+| ADR-033 | Dashboard Metrics | Section 10 of this ADR amends ADR-033 to add 10 new dashboard metrics sourced from the new tables. |
+| ADR-034 | Hardware Telemetry | No change. Hardware telemetry runs independently of agent runtime plumbing. |
+
+# 13.  NIST 800-53 Control Summary
+
+| **Control** | **Title** | **Prior Status** | **Status After ADR-035** | **Mechanism** |
+| --- | --- | --- | --- | --- |
+| AC-3 | Access enforcement | PARTIAL | MET | tool_registry permitted_personas + session trust tier min_trust_tier check |
+| AC-6 | Least privilege | PARTIAL | IMPROVED | Tool-level and session-level least privilege. Both enforced at dispatch. |
+| AU-2 | Event logging | PARTIAL | MET | workflow_runs + workflow_steps add background automation event coverage. |
+| AU-3 | Content of audit records | MET | MET (extended) | input_tokens + output_tokens added to agent_actions for full cost attribution. |
+| AU-4 | Audit log storage capacity | PARTIAL | MET | Partition-based retention prevents unbounded growth. |
+| AU-9 | Protection of audit information | PARTIAL | IMPROVED | Partitioned retention. session_state crash records preserved for IR review. |
+| CM-7(1) | Least functionality — periodic review | PARTIAL | IMPROVED | tool_registry last_reviewed_at enables 90-day periodic review trigger. |
+| IR-4 | Incident handling | PARTIAL | MET | Crash detection + Telegram alert on session crash. Workflow failure notification. |
+| IR-8 | Incident response plan | OPEN | PARTIAL → ADDRESSED | session_state is the technical basis for IR runbook crash recovery section. |
+| SC-5 | Denial of service protection | PARTIAL | IMPROVED | session_budget ceiling prevents token-consumption denial of service. |
+| SI-4(2) | Automated monitoring | PARTIAL | IMPROVED | Automated crash detection, workflow failure alerting, trust tier anomaly detection. |
+| SI-12 | Information management and retention | MET | MET (extended) | Partition DROP enforces retention reliably at scale. |
+
+*ADR-035 recorded April 3, 2026. All six gaps addressed. Implementation sequence in Section 11 is required before first agent tool call.*

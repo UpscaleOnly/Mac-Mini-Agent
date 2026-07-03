@@ -1,0 +1,240 @@
+OpenClaw Agent Server  |  Project Specification
+
+**PROJECT SPECIFICATION**
+
+federal_policy_brief
+
+*Federal Policy Daily Brief for State Benefit Agencies*
+
+April 11, 2026  |  Version 1.0  |  Prototype Persona
+
+| **Project Name** | federal_policy_brief |
+| --- | --- |
+| **Persona** | Prototype (scraping delegated to Automate) |
+| **Owner** | Sheldon Wheeler |
+| **Status** | SPECIFICATION — Not yet implemented |
+| **ADR References** | ADR-024 (Egress) · ADR-027 (Interceptor) · ADR-030 (Network Policy) · ADR-031 (Change Mgmt) |
+| **Prerequisites** | Phase 1 stack stable · Automate persona operational · Email sender domain configured |
+
+# 1.  Purpose
+
+This document specifies the federal_policy_brief project — an automated daily briefing service that monitors federal policy developments and delivers a curated summary to state health and human services agency leadership. The product targets agency commissioners, directors, deputy directors, policy staff, eligibility directors, and finance office leadership at state benefit agencies, departments of transitional assistance, and equivalent organizations. The governor’s office policy staff is a secondary audience.
+
+The brief covers federal legislation, Federal Register activity, agency guidance, and program-specific developments across Medicaid and CHIP, SNAP, TANF, FMAP, benefit eligibility, rulemaking, and claims processing. All source material is drawn exclusively from a curated whitelist of government, nonprofit research, and legislative tracking domains.
+
+# 2.  Audience
+
+Primary: State health and human services agency leadership and policy staff. This includes agencies known by various names across states — departments of health and human services, benefit agencies, departments of transitional assistance, departments of social services, and offices of Medicaid.
+
+Secondary: Governor’s office policy staff, state legislative fiscal offices, and state budget offices with oversight of benefit program appropriations.
+
+Market scope: 50 states plus territories. Every state has an HHS-equivalent agency. Federal policy velocity in 2026 makes this product acutely timely.
+
+# 3.  Product Deliverables
+
+## 3.1  Daily Weekday Brief
+
+**Cadence: **Monday through Friday, delivered by 6:00 AM Eastern Time.
+
+**Format: **PDF attachment via email.
+
+**Structure: **Executive summary (one paragraph, 3–5 sentences) followed by detailed sections organized by source category. Each section includes a headline, a plain-language summary of the development, the publishing agency or body, and the publication date. Internal navigation links connect the executive summary to detailed sections within the PDF.
+
+**Length target: **2–6 pages depending on daily volume. Designed to be read in under 10 minutes.
+
+## 3.2  Weekly Friday Digest
+
+**Cadence: **Every Friday, replacing the daily brief for that day.
+
+**Format: **PDF attachment via email.
+
+**Structure: **Week-in-review format. Consolidates the five daily briefs into a single narrative organized by program area (Medicaid/CHIP, SNAP, TANF, Cross-Program) rather than by date. Highlights the three to five most significant developments of the week. Includes a forward-looking section noting upcoming comment period deadlines, effective dates, and scheduled hearings.
+
+**Length target: **4–10 pages. Designed to be the definitive weekly reference document.
+
+## 3.3  Source Attribution Addendum
+
+Every daily brief and weekly digest includes a Source Attribution Addendum as the final section of the PDF. This addendum lists every source cited in the brief, providing full provenance for all summarized content.
+
+**Format per citation: **Publishing agency or organization name, document title, and publication date. Example: Centers for Medicare & Medicaid Services — “FY2026 State Medicaid Director Letter,” April 10, 2026.
+
+**No embedded URLs: **Source citations use the agency name and document title only. No clickable links are embedded in the email body or PDF attachment. This is a deliberate design decision to avoid spam filter triggers on outbound email. Recipients can locate the original document using the agency name and document title provided.
+
+**Ordering: **Citations appear in the same order as the corresponding content sections in the brief body.
+
+**Coverage: **Every factual claim, policy summary, or development described in the brief body has a corresponding entry in the Source Attribution Addendum. No uncited content.
+
+**Phase 2 — Subscriber Portal with Source Links: **After proof of concept, an authenticated web companion page will be introduced on the sender domain. Each daily brief will have a corresponding portal page where subscribers can access clickable links to every cited source document. Authentication is email-based — subscribers log in with the same address receiving the brief. This keeps the email and PDF link-free while giving subscribers one-click access to original documents when needed. Phase 1 addendum remains agency name, document title, and date only.
+
+# 4.  Source Domains
+
+All content is drawn exclusively from the following 16 whitelisted domains. No open crawl. No dynamically discovered sources. New domains require operator approval and an ADR-031 change management entry before activation.
+
+## 4.1  Federal Government Sources (8 domains)
+
+| **Domain** | **Agency** | **Content Scope** |
+| --- | --- | --- |
+| congress.gov | Federal legislation | Bill text, status, committee actions, floor votes |
+| federalregister.gov | Federal Register | Proposed rules, final rules, notices, comment periods |
+| hhs.gov | Dept. of Health and Human Services | Policy guidance, SMD letters, SHO letters, PIBs |
+| cms.gov | Centers for Medicare and Medicaid Services | Medicaid/CHIP bulletins, FMAP updates, waivers |
+| usda.gov | Dept. of Agriculture | SNAP policy memos, FNS guidance, program updates |
+| acf.hhs.gov | Administration for Children and Families | TANF guidance, program instructions, PIQs |
+| irs.gov | Internal Revenue Service | Guidance impacting benefit eligibility and reporting |
+| ssa.gov | Social Security Administration | SSI/SSDI policy, COLA updates, benefit eligibility |
+
+## 4.2  Nonprofit and Research Sources (4 domains)
+
+| **Domain** | **Organization** | **Content Scope** |
+| --- | --- | --- |
+| kff.org | Kaiser Family Foundation | Medicaid/CHIP analysis, state fact sheets, policy tracking |
+| cbpp.org | Center on Budget and Policy Priorities | SNAP, Medicaid, TANF analysis and state impact |
+| clasp.org | Center for Law and Social Policy | TANF, child care, workforce policy analysis |
+| nashp.org | Nat'l Academy for State Health Policy | State health policy innovations and Medicaid trends |
+
+## 4.3  Legislative Tracking Sources (4 domains)
+
+| **Domain** | **Organization** | **Content Scope** |
+| --- | --- | --- |
+| ncsl.org | National Conference of State Legislatures | Federal policy impact on states, legislative tracking |
+| nga.org | National Governors Association | Governor policy positions, federal-state coordination |
+| aphsa.org | American Public Human Services Assoc. | State HHS agency perspectives and policy positions |
+| macpac.gov | Medicaid and CHIP Payment and Access Commission | Medicaid/CHIP recommendations to Congress |
+
+## 4.4  Allowlist Governance
+
+The source domain list is curated and expandable. Adding a new domain requires operator approval, an entry in the Prototype persona network_policy.yaml file (ADR-030), a corresponding Little Snitch allowlist entry (ADR-024), and an ADR-031 change management log entry. The allowlist is a product differentiator — curated, vetted sources with clear provenance.
+
+# 5.  Coverage Scope
+
+## 5.1  Program Areas
+
+- Medicaid and CHIP — waivers, state plan amendments, FMAP changes, enrollment policy, managed care rules
+
+- SNAP — eligibility thresholds, work requirements, recertification, ABAWD policy, E&T programs
+
+- TANF — block grant policy, work participation rates, MOE requirements, reauthorization activity
+
+- Cross-program — developments affecting multiple benefit programs simultaneously
+
+## 5.2  Functional Areas
+
+- Rulemaking — proposed rules, final rules, interim final rules, advance notices of proposed rulemaking
+
+- Claims processing — changes to federal financial participation, cost allocation, and reimbursement
+
+- FMAP — federal medical assistance percentage updates, enhanced match changes, disaster FMAP
+
+- Benefit eligibility — income thresholds, categorical eligibility, continuous eligibility, redetermination
+
+- Comment periods — open Federal Register comment periods with deadlines
+
+# 6.  Technical Architecture
+
+## 6.1  Persona Responsibilities
+
+| **Persona** | **Role** | **Tasks** |
+| --- | --- | --- |
+| **Automate** | Nightly data collection | Scrape whitelisted domains on schedule. Parse and extract relevant content. Store raw scraped data in PostgreSQL. Chunk and embed into ChromaDB under federal_policy_brief namespace. |
+| **Prototype** | Brief generation and delivery | Query ChromaDB for new content since last brief. Generate executive summary and detailed sections via local inference (Tier 2). Generate PDF. Send email with PDF attachment. Log delivery to agent_actions. |
+
+## 6.2  Pipeline Flow
+
+- Automate persona scrapes all 16 source domains nightly (target: 1:00–4:00 AM ET).
+
+- Raw content stored in PostgreSQL with source domain, URL path, scrape timestamp, and content hash.
+
+- Content deduplication via hash comparison against prior scrape cycle.
+
+- New or changed content chunked and embedded into ChromaDB (federal_policy_brief namespace).
+
+- At 5:00 AM ET, Prototype persona queries ChromaDB for content added since prior brief.
+
+- Local inference (Tier 2, 14B model) generates executive summary and detailed sections.
+
+- Source Attribution Addendum generated from scrape metadata (agency name, document title, date).
+
+- PDF generated and attached to outbound email.
+
+- Email sent via own sender domain by 6:00 AM ET delivery target.
+
+- Delivery logged to agent_actions with recipient count, send status, and any bounce/error.
+
+## 6.3  Inference Routing
+
+Brief generation uses local Tier 2 inference (14B model) by default. This is a cost elimination decision — the brief runs daily and must not accumulate cloud API costs. If a daily brief fails quality validation (future implementation), escalation to Tier 3 (32B local) is permitted. Cloud escalation (OpenRouter) is not used for routine brief generation.
+
+# 7.  Email Infrastructure
+
+**Sender domain: **Own domain with SPF, DKIM, and DMARC configured. The sender address must not be a free email provider (Gmail, Outlook, etc.). State agency spam filters will block or quarantine email from non-authenticated sender domains.
+
+**Email body: **Plain text with a brief introduction (2–3 sentences) and a note that the full brief is attached as a PDF. No HTML email body. No embedded links in the email body. No images. This minimizes spam filter scoring.
+
+**Attachment: **Single PDF file. Filename format: Federal_Policy_Brief_YYYY-MM-DD.pdf (daily) or Federal_Policy_Weekly_Digest_YYYY-MM-DD.pdf (Friday digest).
+
+**Reply-to: **A monitored address for subscription management and recipient feedback.
+
+**Unsubscribe: **CAN-SPAM compliant unsubscribe mechanism. List-Unsubscribe header included in every email.
+
+**Sending infrastructure: **To be determined. Options include Amazon SES, Postmark, or Mailgun. Selection criteria: deliverability reputation, SPF/DKIM/DMARC support, transactional email pricing, bounce and complaint handling.
+
+# 8.  SaaS Product Path
+
+## 8.1  Go-to-Market Sequence
+
+- Internal proof of concept — generate the daily brief for the operator’s own review. Validate quality, coverage, and timeliness.
+
+- Beta distribution — free distribution to a small number of known contacts in state agency leadership. Gather feedback on format, content, delivery timing, and additional source domains to monitor.
+
+- Source domain expansion — evaluate and add source domains recommended by initial recipients. Each addition follows ADR-031 change management process. Initial recipients are the primary input for shaping the source allowlist beyond the launch set.
+
+- Paid subscription — monthly or annual subscription. Pricing informed by competitive analysis of existing federal register monitoring services.
+
+- Bundle with state_policy_brief — federal and state briefs sold as standalone or bundled offering.
+
+## 8.2  Competitive Positioning
+
+Existing federal register monitoring services (e.g., Regulations.gov tracking, GovTrack, FiscalNote) tend to be either free but unfocused or enterprise-priced and overbuilt for a state agency policy director who needs a concise daily read. This product occupies the gap: curated, program-specific, executive-level, affordable, delivered to the inbox as a PDF that can be read on a phone.
+
+## 8.3  Procurement Considerations
+
+State agencies typically purchase SaaS products through competitive procurement or sole-source micro-purchase thresholds. Research task: identify the micro-purchase threshold for state agency technology subscriptions in target states. Pricing at or below that threshold eliminates procurement overhead and enables direct purchase by program directors.
+
+## 8.4  Relationship to state_policy_brief
+
+This product covers federal policy developments only. State-level legislative tracking — bill status, state appropriations, state rulemaking bodies — is the scope of the companion state_policy_brief project, specified separately. When a federal development has a direct state legislative implication (e.g., a CMS waiver deadline requiring state legislative action), the federal brief notes the implication but does not track the state-level response. This boundary is a deliberate product design decision that enables standalone or bundled sales.
+
+# 9.  ADR and Network Policy Integration
+
+- ADR-024 (Little Snitch): All 16 source domains added to the egress allowlist on setup day.
+
+- ADR-030 (Network Policy): All 16 source domains added to prototype_network_policy.yaml and automate_network_policy.yaml. The email sending infrastructure domain added when selected.
+
+- ADR-031 (Change Management): Adding or removing a source domain triggers a change management entry.
+
+- ADR-027 (Interceptor): Brief generation sessions logged to agent_actions with session_id, token counts, and delivery status.
+
+- ADR-029 (Audit Table): Every scrape, generation, and delivery event recorded in agent_actions.
+
+# 10.  Open Items
+
+| **#** | **Item** | **Notes** |
+| --- | --- | --- |
+| 1 | Email sending infrastructure selection | Amazon SES, Postmark, or Mailgun. Evaluate deliverability, pricing, and DKIM support. |
+| 2 | Sender domain acquisition and DNS configuration | Purchase domain. Configure SPF, DKIM, DMARC records. Warm up sender reputation. |
+| 3 | PDF generation library selection | Python options: ReportLab, WeasyPrint, or FPDF2. Must support internal navigation links. |
+| 4 | Scraper implementation per source domain | Each domain requires custom parsing logic. Federal Register API available; most others require HTML scraping. |
+| 5 | Quality validation for generated brief content | Automated checks for completeness, accuracy against source material, and readability. Phase 2 consideration. |
+| 6 | Competitive pricing research | Research agent task: identify existing services and price points. |
+| 7 | State agency micro-purchase threshold research | Research agent task: identify thresholds in target states. |
+| 8 | Subscription management system | Email list management, opt-in/opt-out, bounce handling. Required before beta distribution. |
+| 9 | Authenticated subscriber portal design and hosting | Phase 2. Web companion page with clickable source links behind email-based authentication. Introduced after proof of concept. |
+| 10 | Source domain expansion from initial recipient feedback | Initial recipients will recommend additional source domains. Each evaluated and added per ADR-031 change management process. |
+
+# 11.  Version History
+
+| **Date** | **Version** | **Change** |
+| --- | --- | --- |
+| April 11, 2026 | 1.0 | Initial specification. 16 source domains, daily/weekly cadence, PDF-via-email delivery, Source Attribution Addendum, SaaS product path, state_policy_brief boundary, Phase 2 subscriber portal. |
+
+federal_policy_brief  |  Page
