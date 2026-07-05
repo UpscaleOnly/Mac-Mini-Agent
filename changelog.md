@@ -946,3 +946,164 @@ No code changes. No schema changes. No egress changes (Anthropic support is an e
 | Save Reddit thread URLs for ticket evidence | Next session |
 | Begin ADR-041 evaluation if Anthropic response is "no fix" or no response by May 31 | Per ADR-041 |
 | All Entry #013 next-steps unchanged | per Entry #013 |
+
+
+---
+
+## Entry #015 — Memory Snapshot Refresh & Project Instructions Rewrite — May 18, 2026
+
+### Summary
+
+First session under ADR-041 OPEN. Recognized stale memory snapshot at session start (anchored ~late April 2026; missing Entries #012-#014, A6 closure, Option B backup automation, Anthropic support ticket `215474340039847`, ADR-041 itself). Executed two-step in-session mitigation: (1) rewrote memory entries to current state, (2) replaced project system instructions with v2.0 reflecting current architecture and adding load-bearing session-startup protocol.
+
+### What Changed
+
+1. **Memory rewrite via `memory_user_edits` tool.** Three replaces (entries #2-#4, trimming trivia and correcting stale persona names from SnapCheck/AI Build/Personal to Prototype/Automate/Research), one delete (entry #1, obsolete upload-confirmation trivia), six adds (A6 governance, Option B backup automation, Anthropic ticket reference, ADR-041 reference, macOS Keychain secrets pattern, H4 scraper schedule). Final state: 16 entries, all current as of session start. **Per ADR-041 problem statement, these writes are not expected to propagate to fresh sessions until Anthropic resolves the underlying defect.** Writes performed anyway for in-session consistency and to position correctly if/when the defect is fixed.
+
+2. **Memory entry #11 (no-shell-execution architectural rule) captured as standalone text file** for operator's local memory file. Output: `~/Downloads/memory_entry_11.txt`. This addresses the operator's note that memory #11 had not previously been visible.
+
+3. **Project system instructions replaced wholesale.** Founding document dated March 15, 2026 ("Mac Mini Project") had become substantially stale: referenced wrong hardware (Mac Mini vs. actual MacBook Air M1), wrong SaaS project names (SnapChat/AI Build/Executive Briefing vs. actual federal_policy_brief/state_policy_brief/nh_municipal_transparency), wrong persona names (Work/Build/Personal vs. Prototype/Automate/Research), wrong project name (Mac Mini Project vs. OpenClaw), and listed "first tasks" that have been complete for months. New v2.0 instructions:
+   - **Lead with session-startup protocol** mandating that fresh sessions read the most recent changelog entry before any work, and treat the memory snapshot as stale by default.
+   - Updated all references to current state (hardware, personas, projects, stack, schema version).
+   - Added Governance Framework section listing active ADRs (the founding document had no mention of the ADR system, which is now central).
+   - Added Changelog Discipline section recording that the changelog is now load-bearing for cross-session continuity.
+   - Incorporated all operating principles that have emerged since March 15 (build-local-first, governance precedes features, token conservation, shell-execution hard boundary).
+   - Retained Identity/Ownership section in spirit ("wholly personal, no employer reference, ever") with updated project names.
+   - Retained file-delivery and session-closing patterns from existing memory entries.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| Claude project memory | 3 replaces, 1 delete, 6 adds (in-session only; defect-affected propagation) |
+| `memory_entry_11.txt` | Created as downloadable artifact for operator's local memory file |
+| Project system instructions field (Claude.ai project settings) | Replaced wholesale with v2.0 |
+| `openclaw_project_instructions_v2.md` | Created as canonical source for the new instructions; should be uploaded to project knowledge as part of A6 weekly refresh |
+| `changelog.md` | Updated — this entry |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-041 (OPEN) | This session is the first concrete operational response to the defect ADR-041 was drafted to address. The memory rewrite is symbolic-only (defect prevents propagation); the project-instructions rewrite is the load-bearing fix. ADR-041 evaluation cadence unchanged (still waiting on Anthropic ticket or May 31 deadline). |
+| ADR-039 §5.6 (A6) | New canonical-set file added: `openclaw_project_instructions_v2.md`. To be included in next Sunday's weekly refresh. |
+| ADR-014 (OPEN) | Memory #11 (formerly memory #11, now memory #10 after entry #1 deletion) preserved verbatim as the operative answer to ADR-014 pending formal closure. |
+
+### NIST Controls Touched
+
+| Control | Touch |
+|---------|-------|
+| CM-3 (Configuration Change Control) | Project instructions are configuration; v2.0 replacement is a change-control event documented here. |
+| CM-4 (Security Impact Analysis) | Risk assessment below covers impact. |
+| SA-9 (External Information System Services) | Memory defect is an external-service failure (Anthropic-side); session-startup protocol is the compensating control. |
+
+### Risk Assessment
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Memory rewrite does not propagate (defect-affected) | Known/accepted | Project knowledge + changelog are authoritative; ADR-041 tracks longer-term fix. |
+| New instructions might omit something operative from old instructions | Low | Old instructions retained in conversation history for one session as fallback; can be diffed against v2.0 if anything seems missing in next session. |
+| Future Claude sessions might not read the changelog despite the new startup protocol | Medium | Cannot fully eliminate; depends on Claude instance following project instructions. Mitigation: operator can verify session-start behavior by asking "what date is your memory snapshot anchored to" early in each session. |
+
+### Open Items
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| Verify Phase 9 results: H4 federalregister.gov scraper overnight 01:00 ET run May 17-18 | High | Carried forward from Session 23 close-out. Check `scraper_runs` for new success row. |
+| Verify Phase 9 results: launchd-fired backup overnight 04:00 ET run May 17-18 | High | Carried forward. Check `~/Documents/Mac-Mini-Backups-Interim/dumps/` for new file. |
+| Watch for Anthropic email response on ticket `215474340039847` | Medium | Daily check; if FAQ-style auto-close from Fin, escalate with "please escalate this conversation to a human support agent." |
+| Save Reddit thread URLs for ticket supplementary evidence | Low | Carried forward. |
+| Upload `openclaw_project_instructions_v2.md` to project knowledge | Medium | New canonical-set file; include in this Sunday's A6 refresh. |
+| All Entry #014 next-steps unchanged | various | Phase 9 verification, `.bak.s22` cleanup, IR Runbook amendment, missing `migration_004.sql`, ADR-038 §6 amendment, May 7 ReportLab/Platypus changelog entry, federal_policy_brief PDF library work, CMS scraper. |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Operator pastes v2.0 instructions into Claude.ai project settings | This session |
+| Verify both overnight runs (H4 scraper, launchd backup) | This session, as time permits |
+| Check email for Anthropic ticket response | Daily |
+| Upload v2.0 instructions file to project knowledge | This session or next Sunday A6 refresh |
+| Continue Entry #014 next-steps | Per priority |
+
+---
+
+*Sheldon Wheeler — OpenClaw Personal Stack — Entry #015 — May 18, 2026*
+
+
+## Entry #016 — Source-of-Truth Reconciliation & Bucket 1 Rescue — July 5, 2026
+
+### Summary
+
+First session after an approximately six-week pause (system dormant since mid-May 2026; last active work was Entry #015 on May 18). The session's goal shifted from feature work to resolving the memory/continuity problem at its root. Discovered bidirectional drift between the on-disk repo and Claude project knowledge — neither store was complete. Rescued 15 project-knowledge-only, load-bearing files onto disk and into Git. Established **disk + Git as the single canonical source of truth**, with project knowledge demoted to a one-way mirror. Confirmed the live PostgreSQL schema is version 6 (the v2.0 instructions' "schema version 4" was stale).
+
+### What Changed
+
+1. **Drift diagnosed as bidirectional.** The disk held the running system plus `migration_004.sql` and `migration_005.sql` — meaning the long-carried "reconstruct the missing migration_004" task was chasing a file that was on disk the whole time. Conversely, project knowledge held 15 governance and planning files that existed *nowhere else* (not on disk, not in Git, not in the old `~/mac-mini-agent` skeleton). A `SELECT * FROM schema_version` confirmed the live database is at **version 6** (Migration 005 / `scraper_runs`, May 17).
+
+2. **Bucket 1 rescue (15 files) recovered to disk in correct locations and committed.** ADRs 033–037 and `migration_003.sql` to top level; the six `federal_policy_brief` planning docs to `agents/prototype/projects/federal_policy_brief/`; the ADR-034 hardware-telemetry trio (`hw_collector.py`, `hw_collector_setup.py`, `hardware_metrics.sql`) to top level. Committed as **`f91e931`** and pushed to GitHub (`6256695..f91e931 main -> main`). Disk, local Git, and GitHub are now identical.
+
+3. **Source-of-truth model established.** Disk (`~/openclaw`) + Git are canonical. Project knowledge is a one-way mirror — files flow disk → project knowledge, never the reverse. Memory is never authoritative. This supersedes reliance on the memory snapshot and on the weekly full canonical-set re-upload as *load-bearing* mechanisms for cross-session state.
+
+4. **Two-file session model adopted.** `changelog.md` (append-only history) plus `CURRENT_STATE.md` (small read-first snapshot, overwritten each session). This entry consolidates the orphaned Entry #015 into `changelog.md` and retires the standalone per-entry file pattern (`changelog_entry_015.md`, `entry_011.md`).
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `ADR_033.docx`–`ADR_037.docx` (5 files) | Rescued to `~/openclaw/`, committed `f91e931` |
+| `migration_003.sql` | Rescued to `~/openclaw/`, committed `f91e931` |
+| `agents/prototype/projects/federal_policy_brief/` (6 docs) | Rescued to project folder, committed `f91e931` |
+| `hw_collector.py`, `hw_collector_setup.py`, `hardware_metrics.sql` | Rescued to `~/openclaw/`, committed `f91e931` |
+| `changelog.md` | Consolidated — Entry #015 folded in; this Entry #016 appended |
+| `CURRENT_STATE.md` | Created — read-first state snapshot (schema version 6) |
+| `changelog_entry_015.md`, `entry_011.md` | Retired — superseded by consolidated `changelog.md` |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-039 §5.6 (A6) | Weekly full re-upload is no longer load-bearing for state; superseded by disk+Git canonical model plus one-way mirror. A6 to be revisited/relaxed in the v3.0 instructions. |
+| ADR-041 (OPEN) | Third-party memory-injection evaluation is effectively mooted for the state-continuity problem — disk+Git+mirror solves it without any third-party memory tool. Candidate for closure as "status quo / not needed." |
+| ADR-014 (OPEN) | Unchanged and observed throughout — every disk change this session was performed by the operator; no agent/LLM shell execution. |
+
+### NIST Controls Touched
+
+| Control | Touch |
+|---------|-------|
+| CM-3 (Configuration Change Control) | The source-of-truth model change is a change-control event documented here. |
+| CP-9 (System Backup) | Rescued files now covered by Git/GitHub off-machine copy; previously single-copy in project knowledge. |
+| SA-9 (External Information System Services) | Compensating control for the Anthropic-side memory defect is now the canonical-disk model rather than the memory feature. |
+
+### Risk Assessment
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Rescued files were sole copies in project knowledge | High → resolved | Now triplicated across disk, local Git, and GitHub. |
+| Project knowledge still contains stale/duplicate/orphan files | Medium | To be resolved in the project-knowledge rebuild (next). |
+| `CURRENT_STATE.md` drifts if not refreshed at session close | Medium | Overwrite-at-close discipline; the file is small and cheap to keep current. |
+
+### Open Items
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| Rebuild project knowledge as a clean one-way mirror of disk | High | Remove orphans/duplicates; upload only current canonical files. |
+| `federal_policy_brief` delivery blocked on ADR-039 decisions | High | Email provider (SES vs Postmark vs Mailgun) + sender domain purchase. The gate to shipping the flagship. |
+| PostgreSQL password rotation | Medium | Still the default placeholder. |
+| Verify H4 scraper + launchd backup overnight runs | Medium | Never confirmed before the pause; system dormant since mid-May. |
+| ADR-041 formal closure decision | Low | Likely "not needed" given the new model. |
+| v3.0 instructions refresh | Medium | Correct schema 4 → 6; relax the weekly-reupload mandate; point session-start at `CURRENT_STATE.md`. |
+| Bucket 4 disk cleanup | Low | `.bak` files and `old_skeleton/` — housekeeping. |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Rebuild project knowledge as a one-way mirror of disk | Next |
+| Rebalance governance vs. production, leaning toward production | This session or next |
+| `federal_policy_brief`: resolve email provider + sender domain to unblock delivery | Priority when production work resumes |
+| Refresh instructions to v3.0 | With the rebalance |
+
+---
+
+*Sheldon Wheeler — OpenClaw Personal Stack — Entry #016 — July 5, 2026*
