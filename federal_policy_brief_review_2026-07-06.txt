@@ -1,0 +1,77 @@
+FEDERAL POLICY BRIEF
+Coverage: 2026-06-29 to 2026-07-06
+================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+CMS issued updates regarding Medicaid eligibility verification, alongside a major proposed rule detailing Medicare home health payment rate adjustments for Calendar Year 2027. Proposed rules also cover Durable Medical Equipment (DMEPOS) benefits, clarifying encounter requirements and modifying provider enrollment rules. Separately, USDA plans to consolidate SNAP quality control and disqualification records into a new system while establishing funding through 2031 for the Organic Certification Cost Share Program. Federal activity also includes FDA determinations regarding drug approvals and proposals extending tobacco product registration requirements to foreign owners.
+
+MEDICAID/CHIP
+-------------
+CMS has issued updates regarding eligibility verification and program requirements for Medicaid and CHIP. One notice announces a new matching program between CMS and the Department of Veterans Affairs (VA) to verify eligibility for insurance affordability programs under the Patient Protection and Affordable Care Act. Separately, documentation addresses specific community engagement requirements that apply within the scope of the Medicaid Program.
+
+A major proposed rule details routine updates to Medicare home health payment rates for Calendar Year 2027. This proposal includes adjustments to behavior factors, recalibration of case-mix weights, and updates to low-utilization payment thresholds. The rule also discusses provisions for home health palliative care services and proposes changes to the Home Health Quality Reporting Program (HH QRP) in alignment with an expanded Value Based Purchasing Model.
+
+Additionally, the proposed rule covers several policy areas related to Durable Medical Equipment, Prosthetics, Orthotics, and Supplies (DMEPOS). These updates include clarifying face-to-face encounter requirements for DMEPOS item replacement, modifying provider and supplier enrollment rules, expanding DME benefits for infusion pumps and drugs, and changing data collection requirements concerning the DMEPOS Competitive Bidding Program.
+
+SNAP
+----
+The following documents detail proposed revisions and updates concerning data collection, program administration, and specific state-level assistance programs.
+
+Significant changes are proposed regarding how SNAP quality control and disqualification records are managed. The USDA plans to update its system of records by consolidating information on disqualified recipients and quality control (QC) data into a single new record (FNA-5). This modification will cover QC records previously held under an older system, eliminating duplicative records and ensuring continued Privacy Act coverage for program integrity.
+
+In terms of state operations, the Food and Nutrition Administration is soliciting comments on revisions to the information collection required for states administering Disaster Supplemental Nutrition Assistance Program (D-SNAP) waivers. Additionally, funding has been established through 2031 for the Organic Certification Cost Share Program (OCCSP), which includes provisions allowing state agencies to enter into agreements to administer this program.
+
+General administrative updates are also underway across several areas. The Farm Service Agency is requesting public comment on revisions to information collections used to verify statutory eligibility and secure loan funds under General Program Administration. Furthermore, the USDA has issued notices inviting comments on revising data collection for specific programs, including the OneRD Loan Guarantee Program and the renewal of data required for Build America, Buy America waivers.
+
+CROSS-PROGRAM
+-------------
+Federal regulatory activity continues across drug, device, and public health data collection fronts. The FDA issued determinations regarding specific drugs, including confirming that Vasopressin was not withdrawn from sale for safety or effectiveness, while also withdrawing approval for 34 new drug applications because the products are no longer marketed. Furthermore, the FDA is advancing its regulatory scope by proposing regulations to extend establishment registration and product listing requirements for tobacco products to include foreign owners and operators.
+
+SOURCE ATTRIBUTION ADDENDUM
+===========================
+
+Medicaid/CHIP
+-------------
+  - Health and Human Services Department, Centers for Medicare & Medicaid Services - Privacy Act of 1974; Matching Program (2026-07-06)
+  - Health and Human Services Department, Centers for Medicare & Medicaid Services - Calendar Year 2027 Home Health Prospective Payment System (HH PPS) Rate Update; Requirements for the HH Quality Reporting Program and the Expanded HH Value-Based Purchasing Model; Medicare Provider Enrollment, Durable Medical Equipment (DME), and DME, Prosthetics, Orthotics, and Supplies (DMEPOS) Policies (2026-07-06)
+  - Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicaid Program; Community Engagement Requirement for Certain Individuals (2026-06-29)
+
+SNAP
+----
+  - Agriculture Department, Commodity Credit Corporation - Organic Certification Cost Share Program (OCCSP) (2026-07-06)
+  - Agriculture Department, Farm Service Agency - Information Collection Request; General Program Administration (2026-07-06)
+  - Agriculture Department, Rural Utilities Service - 60-Day Notice of Request for Revision of a Currently Approved Information Collection: OneRD Loan Guarantee Program (2026-07-06)
+  - Agriculture Department, Food and Nutrition Administration - Privacy Act of 1974; System of Records (2026-06-29)
+  - Agriculture Department, Food and Nutrition Administration - Agency Information Collection Activities: Disaster Supplemental Nutrition Assistance Program (D-SNAP) Reporting and FNS-292A/FNS-292B Recordkeeping (2026-06-29)
+  - Agriculture Department, Food and Nutrition Administration - Privacy Act of 1974; System of Records (2026-06-29)
+  - Agriculture Department, Animal and Plant Health Inspection Service - Notice of Request for Revision to and Extension of Approval of an Information Collection; Importation of Swine Hides, Bird Trophies, and Deer Hides (2026-06-29)
+  - Agriculture Department, Office of the Chief Financial Officer - Renewal of Optional Form OF-2211 Build America Buy America Waiver Request Data Collection (2026-06-29)
+  - Agriculture Department, Energy and Environmental Policy Office - Technical Guidelines for the Production of Regenerative Agricultural Biofuel Feedstocks (2026-06-29)
+  - Agriculture Department, Forest Service - Notice of Public Comments on Section 133 of the Expanding Public Lands Outdoor Recreation Experiences (EXPLORE) Act (2026-06-29)
+
+Cross-Program
+-------------
+  - Health and Human Services Department, Food and Drug Administration - Determination That VASOPRESSIN IN SODIUM CHLORIDE (vasopressin) 0.9%, Injection, 50 units/50 milliliters (1 unit/milliliters) Was Not Withdrawn From Sale for Reasons of Safety or Effectiveness (2026-07-06)
+  - Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Submission for Office of Management and Budget Review; Comment Request; Premarket Approval of Medical Devices (2026-07-06)
+  - Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Proposed Collection; Comment Request; Biologics License Applications, Procedures and Requirements (2026-07-06)
+  - Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Submission for Office of Management and Budget Review; Comment Request; Administrative Practices and Procedures; Formal Hearings (2026-07-06)
+  - Health and Human Services Department, Centers for Disease Control and Prevention - Proposed Data Collection Submitted for Public Comment and Recommendations (2026-07-06)
+  - Health and Human Services Department, Centers for Disease Control and Prevention - Proposed Data Collection Submitted for Public Comment and Recommendations (2026-07-06)
+  - Health and Human Services Department, Centers for Disease Control and Prevention - Proposed Data Collection Submitted for Public Comment and Recommendations (2026-07-06)
+  - Health and Human Services Department, National Institutes of Health - Proposed Collection; 60-day Comment Request; Generic Clearance for NIH Citizen Science and Crowdsourcing Projects (Office of the Director) (2026-07-06)
+  - Health and Human Services Department, Food and Drug Administration - Expedited Investigational New Drug Pilot Program; Request for Information; Correction (2026-07-06)
+  - Health and Human Services Department, Agency for Healthcare Research and Quality - Patient Safety Organizations: Voluntary Relinquishment for the Cassatt Patient Safety Organization (2026-07-06)
+  - Health and Human Services Department - Temporary Placement of 7-Hydroxymitragynine Above a Specified Threshold in Schedule I; Request for Information (2026-07-06)
+  - Health and Human Services Department, Food and Drug Administration - Endo Operations Limited, et al.; Withdrawal of Approval of 34 New Drug Applications (2026-07-06)
+  - Health and Human Services Department, Substance Abuse and Mental Health Services Administration - Agency Information Collection Activities: Submission for OMB Review; Comment Request (2026-07-06)
+  - Health and Human Services Department, National Institutes of Health - National Institute of Environmental Health Sciences; Notice of Meeting (2026-06-29)
+  - Health and Human Services Department, National Institutes of Health - National Heart, Lung, and Blood Institute; Notice of Closed Meeting (2026-06-29)
+  - Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Submission for Office of Management and Budget Review; Comment Request; New Animal Drugs for Minor Use and Minor Species (2026-06-29)
+  - Health and Human Services Department, Food and Drug Administration - Determination of Regulatory Review Period for Purposes of Patent Extension; VYALEV (2026-06-29)
+  - Health and Human Services Department, National Institutes of Health - Office of the Director, National Institutes of Health; Notice of Closed Meeting (2026-06-29)
+  - Health and Human Services Department, Food and Drug Administration - Establishment Registration and Product Listing for Tobacco Products (2026-06-29)
+  - Health and Human Services Department, Centers for Disease Control and Prevention - Advisory Committee on Breast Cancer in Young Women; Notice of Charter Renewal (2026-06-29)
+  - Health and Human Services Department, Health Resources and Services Administration - Agency Information Collection Activities: Submission to OMB for Review and Approval; Public Comment Request; Rural Health Care Coordination Program Performance Improvement Measures, OMB No. 0906-0024-Revision (2026-06-29)
+  - Health and Human Services Department, Food and Drug Administration - Cellular, Tissue, and Gene Therapies Advisory Committee; Notice of Meeting; Establishment of a Public Docket; Request for Comments-Biologics License Application (BLA) 125842 From Capricor, Inc. for Deramiocel (Human Allogeneic Cardiosphere-Derived Cells) (2026-06-29)
+  - Health and Human Services Department, Food and Drug Administration - Medical Devices; Orthopedic Devices; Classification of the Medial Knee Implanted Shock Absorber (2026-06-29)
