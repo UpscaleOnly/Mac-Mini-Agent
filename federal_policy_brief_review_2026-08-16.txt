@@ -1,0 +1,161 @@
+FEDERAL POLICY BRIEF
+Coverage: 2026-07-27 to 2026-08-16
+================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+The Health and Human Services Department, Centers for Medicare & Medicaid Services issued two major final rules on August 3, 2026, updating payment rates for Inpatient Rehabilitation Facilities and establishing the FY 2027 Hospice Wage Index. Furthermore, CMS published a Privacy Act matching program notice on July 29, 2026, re-establishing data sharing with OPM regarding qualified health plans. Separately, the Health and Human Services Department, Children and Families Administration issued a Privacy Act matching program notice on July 27, 2026, enabling VA data use for State Public Assistance Agencies. Other key actions include the Agriculture Department, Food and Nutrition Administration's notice of annual rate adjustments for the Child and Adult Care Food Program, alongside multiple final rules from various agencies classifying medical devices into Class II. The remaining activity included numerous notices and information collection requests across CMS, FDA, IRS, and other cross-program areas concerning regulatory compliance and data burden assessments.
+
+CMS (MEDICAID/CHIP/MEDICARE)
+----------------------------
+A final rule issued by the Health and Human Services Department, Centers for Medicare & Medicaid Services, on August 3, 2026, updates the prospective payment rates for inpatient rehabilitation facilities (IRFs) for Federal fiscal year 2027. This rule also finalizes the third of a three-year phaseout of the rural adjustment and includes updates to the IRF Quality Reporting Program and the Durable Medical Equipment, Prosthetics, Orthotics, and Supplies (DMEPOS) Competitive Bidding Program. Additionally, this final rule provides solicitations for public comments on alternative data sources for the IRF PPS wage index and summarizes a request for information regarding potential future IRF PPS payment reform.
+
+Another final rule from the Health and Human Services Department, Centers for Medicare & Medicaid Services, published on August 3, 2026, updates the hospice wage index, payment rates, and aggregate cap amount for fiscal year 2027. This rule also finalizes changes to face-to-face encounter regulations and discharge from hospice care regulations. Furthermore, this final rule includes a summary of comments received on requests for information concerning community-based palliative care, the construction of a hospice specific wage index, and the overlap between hospice and medical aid in dying laws, while also finalizing changes to the Hospice Quality Reporting Program.
+
+A Privacy Act matching program notice from the Health and Human Services Department, Centers for Medicare & Medicaid Services, published on July 29, 2026, announces the re-establishment of a matching program with the Office of Personnel Management. This matching program provides CMS and State Administering Entities with OPM data to use in determining eligibility for enrolling in a qualified health plan through an exchange established under the ACA, for insurance affordability programs certifications of exemption, and for making eligibility redeterminations and renewals.
+
+Separately, on July 27, 2026, a notice from the Health and Human Services Department, Centers for Medicare & Medicaid Services, announced the approval of the National Committee for Quality Assurance's renewal application for Medicare Advantage "deeming authority" of Health Maintenance Organizations and Preferred Provider Organizations for a term of six years. On the same date, a notice from the Health and Human Services Department, Centers for Medicare & Medicaid Services, provided a quarterly listing of program issuances covering April through June 2026, detailing CMS manual instructions, substantive and interpretive regulations, and other Federal Register notices related to both the Medicare and Medicaid programs.
+
+SNAP
+----
+A notice issued by the Agriculture Department, Food and Nutrition Administration, published 2026-07-27, announces annual adjustments to payment rates for the Child and Adult Care Food Program. These rate changes cover national average payments for meals and snacks in various settings, including child care centers, outside-school-hours care centers, at-risk afterschool care centers, and adult day care centers. The notice also adjusts food service payment rates for day care homes and administrative reimbursement rates for sponsoring organizations of day care homes.
+
+These adjustments reflect changes in the Consumer Price Index and are made annually each July as required by law. Furthermore, the notice details specific rate adjustments to account for higher costs associated with providing meals in Alaska, Guam, Hawaii, Puerto Rico, and Virgin Islands.
+
+TANF
+----
+A final rule issued by the Health and Human Services Department, Children and Families Administration, on 2026-08-03 removes duplicative sections from the Family Violence Prevention and Services Program regulations to streamline access to these rules for the public. Separately, a notice published on 2026-07-28 indicates that ANA is issuing final interpretive rules, general statements of policy, and rules relating to Fiscal Year 2026 Notices of Funding Opportunity (NOFOs) for Economic Advancement Grants for Local Empowerment (EAGLE), AI3 Action Institute--Artificial Intelligence for American Indians (AI3 Action Institute), and the National Center for Native Training and Technical Assistance (NCNTTA).
+
+Regarding data collection, an information collection request published by the Health and Human Services Department, Children and Families Administration, on 2026-07-27 details that ACF Office of Refugee Resettlement is requesting a 3-year extension with changes to the Mental Health Assessment Form and Onsite Health Intervention Form. Proposed revisions include merging two forms into the single Onsite Health Intervention (OHI) Form and revising the request to allow for sharing health information with the Department of Homeland Security in specific circumstances.
+
+Finally, a Privacy Act matching program notice from the Health and Human Services Department, Children and Families Administration, published on 2026-07-27, announces the re-establishment of a matching program between the Department of Veterans Affairs (VA) and State Public Assistance Agencies (SPAAs). This program provides SPAAs with VA's compensation and pension data to assist in determining eligibility for certain public assistance benefits.
+
+CROSS-PROGRAM
+-------------
+Based on the provided list of government documents, here is a detailed analysis categorized by issuing agency and document type.
+
+Analysis of Government Documents
+
+I. Health & Human Services Department (HHS) Agencies
+
+A. Food and Drug Administration (FDA)
+The FDA dominates the health-related notices, focusing heavily on clinical trial guidelines and medical device classification.
+
+Clinical Trial Guidance (Notices): Items [38], [39], and [40] are a series of final guidance documents concerning cancer clinical trials. They aim to standardize eligibility criteria by addressing:
+[38] Performance Status (expanding inclusion criteria).
+[39] Washout Periods and Concomitant Medications.
+[40] Laboratory Values (avoiding unjustified exclusions).
+Medical Device Classification (Final Rules): Items [49] and [50] are final rules classifying specific medical devices into Class II. This action is intended to provide reasonable assurance of safety/effectiveness while potentially reducing regulatory burdens.
+[49]: Non-medicated topical formulation for erectile dysfunction.
+[50]: Active noise attenuation system for infant incubators.
+Information Collection Requests (ICRs): Items [38], [39], and [40] are part of a larger effort to guide industry practices, while [48] is an ICR related to radioactive drug research committees submitted to OMB.
+
+B. Centers for Disease Control and Prevention (CDC)
+Information Collection Request: Item [51] is a request for public comment on a continuing information collection project regarding Customer Surveys Generic Clearance for the National Center for Health Statistics, fulfilling Paperwork Reduction Act requirements.
+
+C. National Institutes of Health (NIH)
+Advisory Meeting Notice: Item [42] is an amended notice for an advisory committee meeting concerning environmental health sciences.
+
+D. Health Resources and Services Administration (HRSA)
+Information Collection Request: Item [41] seeks public comment on a proposed data collection project related to National Provider Identifiers and CMS Certification Numbers, complying with the Paperwork Reduction Act.
+
+II. Treasury Department Agencies
+
+A. Internal Revenue Service (IRS)
+The IRS notices are highly focused on compliance with the Paperwork Reduction Act of 1995 (PRAW), soliciting public comment on the burden associated with various data collection requirements.
+
+Information Collection Requests (ICRs): Items [44], [45], and [46] request comments regarding the administrative burden related to specific forms and disclosures:
+[44]: Employee Plans Compliance Resolution System.
+[45]: Form 8655 requirements.
+[46]: Disclosure of returns/return information for tax administration purposes.
+Open Meeting Notice: Item [43] is a notice for an open meeting of the Taxpayer Advocacy Panel, soliciting public ideas to improve customer service at the IRS.
+
+III. Agriculture Department Agency
+
+A. Animal and Plant Health Inspection Service (APHIS)
+Pest Risk Analysis Notice: Item [47] announces the availability of a pest risk analysis for the interstate movement of fresh turmeric rhizomes from Puerto Rico. This is a trade/plant health notice determining that designated phytosanitary measures are sufficient to mitigate risks.
+
+Summary Table by Document Type
+
+Document Type - Count - Primary Agencies Involved - Key Subject Matter Areas
+Information Collection Request (ICR) - 5 - FDA, HRSA, CDC, IRS - Compliance with PRAW; Data collection burden assessment (e.g., provider IDs, forms, surveys).
+Notice/Guidance - 4 - FDA, USDA APHIS, IRS - Clinical trial standards (cancer); Pest risk analysis for trade goods.
+Final Rule - 2 - FDA - Classification of medical devices into Class II.
+Open Meeting Notice - 1 - IRS - Public input on customer service improvement.
+Advisory Committee Notice - 1 - NIH - Scheduling and notice for expert consultation meeting.
+
+SOURCE ATTRIBUTION ADDENDUM
+===========================
+
+CMS (Medicaid/CHIP/Medicare)
+----------------------------
+  - (final rule) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicare Program; Inpatient Rehabilitation Facility Prospective Payment System for Federal Fiscal Year 2027 and Updates to the IRF Quality Reporting Program (2026-08-03)
+  - (final rule) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicare Program; FY 2027 Hospice Wage Index and Payment Rate Update and Hospice Quality Reporting Program Requirements (2026-08-03)
+  - (Privacy Act matching program notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Privacy Act of 1974; Matching Program (2026-07-29)
+  - (notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicare Program; Approved Renewal of Deeming Authority of the National Committee for Quality Assurance (NCQA) for Medicare Advantage Health Maintenance Organizations and Preferred Provider Organizations (2026-07-27)
+  - (notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicare and Medicaid Programs; Quarterly Listing of Program Issuances-April Through June 2026 (2026-07-27)
+
+SNAP
+----
+  - (notice) Agriculture Department, Food and Nutrition Administration - Child and Adult Care Food Program: National Average Payment Rates, Day Care Home Food Service Payment Rates, and Administrative Reimbursement Rates for Sponsoring Organizations of Day Care Homes for the Period July 1, 2026, Through June 30, 2027 (2026-07-27)
+
+TANF
+----
+  - (final rule) Health and Human Services Department, Children and Families Administration - Reducing Bureaucracy and Burden in Family Violence and Prevention Services (2026-08-03)
+  - (notice) Health and Human Services Department, Children and Families Administration - Notice of Final Issuance on the Adoption of Administration for Native Americans Program Policies and Procedures (2026-07-28)
+  - (information collection request) Health and Human Services Department, Children and Families Administration - Proposed Information Collection Activity; Mental Health Assessment Form and Onsite Health Intervention Form (2026-07-27)
+  - (Privacy Act matching program notice) Health and Human Services Department, Children and Families Administration - Privacy Act of 1974; Matching Program (2026-07-27)
+
+Cross-Program
+-------------
+  - (information collection request) Treasury Department, Internal Revenue Service - Agency Information Collection Activities; Comment Request on U.S. Tax-Exempt Organization Returns and Related Forms. (2026-08-03)
+  - (document) Treasury Department, Internal Revenue Service - Section 898(c) Transition Rule for Allocating Foreign Taxes and Section 960(d)(4) Foreign Tax Credit Disallowance (2026-08-03)
+  - (information collection request) Treasury Department, Internal Revenue Service - Agency Information Collection Activities; Comment Request on Application for Certificate Discharging Property Subject to Estate Tax Lien (2026-08-03)
+  - (information collection request) Treasury Department, Internal Revenue Service - Agency Information Collection Activities; Comment Request on Export Exemption Certificate (2026-08-03)
+  - (information collection request) Agriculture Department, Agricultural Marketing Service - Tobacco Report: Notice of Request for an Extension of a Currently Approved Information Collection (2026-08-03)
+  - (information collection request) Health and Human Services Department, Health Resources and Services Administration - Agency Information Collection Activities: Submission to OMB for Review and Approval; Public Comment Request; National Health Service Corps Scholar/Students to Service Travel Worksheet, OMB No. 0906-0087-Revision (2026-08-03)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Assessing the Irritation and Sensitization Potential of Transdermal and Topical Delivery Systems for ANDAs; Revised Draft Guidance for Industry; Availability (2026-08-03)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Assessing Adhesion With Transdermal and Topical Delivery Systems for ANDAs; Guidance for Industry; Availability (2026-08-03)
+  - (notice) Health and Human Services Department, National Institutes of Health - National Institute of Environmental Health Sciences; Notice of Partially Closed Meeting (2026-08-03)
+  - (notice) Health and Human Services Department, National Institutes of Health - National Institute of Arthritis and Musculoskeletal and Skin Diseases; Notice of Partially Closed Meeting (2026-08-03)
+  - (notice) Health and Human Services Department, National Institutes of Health - National Institute of Nursing Research; Notice of Partially Closed Meeting (2026-08-03)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Biosimilar and Interchangeable Biosimilar Products: Considerations for Container Closure Systems and Device Constituent Parts; Draft Guidance for Industry; Availability (2026-08-03)
+  - (notice) Health and Human Services Department, Health Resources and Services Administration - Notice Regarding 340B Rebate Model Pilot Program (2026-08-03)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Angela Anatilde Baquero: Final Debarment Order (2026-08-03)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Ricardo Andres Acuna: Final Debarment Order (2026-08-03)
+  - (notice) Health and Human Services Department, Substance Abuse and Mental Health Services Administration - Current List of HHS-Certified Laboratories and Instrumented Initial Testing Facilities Which Meet Minimum Standards To Engage in Urine and Oral Fluid Drug Testing for Federal Agencies (2026-08-03)
+  - (document) Health and Human Services Department, Food and Drug Administration - Modification of Certain Terminology in Title 21; Reopening of the Comment Period (2026-08-03)
+  - (advisory committee meeting notice) Health and Human Services Department, National Institutes of Health - National Center for Advancing Translational Sciences; Notice of Meeting (2026-08-03)
+  - (advisory committee meeting notice) Health and Human Services Department, National Institutes of Health - National Institute of Mental Health; Notice of Closed Meeting (2026-08-03)
+  - (advisory committee meeting notice) Health and Human Services Department, National Institutes of Health - National Institute of Allergy and Infectious Diseases; Notice of Meeting (2026-08-03)
+  - (notice) Agriculture Department, Forest Service - Black Hills National Forest; Wyoming; Bear Lodge Rare Earth Project (2026-07-29)
+  - (information collection request) Agriculture Department, Animal and Plant Health Inspection Service - Notice of Request for Revision to and Extension of Approval of an Information Collection; Importation of Beef and Ovine Meat From Uruguay and Beef From Argentina, Brazil, and Paraguay (2026-07-29)
+  - (final rule) Agriculture Department, Office of the Secretary - Highly Erodible Land and Wetland Conservation (2026-07-29)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Product-Specific Guidances; Revised Draft Guidances for Industry; Availability (2026-07-29)
+  - (notice) Health and Human Services Department, National Institutes of Health - Notice of Diabetes Mellitus Interagency Coordinating Committee Meeting (2026-07-29)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Statement of Organization, Functions, and Delegations of Authority (2026-07-29)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Medical Devices; Radiology Devices; Classification of the Phase-Changing Fiducial Marker for Radiation Therapy (2026-07-29)
+  - (notice) Health and Human Services Department, Centers for Disease Control and Prevention - Notice of Award of a Sole Source Cooperative Agreement To Fund the Public Health Foundation (2026-07-29)
+  - (information collection request) Treasury Department, Internal Revenue Service - Agency Information Collection Activities; Requesting Comment Notice of Application for Reward for Original Information (2026-07-28)
+  - (information collection request) Agriculture Department, Animal and Plant Health Inspection Service - Notice of Request for Revision to and Extension of Approval of an Information Collection; Volunteer Service Agreements and Volunteer Service Time and Attendance Record (2026-07-28)
+  - (advisory committee meeting notice) Agriculture Department, Forest Service - Deschutes-Ochoco SRS Resource Advisory Committee (2026-07-28)
+  - (advisory committee meeting notice) Agriculture Department, Forest Service - Olympic Peninsula Resource Advisory Committee (2026-07-28)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Fee Rate for Using a Priority Review Voucher in Fiscal Year 2026; Correction (2026-07-28)
+  - (information collection request) Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Proposed Collection; Comment Request; Expanded Access to Investigational Drugs for Treatment Use (2026-07-28)
+  - (advisory committee meeting notice) Health and Human Services Department, Food and Drug Administration - Pediatric Advisory Committee (PAC); Notice of Meeting; Establishment of a Public Docket; Request for Comments (2026-07-28)
+  - (notice) Health and Human Services Department, Centers for Disease Control and Prevention - Designation of a Class of Employees for Addition to the Special Exposure Cohort (2026-07-28)
+  - (advisory committee meeting notice) Health and Human Services Department, National Institutes of Health - Center for Scientific Review; Notice of Closed Meeting (2026-07-28)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Cancer Clinical Trial Eligibility Criteria: Performance Status; Guidance for Industry, Institutional Review Boards, and Clinical Investigators; Availability (2026-07-28)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Cancer Clinical Trial Eligibility Criteria: Washout Periods and Concomitant Medications; Guidance for Industry, Institutional Review Boards, and Clinical Investigators; Availability (2026-07-28)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Cancer Clinical Trial Eligibility Criteria: Laboratory Values; Guidance for Industry, Institutional Review Boards, and Clinical Investigators; Availability (2026-07-28)
+  - (information collection request) Health and Human Services Department, Health Resources and Services Administration - Agency Information Collection Activities: Proposed Collection: Public Comment Request; Information Collection Request Title: Applicant Organizational National Provider Identifiers and Centers for Medicare & Medicaid Services Certification Numbers Form (2026-07-28)
+  - (advisory committee meeting notice) Health and Human Services Department, National Institutes of Health - National Institute of Environmental Health Sciences; Amended Notice of Meeting (2026-07-28)
+  - (notice) Treasury Department, Internal Revenue Service - Open Meeting of the Taxpayer Advocacy Panel Joint Committee (2026-07-27)
+  - (information collection request) Treasury Department, Internal Revenue Service - Agency Information Collection Activities; Comment Request on Employee Plans Compliance Resolution System (2026-07-27)
+  - (information collection request) Treasury Department, Internal Revenue Service - Agency Information Collection Activities: Comment Request on the Burden Related to the Requirements for Completing and Submitting Form 8655 (2026-07-27)
+  - (information collection request) Treasury Department, Internal Revenue Service - Agency Information Collection Activities: Comment Request on the Burden Related to the Disclosure of Returns and Return Information in Connection With Written Contracts or Agreements for the Acquisition of Property or Services for Tax Administration Purposes (2026-07-27)
+  - (notice) Agriculture Department, Animal and Plant Health Inspection Service - Notice of Availability of Pest Risk Analysis for the Interstate Movement of Fresh Turmeric Rhizomes for Consumption From Puerto Rico Into the Continental United States (2026-07-27)
+  - (information collection request) Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Submission for Office of Management and Budget Review; Comment Request; Radioactive Drug Research Committees (2026-07-27)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Medical Devices; Gastroenterology-Urology Devices; Classification of the Non-Medicated Topical Formulation for Treatment of Erectile Dysfunction (2026-07-27)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Medical Devices; General Hospital and Personal Use Devices; Classification of the Active Noise Attenuation System for Infant Incubators (2026-07-27)
+  - (information collection request) Health and Human Services Department, Centers for Disease Control and Prevention - Proposed Data Collection Submitted for Public Comment and Recommendations (2026-07-27)
