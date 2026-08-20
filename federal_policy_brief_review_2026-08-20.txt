@@ -1,0 +1,55 @@
+FEDERAL POLICY BRIEF
+Coverage: 2026-08-13 to 2026-08-20
+================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+The Agriculture Department, Food and Nutrition Administration, published a proposed rule extending the public comment period for the Supplemental Nutrition Assistance Program: Changes in Federal-State Administrative Cost Sharing. Separately, the Health and Human Services Department, Children and Families Administration, issued a notice withdrawing a previous announcement regarding a single-source cooperative agreement. The Food and Drug Administration issued a final rule reclassifying in situ hybridization test systems and also issued a drug or device determination for BIZENGRI, while also proposing reclassifications for diagnostic endoscopic light source systems and accessories. Public health updates include a notice from the Centers for Disease Control and Prevention continuing the suspension of the right to introduce certain persons, alongside information collection requests from the National Cancer Institute and the National Institutes of Health concerning data sharing. Other regulatory actions include the Treasury Department, Internal Revenue Service publishing a proposed rule removing a reporting requirement for certain trusts, and the Office of the National Coordinator for Health IT, Office of the Secretary, Department of Health and Human Services issuing an information collection request seeking generic clearance for TEFCA monitoring activities.
+
+SNAP
+----
+The Agriculture Department, Food and Nutrition Administration, published a proposed rule on 2026-08-17 titled Supplemental Nutrition Assistance Program: Changes in Federal-State Administrative Cost Sharing. This proposed rule, which was originally published in the Federal Register on June 24, 2026, concerns changes to federal-state administrative cost sharing within the Supplemental Nutrition Assistance Program.
+
+The Food and Nutrition Administration is extending the public comment period for this proposed rule. The public comment period, which was set to end on August 24, 2026, has been extended to September 8, 2026, to allow additional time for review.
+
+TANF
+----
+A notice issued by the Health and Human Services Department, Children and Families Administration, published 2026-08-17, reports the withdrawal of a previous announcement. Specifically, the Administration for Children and Families (ACF), Office of Refugee Resettlement (ORR), is withdrawing the Announcement of the Intent to Award a Single-Source Cooperative Agreement to Burke Law Group, PLLC in Houston, Texas. This withdrawal pertains to the announcement that was originally published in the Federal Register on August 6, 2026, at 91 FR 50848 (FR Doc. 2026-16081).
+
+CROSS-PROGRAM
+-------------
+The Food and Drug Administration (FDA) published several actions regarding medical devices and drugs. A final rule from the FDA reclassified in situ hybridization (ISH) test systems for use with certain oncology therapeutic products from class III to class II. Separately, the FDA proposed reclassifying diagnostic endoscopic light source systems (product code OAY) from class III to class II, and also proposed classifying certain accessories into class I. The FDA also issued a drug or device determination for BIZENGRI, establishing its regulatory review period. Regarding information collection, the FDA issued three information collection requests: one concerning imports and electronic import entries, another regarding third-party disclosure and recordkeeping requirements for reportable food, and a third announcing a proposed collection for Investigational New Drug Application Requirements.
+
+Several agencies issued notices related to data and public health. The Centers for Disease Control and Prevention (CDC) issued a notice continuing the suspension of the right to introduce certain persons from countries where a quarantinable communicable disease exists, with the order remaining in effect through September 11, 2026. The National Institutes of Health (NIH) issued two information collection requests: one from the National Cancer Institute (NCI) regarding the Specimen Resource Locator, and another from the National Institutes of Health (NIH) concerning the NIDA Data Share, which requests public comment on data use terms and conditions. Additionally, the Office of the National Coordinator for Health IT, Office of the Secretary, Department of Health and Human Services, issued an information collection request seeking generic clearance for TEFCA monitoring activities.
+
+Other regulatory updates include a final rule from the Agriculture Department, Agricultural Marketing Service, detailing changes to administrative requirements for walnuts grown in California. The Treasury Department, Internal Revenue Service (IRS) published a proposed rule removing a reporting requirement for certain trusts regarding charitable contributions and modifying regulations for split-interest trusts. The IRS also issued an information collection request concerning the Paperwork Reduction Act of 1995 and the Taxpayer Experience Office Speaker Request. Finally, the FDA issued a notice announcing guidance for industry regarding Type VII Veterinary Master Files.
+
+SOURCE ATTRIBUTION ADDENDUM
+===========================
+
+SNAP
+----
+  - (proposed rule) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: Changes in Federal-State Administrative Cost Sharing; Extension of Comment Period (2026-08-17)
+
+TANF
+----
+  - (notice) Health and Human Services Department, Children and Families Administration - Withdrawal of the Announcement of the Intent To Award a Single-Source Cooperative Agreement to Burke Law Group, PLLC in Houston, Texas (2026-08-17)
+
+Cross-Program
+-------------
+  - (information collection request) Treasury Department, Internal Revenue Service - Agency Information Collection Activities; Comment Request on Taxpayer Experience Office Speaker Request (2026-08-17)
+  - (proposed rule) Treasury Department, Internal Revenue Service - Proposed Removal of a Reporting Requirement for Trusts Whose Charitable Contribution Deductions Are Solely for Contributions Made by Passthrough Entities (2026-08-17)
+  - (final rule) Agriculture Department, Agricultural Marketing Service - Walnuts Grown in California; Changes to Administrative Requirements (2026-08-17)
+  - (information collection request) Health and Human Services Department, National Institutes of Health - Proposed Collection; 60-Day Comment Request; Data Use Certification for the NIH National Institute on Drug Abuse Data Share Site (2026-08-17)
+  - (notice) Health and Human Services Department, Centers for Disease Control and Prevention - Order Under Sections 362 and 365 of the Public Health Service Act Continuing the Suspension of the Right To Introduce Certain Persons From Countries Where a Quarantinable Communicable Disease Exists (2026-08-17)
+  - (notice) Health and Human Services Department, Food and Drug Administration - Type VII Veterinary Master File for Research and Development and Risk Reviews; Guidance for Industry; Availability (2026-08-17)
+  - (information collection request) Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Proposed Collection; Comment Request; Imports and Electronic Import Entries (2026-08-17)
+  - (drug or device determination) Health and Human Services Department, Food and Drug Administration - Determination of Regulatory Review Period for Purposes of Patent Extension; BIZENGRI (2026-08-17)
+  - (information collection request) Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Proposed Collection; Comment Request; Third Party Disclosure and Recordkeeping Requirements for Reportable Food (2026-08-17)
+  - (information collection request) Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Proposed Collection; Comment Request; Investigational New Drug Application Requirements (2026-08-17)
+  - (information collection request) Health and Human Services Department, Food and Drug Administration - Agency Information Collection Activities; Announcement of Office of Management and Budget Approvals (2026-08-17)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Hematology and Pathology Devices; Reclassification of In Situ Hybridization Test Systems for Use With a Corresponding Approved Oncology Therapeutic Product (2026-08-17)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Gastroenterology-Urology Devices; Reclassification of Diagnostic Endoscopic Light Source Systems To Be Renamed Cystoscopic Systems Intended as an Aid for Detection of Bladder Cancer (2026-08-17)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Medical Devices; Classification of Accessories Distinct From Other Devices; Proposed List of Accessories Suitable for Class I; Request for Comments (2026-08-17)
+  - (information collection request) Health and Human Services Department, National Institutes of Health - Proposed Collection: 30-Day Comment Request; Specimen Resource Locator (National Cancer Institute) (2026-08-17)
+  - (information collection request) Health and Human Services Department - Agency Information Collection Request; 30-Day Public Comment Request; Submission for Office of Management and Budget Review; Generic Clearance for the Trusted Exchange Framework and Common Agreement (TEFCA) Monitoring Activities (2026-08-17)

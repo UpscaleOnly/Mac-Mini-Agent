@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, review-only v1
+generate_brief_review.py - federal_policy_brief, review-only v3
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -48,15 +48,35 @@ CHANGES FROM v1 (regression repair after the 2026-08-16 review run)
      it treated the inventory as a work order and rewrote the whole brief as
      a 50-line structured document. Smaller input, harder length instruction.
 
-KNOWN UPSTREAM DEFECT (not fixed here)
-  Proposed rules are stored in scraped_content with content_type='other' and
-  therefore label as "document". The cause is TYPE_MAP in
-  app/scheduling/scrapers/federal_register.py: its keys are the API's *filter*
-  codes (PRORULE, PRESDOCU) but it is applied to the API's *returned* type
-  strings ("Proposed Rule", "Presidential Document"). "RULE" and "NOTICE"
-  match by coincidence; the other two fall through to 'other'. Until that is
-  fixed, "document" is treated as high-signal here so proposed rules are not
-  dropped from the executive summary inventory.
+CHANGES FROM v2 (2026-08-20, Entry #019)
+  6. num_ctx is now set explicitly. Ollama defaulted to 4096 tokens for both
+     prompt AND response. A 19-document Cross-Program prompt overran it: the
+     earliest documents fell out of the window unseen and the response was
+     truncated mid-sentence. This -- not model capability -- is the likely
+     cause of the Entry #018 "oversized section" symptoms (outlines instead of
+     prose, self-contradiction, covering a third of the inputs).
+  7. Foreign-recipient funding notices are suppressed. The audience is state
+     HHS leadership; a CDC cooperative agreement funding a foreign health
+     ministry has no bearing on their work. Suppression requires BOTH a
+     funding-instrument marker AND a foreign-recipient marker, so a domestic
+     rule that merely cites another country is not swept up. Every suppressed
+     document is printed above the brief for audit -- this filter is never
+     silent.
+  8. Fabricated figures are now detected. On the 2026-08-20 review run Gemma
+     reported three CDC awards ($15M + $30M + $30M = $75M) as "totaling
+     approximately $105 million" -- a total that appears in no source and is
+     wrong by 40%. The system prompt now forbids arithmetic outright, and
+     verify_figures() checks every currency amount in the generated prose
+     against that section's source text. Same enforce-twice pattern as
+     to_plain_text(): prompting alone has now failed twice.
+     NOTE: while this script is review-only, an unverified figure is FLAGGED.
+     Before send-to-inbox wiring, an unverified figure must HARD-FAIL the run.
+
+UPSTREAM DEFECT RESOLVED (2026-08-20)
+  The scraper TYPE_MAP defect that stored every proposed rule as 'other' is
+  fixed in app/scheduling/scrapers/federal_register.py, and the 15 banked rows
+  were relabeled. The "document" entry in HIGH_SIGNAL that worked around it
+  has been removed.
 """
 
 import os
@@ -68,14 +88,13 @@ import psycopg2
 import httpx
 
 # ----------------------------- CONFIG -----------------------------
-WINDOW_DAYS = 20                      # TEMPORARY: reaches banked Jul 27 - Aug 3
-                                      # content so all four sections populate.
-                                      # Set back to 7 before send-to-inbox work.
+WINDOW_DAYS = 7                       # production value
 PROJECT = "federal_policy_brief"      # scoping tag in scraped_content.project
 MODEL = "gemma4:e4b"                  # local Ollama model to summarize with
 OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_TIMEOUT = 300                  # seconds; local inference can be slow
 TEMPERATURE = 0.2                     # low = factual, consistent
+NUM_CTX = 8192                        # prompt+response budget; Ollama default 4096 truncated Cross-Program
 
 DB = dict(
     host="localhost",
@@ -130,6 +149,71 @@ AREA_AUDIENCE = {
                       "across program lines"),
 }
 
+# --------------------- SCOPE FILTER ---------------------
+# Audience is state health and human services leadership. Federal money going
+# to a foreign government or foreign institution does not reach them, so those
+# notices are suppressed before synthesis.
+#
+# Suppression requires BOTH markers below. Requiring both is deliberate: a
+# domestic Medicaid rule that happens to cite another country keeps only the
+# foreign marker and is therefore kept. Every suppressed document is listed in
+# the review output -- a false positive must be visible, never silent.
+FUNDING_MARKERS = (
+    "notice of award",
+    "cooperative agreement",
+    "to fund",
+    "grant to",
+)
+
+# A US federal agency is never a "ministry"; that word alone is a reliable
+# foreign-government marker.
+FOREIGN_MARKERS = (
+    "ministry of health",
+    "ministry of",
+)
+
+# Word-boundary matched so "niger" does not fire on "nigeria" and "india"
+# does not fire on "indiana".
+FOREIGN_COUNTRIES = [
+    "angola", "armenia", "azerbaijan", "bangladesh", "belarus", "benin",
+    "botswana", "brazil", "burkina faso", "burundi", "cambodia", "cameroon",
+    "central african republic", "chad", "congo", "cote d'ivoire",
+    "cote divoire", "dominican republic", "el salvador", "eswatini",
+    "ethiopia", "gabon", "ghana", "guatemala", "guinea", "haiti", "honduras",
+    "india", "indonesia", "ivory coast", "kazakhstan", "kenya", "kyrgyzstan",
+    "laos", "lesotho", "liberia", "madagascar", "malawi", "malaysia", "mali",
+    "moldova", "mozambique", "myanmar", "namibia", "nepal", "niger",
+    "nigeria", "pakistan", "papua new guinea", "peru", "philippines",
+    "rwanda", "senegal", "sierra leone", "south africa", "south sudan",
+    "tajikistan", "tanzania", "thailand", "togo", "uganda", "ukraine",
+    "uzbekistan", "vietnam", "zambia", "zanzibar", "zimbabwe",
+]
+_COUNTRY_RE = re.compile(
+    r"\b(" + "|".join(re.escape(c) for c in FOREIGN_COUNTRIES) + r")\b"
+)
+
+
+def out_of_scope(d):
+    """Return a reason string if this document should be suppressed, else None.
+
+    Both conditions must hold: it must look like a funding instrument AND name
+    a foreign recipient.
+    """
+    text = f"{d.get('document_title') or ''}\n{d.get('raw_content') or ''}".lower()
+
+    if not any(m in text for m in FUNDING_MARKERS):
+        return None
+
+    if any(m in text for m in FOREIGN_MARKERS):
+        return "foreign recipient (government ministry)"
+
+    hit = _COUNTRY_RE.search(text)
+    if hit:
+        return f"foreign recipient ({hit.group(1)})"
+
+    return None
+
+
 # --------------------- INSTRUMENT TYPING ---------------------
 # Coarse type comes from scraped_content.content_type, which the scraper copies
 # from the Federal Register API's own "type" field. This is authoritative --
@@ -183,6 +267,13 @@ SYSTEM_PROMPT = (
     "Summarize only what the source documents state. Do not editorialize, "
     "advocate, predict outcomes, or recommend action. Do not invent policy "
     "developments that are not present in the sources. Be concise.\n\n"
+    "NEVER PERFORM ARITHMETIC. Do not add, total, sum, average, combine or "
+    "otherwise compute figures -- not across documents, and not within one "
+    "document. Do not write a total that the source does not state verbatim. "
+    "If three documents each name a dollar amount, report the amounts "
+    "separately or not at all; do NOT report their sum. Report every number, "
+    "dollar amount, date and count exactly as a single source document states "
+    "it. An invented total is a factual error even when it looks plausible.\n\n"
     "INSTRUMENT FIDELITY IS MANDATORY. Every document is given to you with an "
     "explicit instrument label in parentheses. You must characterize each "
     "document by that instrument, naming the acting agency, and never soften "
@@ -216,6 +307,57 @@ _EMOJI_RE = re.compile(
     "\U0000200D"              # zero-width joiner
     "]"
 )
+
+
+# --------------------- FIGURE VERIFICATION ---------------------
+# Deterministic backstop for fabricated money. The system prompt forbids
+# arithmetic; this proves it. On 2026-08-20 Gemma reported $15M + $30M + $30M
+# as "approximately $105 million" -- no source states any total, and the sum
+# is wrong regardless. Prompting alone has now failed twice (markdown in v1,
+# arithmetic in v2), so figures get the same enforce-twice treatment.
+_MONEY_RE = re.compile(
+    r"\$\s?([\d,]+(?:\.\d+)?)\s*(billion|million|thousand|bn|mm?|k)?\b",
+    re.I,
+)
+
+_SCALE = {
+    "billion": 1_000_000_000, "bn": 1_000_000_000,
+    "million": 1_000_000, "mm": 1_000_000, "m": 1_000_000,
+    "thousand": 1_000, "k": 1_000,
+}
+
+
+def _money_values(text):
+    """Every dollar amount in text, normalized to a numeric value.
+
+    "$15,000,000", "$15 million" and "$15M" all normalize to 15000000.0, so a
+    figure restated in different units still matches its source.
+    """
+    values = set()
+    for raw, scale in _MONEY_RE.findall(text or ""):
+        try:
+            n = float(raw.replace(",", ""))
+        except ValueError:
+            continue
+        values.add(n * _SCALE.get((scale or "").lower(), 1))
+    return values
+
+
+def verify_figures(label, generated, source_text):
+    """Flag dollar amounts in generated prose absent from the source.
+
+    Returns a list of warning strings. Review-only for now: these are
+    reported, not fatal. Before send-to-inbox wiring, any warning here must
+    abort the run instead.
+    """
+    source = _money_values(source_text)
+    warnings = []
+    for value in sorted(_money_values(generated) - source):
+        warnings.append(
+            f"{label}: ${value:,.0f} appears in the generated text but in no "
+            f"source document for this section"
+        )
+    return warnings
 
 
 def to_plain_text(s):
@@ -303,7 +445,7 @@ def ollama_chat(user_prompt):
             {"role": "user", "content": user_prompt},
         ],
         "stream": False,
-        "options": {"temperature": TEMPERATURE},
+        "options": {"temperature": TEMPERATURE, "num_ctx": NUM_CTX},
     }
     r = httpx.post(OLLAMA_URL, json=payload, timeout=OLLAMA_TIMEOUT)
     r.raise_for_status()
@@ -409,6 +551,9 @@ def synthesize_exec_summary(date_range, section_texts, rows_by_area):
         f"  - Between 4 and 6 sentences. Not more.\n"
         f"  - One single paragraph of plain prose.\n"
         f"  - No headings, no lists, no tables, no bold, no emoji.\n"
+        f"  - Never name the brief's internal sections to the reader. "
+        f"'Cross-Program' is an internal filing bucket, not something the "
+        f"reader knows. Describe activity by agency and subject instead.\n"
         f"  - Do NOT restate or reorganize the brief. Do NOT summarize every "
         f"document. Name only the few actions a commissioner must not miss, "
         f"and give the overall shape of the rest in a clause.\n\n"
@@ -463,6 +608,18 @@ def main():
     start = today - dt.timedelta(days=WINDOW_DAYS)
     date_range = f"{start.isoformat()} to {today.isoformat()}"
 
+    # ---- scope filter (applied before anything else sees the rows) ----
+    suppressed = []
+    kept = []
+    for d in rows:
+        reason = out_of_scope(d)
+        if reason:
+            d["_suppressed_reason"] = reason
+            suppressed.append(d)
+        else:
+            kept.append(d)
+    rows = kept
+
     # ---- classify up front so review output and prompts agree ----
     for d in rows:
         d["_instrument"] = instrument_type(d["content_type"],
@@ -474,6 +631,16 @@ def main():
     print(f"INPUT SET  project={PROJECT}  window={WINDOW_DAYS}d "
           f"({date_range})  is_new only")
     print("=" * 78)
+    if suppressed:
+        print(f"SUPPRESSED (out of scope) -- {len(suppressed)} document(s) "
+              f"withheld from the brief:")
+        for d in suppressed:
+            title = (d["document_title"] or "Untitled").strip()[:70]
+            print(f"  [{d['publication_date']}] {d['_suppressed_reason']:42} "
+                  f"{title}")
+        print("  Review these. A wrongly suppressed document is a content "
+              "gap the reader cannot see.")
+        print()
     if not rows:
         print("No unprocessed documents in the window. Nothing to brief.")
         print("Tip: raise WINDOW_DAYS at the top of the script to reach "
@@ -494,18 +661,37 @@ def main():
 
     # ---- synthesize each populated area ----
     section_texts = []
+    figure_warnings = []
     for area in AREA_ORDER:
         area_rows = rows_by_area.get(area)
         if not area_rows:
             continue
         print(f"... synthesizing {AREA_HEADING[area]} "
               f"({len(area_rows)} doc(s)) via {MODEL}", file=sys.stderr)
-        section_texts.append((area, synthesize_section(area, area_rows)))
+        text = synthesize_section(area, area_rows)
+        figure_warnings.extend(
+            verify_figures(AREA_HEADING[area], text, docs_block(area_rows))
+        )
+        section_texts.append((area, text))
 
     # ---- executive summary ----
     print(f"... synthesizing executive summary via {MODEL}", file=sys.stderr)
     exec_summary = synthesize_exec_summary(date_range, section_texts,
                                            rows_by_area)
+    figure_warnings.extend(
+        verify_figures("EXECUTIVE SUMMARY", exec_summary,
+                       docs_block(rows))
+    )
+
+    if figure_warnings:
+        print()
+        print("!" * 78, file=sys.stderr)
+        print("UNVERIFIED FIGURES -- do not send this brief as-is:",
+              file=sys.stderr)
+        for w in figure_warnings:
+            print(f"  ! {w}", file=sys.stderr)
+        print("!" * 78, file=sys.stderr)
+        print()
 
     # ---- assemble brief ----
     parts = [
