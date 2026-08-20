@@ -351,13 +351,9 @@ def synthesize_section(area, rows):
 # Instruments a commissioner needs named individually. Everything else
 # (information collection requests, meeting notices, charter renewals) is
 # routine and is conveyed to the exec summary as a count only.
-# NOTE: "document" is here only because of the TYPE_MAP defect described at
-# the top of this file -- it is where proposed rules currently land. Remove it
-# once the scraper is fixed and the banked rows are relabeled.
 HIGH_SIGNAL = {
     "final rule",
     "proposed rule",
-    "document",
     "Privacy Act matching program notice",
 }
 EXEC_NOTABLE_PER_AREA = 6      # cap on individually-named items per section

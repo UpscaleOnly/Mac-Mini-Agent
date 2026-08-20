@@ -12,6 +12,24 @@ Query strategy:
   - Filter by document type (RULE, PRORULE, NOTICE, PRESDOCU)
   - One agency failing does not abort the run — base class records 'partial'
 
+TYPE HANDLING (fixed August 20, 2026 — Entry #019)
+  The Federal Register API uses two different vocabularies for document type:
+    - QUERY-FILTER codes, which we SEND:      RULE, PRORULE, NOTICE, PRESDOCU
+    - DISPLAY strings, which it RETURNS:      "Rule", "Proposed Rule",
+                                              "Notice", "Presidential Document"
+  The original TYPE_MAP was keyed only on the filter codes but applied to the
+  returned display strings. Uppercased, "RULE" and "NOTICE" matched by
+  coincidence; "PROPOSED RULE" and "PRESIDENTIAL DOCUMENT" matched nothing and
+  fell through to 'other'. Consequence: no proposed rule anywhere in
+  scraped_content was labeled as one — including the CY2027 HH PPS rate update,
+  the highest-signal item in the set — and each briefed as "a document."
+
+  TYPE_MAP now accepts BOTH vocabularies, so a future change in which form the
+  API returns cannot silently reintroduce the defect. Anything unrecognized is
+  logged at WARNING with its document number before being stored as 'other' —
+  a third vocabulary would surface in `docker logs openclaw_fastapi` instead of
+  quietly degrading the brief.
+
 Persona: Automate
 Project: federal_policy_brief
 """
@@ -51,11 +69,19 @@ class FederalRegisterScraper(BaseScraper):
 
     TARGET_TYPES = ["RULE", "PRORULE", "NOTICE", "PRESDOCU"]
 
+    # Keys are compared after .strip().upper(), so every key here is uppercase.
+    # See the TYPE HANDLING note in the module docstring — both the API's
+    # query-filter codes and its returned display strings must be present.
     TYPE_MAP = {
+        # Query-filter codes (what we send in conditions[type][])
         "RULE": "final_rule",
         "PRORULE": "proposed_rule",
         "NOTICE": "notice",
         "PRESDOCU": "presidential_document",
+        # Returned display strings (what the API actually gives back)
+        "FINAL RULE": "final_rule",
+        "PROPOSED RULE": "proposed_rule",
+        "PRESIDENTIAL DOCUMENT": "presidential_document",
     }
 
     REQUESTED_FIELDS = [
@@ -150,6 +176,33 @@ class FederalRegisterScraper(BaseScraper):
         return all_results
 
     # ------------------------------------------------------------------
+    # Type mapping
+    # ------------------------------------------------------------------
+
+    def map_content_type(self, doc: dict) -> str:
+        """
+        Translate the Federal Register 'type' field to our content_type value.
+
+        Accepts either the API's query-filter code or its display string.
+        An unrecognized value is logged at WARNING and stored as 'other' — it
+        should never happen, and if it does we want it visible in the container
+        logs rather than silently flattening the brief.
+        """
+        raw_type = doc.get("type")
+        lookup = (raw_type or "").strip().upper()
+        content_type = self.TYPE_MAP.get(lookup)
+
+        if content_type is None:
+            log.warning(
+                "FR parse: unrecognized document type %r — storing 'other' "
+                "(document_number=%s). TYPE_MAP may need a new key.",
+                raw_type, doc.get("document_number"),
+            )
+            return "other"
+
+        return content_type
+
+    # ------------------------------------------------------------------
     # parse() — required by BaseScraper
     # ------------------------------------------------------------------
 
@@ -188,8 +241,7 @@ class FederalRegisterScraper(BaseScraper):
                     pub_date_str,
                 )
 
-        fr_type = (doc.get("type") or "").upper()
-        content_type = self.TYPE_MAP.get(fr_type, "other")
+        content_type = self.map_content_type(doc)
 
         return ScrapedRow(
             url_path=url_path,
