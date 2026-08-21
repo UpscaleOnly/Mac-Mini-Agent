@@ -13,11 +13,18 @@ PRIORITY THIS SESSION: production over governance. The federal_policy_brief
 agent is the deliverable. Governance and housekeeping are opportunistic and do
 not block shipping.
 
-SOURCE OF TRUTH: Disk (~/openclaw) + Git are canonical; GitHub in sync at
-commit 6e42a05 (Aug 20, 2026). Live PostgreSQL schema is version 6.
-~/openclaw/CURRENT_STATE.md is current as of Aug 20 — read it. (It names
-cb03e58 as the sync point because it was written before the commit that
-contains it. 6e42a05 is the real head; `git log -1` settles it.)
+SOURCE OF TRUTH: Disk (~/openclaw) + Git are canonical. GitHub was fully in
+sync at the close of the Aug 20 session — nothing was left uncommitted or
+unpushed. Live PostgreSQL schema is version 6.
+~/openclaw/CURRENT_STATE.md is current as of Aug 20 — read it.
+
+IGNORE ANY COMMIT HASH WRITTEN IN THESE DOCUMENTS. A file cannot name the
+commit that contains it, so every hash written into a document is one commit
+out of date the moment it is saved. To see where the repository actually
+stands, run:
+    git log -1 --oneline
+and, to confirm nothing is uncommitted or unpushed:
+    git status
 
 DO THIS FIRST, BEFORE ANY WORK:
   1. Grant the Claude desktop app read access to ~/openclaw. It is per-session
