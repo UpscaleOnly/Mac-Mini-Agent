@@ -10,7 +10,7 @@
 
 ## Source of truth (the core rule)
 
-**Disk (`~/openclaw`) + Git are canonical.** GitHub (`UpscaleOnly/Mac-Mini-Agent`) is in sync as of commit **`cb03e58`** (August 20, 2026). Project knowledge is a **one-way mirror** — files flow disk → project knowledge, never the reverse — and is currently **lagging; a clean rebuild is still pending**. Memory is never authoritative. If any two sources disagree, **disk wins**.
+**Disk (`~/openclaw`) + Git are canonical.** GitHub (`UpscaleOnly/Mac-Mini-Agent`) is in sync as of commit **`6e42a05`** (August 20, 2026). Project knowledge is a **one-way mirror** — files flow disk → project knowledge, never the reverse — and is currently **lagging; a clean rebuild is still pending**. Memory is never authoritative. If any two sources disagree, **disk wins**.
 
 ## Schema
 
@@ -32,6 +32,7 @@ Live PostgreSQL schema is **version 6** (Migration 005 — `scraper_runs` table;
 - `content_type` distribution: **`notice` 195, `final_rule` 26, `proposed_rule` 15, `other` 0.**
 - `raw_content` is **title + abstract only** (~569 chars avg). Brief depth is abstract-level by design of the current scraper.
 - A 7-day window (as of Aug 20) returns 21 documents, all dated Aug 17.
+- **An empty 7-day window means the scraper has not run — it does not mean the generator is broken.** Fix the scraper; never raise `WINDOW_DAYS` to compensate.
 
 ## federal_policy_brief — where the generator stands
 

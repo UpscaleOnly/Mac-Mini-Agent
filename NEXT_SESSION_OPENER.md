@@ -1,6 +1,6 @@
 # Next-session opener — paste this as your first message
 
-*(Written August 20, 2026 at the close of Entry #019. Everything below is stated inline so the session does not depend on memory or on project knowledge.)*
+*(Written August 20, 2026 at the close of Entry #019, revised same day. Everything below is stated inline so the session does not depend on memory or on project knowledge.)*
 
 ---
 
@@ -14,8 +14,26 @@ agent is the deliverable. Governance and housekeeping are opportunistic and do
 not block shipping.
 
 SOURCE OF TRUTH: Disk (~/openclaw) + Git are canonical; GitHub in sync at
-commit cb03e58 (Aug 20, 2026). Live PostgreSQL schema is version 6.
-~/openclaw/CURRENT_STATE.md is current as of Aug 20 — read it.
+commit 6e42a05 (Aug 20, 2026). Live PostgreSQL schema is version 6.
+~/openclaw/CURRENT_STATE.md is current as of Aug 20 — read it. (It names
+cb03e58 as the sync point because it was written before the commit that
+contains it. 6e42a05 is the real head; `git log -1` settles it.)
+
+DO THIS FIRST, BEFORE ANY WORK:
+  1. Grant the Claude desktop app read access to ~/openclaw. It is per-session
+     and it is what makes every step verifiable — files can be read back off
+     disk and diffed against what was built, instead of assumed.
+  2. `docker ps` — all four containers up. If the daemon is down, launch
+     Docker Desktop and wait for the whale to stop animating.
+  3. CHECK COVERAGE BEFORE RUNNING THE GENERATOR:
+       docker exec openclaw_postgres psql -U openclaw -d openclaw -c "SELECT max(publication_date), count(*) FROM scraped_content WHERE project = 'federal_policy_brief' AND is_new = TRUE AND publication_date >= CURRENT_DATE - 7;"
+
+     ⚠️ AN EMPTY 7-DAY WINDOW IS EXPECTED IF THE SCRAPER HAS NOT RUN.
+     Newest content as of Aug 20 is Aug 17, and WINDOW_DAYS is 7. If several
+     days pass without a successful scrape, the generator will correctly print
+     "No unprocessed documents in the window." THAT IS NOT A GENERATOR BUG —
+     it is a scraper outage. Fix the scraper; do not start debugging the
+     brief, and do not raise WINDOW_DAYS to paper over it.
 
 SHIPPED LAST SESSION (Aug 20, Entry #019):
 - Scraper TYPE_MAP fixed. It now accepts BOTH Federal Register vocabularies —
@@ -87,11 +105,17 @@ IMMEDIATE TASKS (production-first):
    must HARD-FAIL the run rather than send. Both the file header and the
    verify_figures() docstring carry that note.
 
-2. Scraper catch-up logic.
+2. Scraper catch-up logic — AND THIS IS ALSO THE BACKFILL.
    Compute days_back from the last successful scraper_runs entry instead of
    assuming 1, so any outage self-heals on the next run regardless of cause.
-   The scraper_runs table already exists (Migration 005). This is the durable
-   answer to both data gaps. Requires docker compose build fastapi + up -d.
+   The scraper_runs table already exists (Migration 005). Requires
+   docker compose build fastapi + up -d.
+
+   NOTE THE SECOND EFFECT: the first run after this is built will fetch
+   everything published since the last success, which closes the Aug 18-20
+   gap (and anything lost since) with no separate backfill step. If the
+   7-day window is empty when you start, DO THIS TASK FIRST — it is both the
+   permanent fix and the way to get content back.
 
 3. Output polish (small, do when convenient):
    - v3 writes ISO dates into reader-facing prose ("published a proposed rule
@@ -119,6 +143,13 @@ HOUSEKEEPING (opportunistic — never ahead of the above):
 - Close ADR-041 as "not needed" if that still holds.
 - Fix Ctrl+C not interrupting in Terminal. Less urgent now — a 7-day run takes
   about a minute, not twenty.
+
+ROLLBACKS AVAILABLE:
+- generate_brief_review.py.bak.v2 — the working v2 (pre-v3, no scope filter,
+  no figure verification, num_ctx unset).
+- generate_brief_review.py.bak.v0 — the original review-only generator.
+- changelog.md.bak.session21.
+The scraper has no .bak; recover it from Git (`git show 8aa21ed:app/scheduling/scrapers/federal_register.py`).
 
 WORKING RULES (unchanged): one command at a time, no shell on the Mac, approve
 before building, .py delivered as .txt, git commit -m only, token conservation.
