@@ -1393,3 +1393,70 @@ Spot-checked one date claim against source: the SNAP section's *"originally publ
 - **ISO dates in reader-facing prose.** v3 writes *"published a proposed rule on 2026-08-17"*; v2 wrote *"August 17, 2026."* Reads as machine output in an executive email.
 - **ORR routes to TANF.** The Burke Law Group withdrawal is an Office of Refugee Resettlement notice, routed to TANF because both sit under the Children and Families Administration. Fixing it requires deciding where ORR content belongs — a scope decision, not a bug fix.
 - **Content gap August 18–20** from the battery outage. Not backfilled.
+
+---
+
+## Entry #020 — August 21, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Bug fix / resilience — scraper catch-up logic (federal_policy_brief)
+
+**Commits:** `1193509`
+
+### Changes Made
+
+1. **Scraper catch-up logic added to `BaseScraper`** — `app/scheduling/scrapers/base.py`. New method `_compute_days_back()` looks up the most recent `scraper_runs` row with `status IN ('success', 'partial')` for the calling scraper and computes a lookback window from that run's `started_at` to now, plus a 1-day safety buffer. New opt-in class attribute `uses_days_back_catchup` (default `False`) triggers this computation in `run()`, before `fetch()` is called, whenever the subclass was instantiated with `days_back=None`. Capped at `days_back_max` (30 days) to protect against the Federal Register API's fixed page size silently dropping older documents on a very wide gap — a gap past the cap logs a WARNING and needs a manual run with an explicit `days_back` value instead of being silently guessed at. Falls back to `days_back_default` (1) on lookup failure or first-ever run — identical to prior behavior in both cases.
+
+2. **`FederalRegisterScraper` updated to opt in** — `app/scheduling/scrapers/federal_register.py`. `days_back` constructor default changed from `1` to `None`; `uses_days_back_catchup = True` added. Manual runs can still pass an explicit integer to override.
+
+3. **Root cause fixed:** the dispatcher (`jobs.py`) always instantiates scrapers with no arguments (`scraper_cls()`), so `days_back` previously always fell back to its hardcoded default of `1` regardless of how long the scraper had been down. Confirmed via `scraper_runs` that the last successful run before this fix was August 18 — meaning several days of outage (cause not conclusively identified this session; Mac was reportedly awake, but no scraper_runs row exists for Aug 19–21, and no diagnostic logs from that window survived to check further) were silently going uncaptured with no self-correction.
+
+### Verification
+
+Manually triggered via `docker exec openclaw_fastapi python3 -c "...scrape_dispatcher_job(project='federal_policy_brief')..."` after rebuild/redeploy. Confirmed in `scraper_runs`: new row at `2026-08-21 23:03:06 UTC`, `status = success`, `docs_fetched = 82`, `docs_inserted = 47` — versus a normal single-day run of ~22 fetched. Confirmed in `scraped_content`: 7-day window count rose from 21 to 68 documents, `max(publication_date)` advanced from `2026-08-17` to `2026-08-21`. The Aug 18–21 gap is closed with no separate manual backfill step, as designed. The scheduled 01:00 ET run has not yet been independently verified working end-to-end since this fix deployed — `docker logs -f` was left running overnight to capture it directly; see Open Items.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/app/scheduling/scrapers/base.py` | Modified (backed up as `base.py.bak.s23` before replacement) |
+| `~/openclaw/app/scheduling/scrapers/federal_register.py` | Modified (backed up as `federal_register.py.bak.s23` before replacement) |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-039 H4 | This scraper is the H4 deliverable; catch-up logic is a reliability hardening of that closure, not a scope change. |
+| ADR-014 | No shell execution path added. Manual verification trigger was a `python3 -c` one-liner run by the operator via `docker exec`, not an agent-invoked shell call. |
+| ADR-037 | Discrepancy found: `/var/log/openclaw/` does not exist in the live `openclaw_fastapi` container, contradicting ADR-037's Phase 1 "complete implementation" claim for the four structured log files. Scraper audit is unaffected — `scraper_runs` (PostgreSQL, Migration 005) is the audit trail for scrapers and is separate from the ADR-037 agent-session logging layer. Flagged as an open item, not fixed this session. |
+
+### NIST Controls Touched
+
+CM-3, CM-3(2), CP-10, SA-11
+
+### Risk Assessment
+
+Code change, deployed via `docker compose build fastapi` + `docker compose up -d fastapi` per session-closing ritual (plain restart does not pick up code changes). No schema change. No egress change — same `federalregister.gov` domain, same six agencies. No new tools enabled. Behavior change is intentional and contained: scheduled runs with no explicit `days_back` now self-compute a lookback window instead of a hardcoded 1-day default. Overlap from re-fetching already-seen documents is inherently safe via the existing `ON CONFLICT DO NOTHING` dedup. Capped at 30 days to bound worst-case API pagination risk. Manual verification trigger executed a real write to production `scraped_content` — acceptable, since it exercises the exact intended code path and dedup makes it safe against any overlap with the scheduled run.
+
+### Open Items Surfaced This Session
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| Verify scheduled 01:00 ET run under the new code | High | `docker logs -f openclaw_fastapi` left running overnight in a dedicated terminal window to capture it directly, including the `_compute_days_back` log line the manual `python3 -c` trigger didn't surface (no logging config in a bare `-c` invocation). Check tomorrow. |
+| Root cause of Aug 19–21 silent gap not conclusively identified | Medium | Operator reports Mac was awake; no `scraper_runs` row exists for the outage window and no surviving logs to diagnose further (old container instance's logs were lost on rebuild; `/var/log/openclaw/` doesn't exist). May simply be explained by the pre-fix hardcoded `days_back=1` compounding silently — plausible but unconfirmed. |
+| `/var/log/openclaw/` missing despite ADR-037 Phase 1 "complete implementation" claim | Medium | Governance/documentation-accuracy gap, not a functional blocker — `scraper_runs` already serves scraper audit independently. Needs either implementation or an ADR-037 status correction. |
+| Task 1 (extend fabrication verification beyond currency) not started this session | High | Still the gate on send-wiring per Aug 20 opener. |
+| Task 3 (output polish — ISO dates, dropped FDA doc, ORR routing) not started this session | Low | Unchanged from Aug 20 opener. |
+| Task 4 (send-to-inbox wiring) still blocked | — | Gated on Task 1 completion and ADR-039 email-provider/sender-domain decisions, unchanged. |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Check `docker logs` (the overnight-running window) and `scraper_runs` for the 01:00 ET scheduled run | Next session start |
+| Task 1 — extend fabrication verification (dates, FR citations, counts) | Next priority per Aug 20 opener |
+| Decide ADR-037 log-directory discrepancy: implement or correct the record | Opportunistic |
+
+---
