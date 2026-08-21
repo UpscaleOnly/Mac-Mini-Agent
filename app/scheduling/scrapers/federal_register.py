@@ -55,6 +55,14 @@ class FederalRegisterScraper(BaseScraper):
     source_domain = "federalregister.gov"
     project = "federal_policy_brief"
 
+    # Auto-compute days_back from scraper_runs history on every scheduled
+    # run (days_back=None) — see BaseScraper._compute_days_back(). Fixed
+    # August 21, 2026 (catch-up logic): previously the dispatcher always
+    # instantiated with no arguments, so this always fell back to the
+    # hardcoded default of 1 regardless of how long the scraper had been
+    # down. Explicit days_back is still honored for manual runs.
+    uses_days_back_catchup = True
+
     # --- Constants ----------------------------------------------------------
     FR_API_BASE = "https://www.federalregister.gov/api/v1"
 
@@ -100,10 +108,18 @@ class FederalRegisterScraper(BaseScraper):
     # Constructor
     # ------------------------------------------------------------------
 
-    def __init__(self, days_back: int = 1):
+    def __init__(self, days_back: Optional[int] = None):
         """
         days_back — how many days back from now to fetch.
-        Default 1 means 'yesterday and today' which is right for a daily 01:00 ET run.
+
+        Default None means "figure it out automatically" — BaseScraper.run()
+        will compute it from this scraper's own run history in scraper_runs
+        before fetch() is called (see uses_days_back_catchup above and
+        BaseScraper._compute_days_back()). This is what the scheduled
+        dispatcher uses, since it always instantiates with no arguments.
+
+        Pass an explicit integer to override — e.g. for a manual one-off
+        run where you want a specific window regardless of run history.
         """
         self.days_back = days_back
 

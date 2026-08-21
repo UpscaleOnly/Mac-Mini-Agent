@@ -26,7 +26,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Callable, Optional
 
 import httpx
@@ -99,6 +99,16 @@ class BaseScraper(ABC):
     request_timeout: int = 30
     inter_agency_sleep_seconds: int = 1
 
+    # --- Days-back catch-up policy (subclass MAY override) ------------------
+    # Set uses_days_back_catchup = True on a subclass to have BaseScraper
+    # auto-compute self.days_back from scraper_runs history before fetch()
+    # runs, whenever the subclass was instantiated with days_back=None.
+    # See _compute_days_back() for the full explanation.
+    uses_days_back_catchup: bool = False
+    days_back_default: int = 1      # first-ever run, or lookup failure
+    days_back_buffer: int = 1       # extra days of safety margin
+    days_back_max: int = 30         # safety cap — see _compute_days_back()
+
     # ------------------------------------------------------------------
     # Abstract methods — subclass implements
     # ------------------------------------------------------------------
@@ -149,6 +159,9 @@ class BaseScraper(ABC):
         try:
             conn = self._get_db_conn()
             run_id = self._open_run_record(conn)
+
+            if self.uses_days_back_catchup and getattr(self, "days_back", None) is None:
+                self.days_back = self._compute_days_back(conn)
 
             try:
                 docs = self.fetch()
@@ -372,6 +385,82 @@ class BaseScraper(ABC):
                 ),
             )
         conn.commit()
+
+    def _compute_days_back(self, conn) -> int:
+        """
+        Compute how many days back to fetch, based on this scraper's own
+        run history — so an outage of any length (Docker down, cold power-
+        off, whatever) self-heals on the next run instead of silently
+        skipping the gap.
+
+        Looks up the most recent scraper_runs row for self.scraper_name
+        with status IN ('success', 'partial') — i.e. a run that actually
+        got data in, as opposed to 'failed' (zero docs) or a stale
+        'running' row from a process that died mid-run. Computes the
+        number of days between that run's started_at and now, rounds up,
+        and adds days_back_buffer days of safety margin. The overlap this
+        creates is harmless: re-fetched documents just hit the existing
+        ON CONFLICT DO NOTHING dedup and are skipped.
+
+        Falls back to days_back_default if no prior success/partial run
+        exists (first-ever run) or if the lookup itself fails for any
+        reason — same behavior as before this method existed.
+
+        Capped at days_back_max. The Federal Register API (and likely any
+        future source) paginates at a fixed page size, so a very wide
+        window risks silently missing older documents off the first page
+        for a busy agency. A gap wider than the cap is logged as a
+        WARNING and needs a manual run with an explicit days_back value
+        instead of being silently guessed at.
+        """
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT started_at FROM scraper_runs "
+                    "WHERE scraper_name = %s AND status IN ('success', 'partial') "
+                    "ORDER BY started_at DESC LIMIT 1",
+                    (self.scraper_name,),
+                )
+                row = cur.fetchone()
+        except Exception as e:
+            log.error(
+                "Scraper %s: _compute_days_back lookup failed — %s: %s. "
+                "Falling back to days_back_default=%d",
+                self.scraper_name, type(e).__name__, e, self.days_back_default,
+            )
+            return self.days_back_default
+
+        if row is None or row[0] is None:
+            log.info(
+                "Scraper %s: no prior success/partial run found — "
+                "using days_back_default=%d",
+                self.scraper_name, self.days_back_default,
+            )
+            return self.days_back_default
+
+        last_run_started = row[0]
+        now = datetime.now(timezone.utc)
+        elapsed_days = (now - last_run_started).total_seconds() / 86400.0
+        computed = int(elapsed_days) + 1 + self.days_back_buffer  # ceiling + buffer
+
+        if computed > self.days_back_max:
+            log.warning(
+                "Scraper %s: last success/partial run started %s — that's "
+                "%d computed days_back, above days_back_max=%d. Capping at "
+                "%d. A gap this wide should be confirmed with a manual run "
+                "using an explicit days_back value, since content past the "
+                "cap will not be fetched automatically.",
+                self.scraper_name, last_run_started, computed,
+                self.days_back_max, self.days_back_max,
+            )
+            return self.days_back_max
+
+        log.info(
+            "Scraper %s: last success/partial run started %s — "
+            "computed days_back=%d",
+            self.scraper_name, last_run_started, computed,
+        )
+        return computed
 
     def _insert_row(self, conn, run_id: int, row: ScrapedRow) -> str:
         """
