@@ -1,0 +1,74 @@
+FEDERAL POLICY BRIEF
+Coverage: 2026-08-15 to 2026-08-22
+================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+The Health and Human Services Department, Centers for Medicare & Medicaid Services, issued a Privacy Act system of records notice on 2026-08-20 announcing the NNHP system of records. The Agriculture Department, Food and Nutrition Administration, published an information collection request on 2026-08-21 regarding SNAP E&T, and also published a proposed rule on 2026-08-17 extending the comment period to September 8, 2026. Separately, the Health and Human Services Department, Children and Families Administration, issued notices concerning TANF system delays and a Tribal Consultation session. Other key actions include a Treasury Department, Internal Revenue Service Privacy Act matching program notice regarding the DIFSLA Computer Matching Program and a final rule from the Food and Drug Administration reclassifying in situ hybridization test systems. The remaining documents include a proposed rule from the Agriculture Department, Food and Nutrition Administration, and various rules and notices from the FDA, Treasury Department, Internal Revenue Service, and the Agriculture Department.
+
+CMS (MEDICAID/CHIP/MEDICARE)
+----------------------------
+A Privacy Act system of records notice issued by the Health and Human Services Department, Centers for Medicare & Medicaid Services, published 2026-08-20, announces the establishment of a new system of records. This system, titled "Nurses for Nursing Homes Program (NNHP)," will be maintained by CMS under system No. 09-70-0545.
+
+The records collected will pertain to individuals who apply for, participate in, or otherwise support the NNHP. The information gathered is extensive, including personally identifiable information such as demographic data, professional licensure and credential information, education and training details, employment and nursing facility affiliation, payment information, tax reporting, and audit records.
+
+CMS plans to use this new system of records to support a nursing workforce incentive program, which is designed to strengthen the workforce serving Medicare and Medicaid-certified nursing homes, with a specific focus on underserved and rural communities. The scope of the NNHP system of records is commensurate with its purpose of supporting the Nursing Home Staffing Campaign/Nursing Incentive Program (NHSC/NIP).
+
+SNAP
+----
+The Agriculture Department, Food and Nutrition Administration, published an information collection request on 2026-08-21 titled Agency Information Collection Activities, Proposed Collection: Request for Comments on Understanding Participant Experiences in SNAP E&T. This notice invites comments on a proposed collection to gather information about how SNAP participants experience SNAP work requirements and the SNAP E&T program. The purpose is to identify recommendations to help programs improve customer service and efficiently connect participants with training and services.
+
+Additionally, the Agriculture Department, Food and Nutrition Administration, published a proposed rule on 2026-08-17 regarding Supplemental Nutrition Assistance Program: Changes in Federal-State Administrative Cost Sharing; Extension of Comment Period. This action extends the public comment period for the proposed rule, which was published on June 24, 2026. The public comment period is extended from August 24, 2026, to September 8, 2026.
+
+TANF
+----
+The Health and Human Services Department, Children and Families Administration, issued several notices regarding program administration and data systems. A Privacy Act system of records notice from HHS/ACF announced a delay in the effective date of the new routine use under the modified system of records (System No. 09-80-0375, TANF Data) maintained by the Office of Family Assistance (OFA) within HHS' ACF, which was originally published on June 23, 2026. Separately, ACF issued a notice requesting to reinstate approval of the ACF-700: Tribal Annual Report (OMB #: 0970-0430) with proposed revisions to reduce annual burden hours. Furthermore, ACF, Office of Refugee Resettlement, issued a notice withdrawing the Announcement of the Intent to Award a Single-Source Cooperative Agreement to Burke Law Group, PLLC in Houston, Texas, which was published on August 6, 2026.
+
+In matters concerning tribal services, HHS/ACF issued a notice regarding a Tribal Consultation session. This session is scheduled between HHS/ACF OHS leadership and the leadership of Tribal governments operating Head Start and Early Head Start programs. The purpose of this consultation is to discuss ways to better meet the needs of American Indian and Alaska Native (AIAN) children and their families, specifically considering funding allocations, distribution formulas, and other issues affecting Head Start service delivery.
+
+CROSS-PROGRAM
+-------------
+Several documents address changes in medical device classification and food additive regulations. The Food and Drug Administration (FDA) issued a final rule regarding the safe use of chromium DL-methionine chelate as a nutritional source in cattle feed, responding to a petition from Zinpro Corp. Additionally, the FDA published three proposed rules concerning color additives: one from GNT USA, LLC., proposing safflower extract; another from the International Association of Color Manufacturers, proposing acetone for carrot oil; and a third from Gardenia Blue Interest Group, proposing gardenia blue. Regarding medical devices, the FDA issued a final rule reclassifying in situ hybridization test systems for use with certain oncology therapeutic products from class III to class II. Further proposed rules include reclassifying diagnostic endoscopic light source systems as cystoscopic systems intended as an aid for detection of bladder cancer, and proposing to classify certain accessories into class I.
+
+Multiple documents concern tax and financial regulations. The Treasury Department, Internal Revenue Service, issued a Privacy Act matching program notice regarding the Internal Revenue Service (IRS) Disclosure of Information to Federal, State and Local Agencies (DIFSLA) Computer Matching Program, noting that the Louisiana Department of Health is modifying its agreement and the Louisiana Department of Children and Families will no longer participate. The Treasury Department, Internal Revenue Service, also issued a proposed rule regarding guidance on eligible investments for Trump accounts. Other proposed regulations from the Treasury Department, Internal Revenue Service, include changes to minimum funding requirements for single-employer defined benefit pension plans and proposed removal of a reporting requirement for certain trusts. Separately, the Internal Revenue Service published a final rule concerning income taxes.
+
+The Agriculture Department issued several rules affecting resource management and commerce. The Agriculture Department, Forest Service, published a proposed rule to rescind the 2001 Roadless Area Conservation Rule, which would return decisionmaking for inventoried roadless areas to the individual national forest level. The Agriculture Department, Rural Business-Cooperative Service, Rural Housing Service, published a proposed rule to rescind its regulation regarding construction and repairs, finding it unnecessary and unduly burdensome. Finally, the Agriculture Department, Agricultural Marketing Service, issued a final rule making changes to administrative requirements for walnuts grown in California.
+
+SOURCE ATTRIBUTION ADDENDUM
+===========================
+
+CMS (Medicaid/CHIP/Medicare)
+----------------------------
+  - (Privacy Act system of records notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Privacy Act of 1974; System of Records (2026-08-20)
+
+SNAP
+----
+  - (information collection request) Agriculture Department, Food and Nutrition Administration - Agency Information Collection Activities, Proposed Collection: Request for Comments on Understanding Participant Experiences in SNAP E&T (2026-08-21)
+  - (proposed rule) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: Changes in Federal-State Administrative Cost Sharing; Extension of Comment Period (2026-08-17)
+
+TANF
+----
+  - (Privacy Act system of records notice) Health and Human Services Department, Children and Families Administration - Privacy Act of 1974; System of Records (2026-08-20)
+  - (notice) Health and Human Services Department, Children and Families Administration - Submission for Office of Management and Budget Review; ACF-700 Tribal Annual Report (2026-08-18)
+  - (notice) Health and Human Services Department, Children and Families Administration - Tribal Consultation Meeting (2026-08-18)
+  - (notice) Health and Human Services Department, Children and Families Administration - Withdrawal of the Announcement of the Intent To Award a Single-Source Cooperative Agreement to Burke Law Group, PLLC in Houston, Texas (2026-08-17)
+
+Cross-Program
+-------------
+  - (proposed rule) Treasury Department, Internal Revenue Service - Guidance on Eligible Investments for Trump Accounts (2026-08-21)
+  - (Privacy Act matching program notice) Treasury Department, Internal Revenue Service - Privacy Act of 1974; Matching Program (2026-08-21)
+  - (final rule) Internal Revenue Service - Income Taxes (2026-08-21)
+  - (proposed rule) Treasury Department, Internal Revenue Service - Application of the Personal Responsibility and Work Opportunity Reconciliation Act of 1996 to the Refunded Portion of Certain Federal Refundable Tax Credits (2026-08-20)
+  - (proposed rule) Treasury Department, Internal Revenue Service - Application of Section 250(b)(3)(A)(i)(VII) to Sales or Other Dispositions of Property (2026-08-20)
+  - (proposed rule) Treasury Department, Internal Revenue Service - Determination of Target Normal Cost and Funding Target for Single-Employer Defined Benefit Plans (2026-08-20)
+  - (proposed rule) Agriculture Department, Forest Service - Special Areas; Roadless Area Conservation (2026-08-20)
+  - (proposed rule) Agriculture Department, Rural Business-Cooperative Service, Rural Housing Service - Rescission of Rural Development's Construction and Repair Regulation (2026-08-19)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - GNT USA, LLC.; Filing of Color Additive Petition (2026-08-19)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Food Additives Permitted in Feed and Drinking Water of Animals; Chromium DL-methionine Chelate (2026-08-19)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - International Association of Color Manufacturers; Filing of Color Additive Petition (2026-08-19)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Gardenia Blue Interest Group; Filing of Color Additive Petition (2026-08-19)
+  - (proposed rule) Treasury Department, Internal Revenue Service - Proposed Removal of a Reporting Requirement for Trusts Whose Charitable Contribution Deductions Are Solely for Contributions Made by Passthrough Entities (2026-08-17)
+  - (final rule) Agriculture Department, Agricultural Marketing Service - Walnuts Grown in California; Changes to Administrative Requirements (2026-08-17)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Hematology and Pathology Devices; Reclassification of In Situ Hybridization Test Systems for Use With a Corresponding Approved Oncology Therapeutic Product (2026-08-17)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Gastroenterology-Urology Devices; Reclassification of Diagnostic Endoscopic Light Source Systems To Be Renamed Cystoscopic Systems Intended as an Aid for Detection of Bladder Cancer (2026-08-17)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Medical Devices; Classification of Accessories Distinct From Other Devices; Proposed List of Accessories Suitable for Class I; Request for Comments (2026-08-17)

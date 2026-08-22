@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, review-only v3
+generate_brief_review.py - federal_policy_brief, review-only v4
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -69,8 +69,38 @@ CHANGES FROM v2 (2026-08-20, Entry #019)
      verify_figures() checks every currency amount in the generated prose
      against that section's source text. Same enforce-twice pattern as
      to_plain_text(): prompting alone has now failed twice.
-     NOTE: while this script is review-only, an unverified figure is FLAGGED.
-     Before send-to-inbox wiring, an unverified figure must HARD-FAIL the run.
+
+CHANGES FROM v3 (2026-08-22, Entry #021)
+  9. Fabrication verification extended beyond currency. verify_claims() now
+     checks four claim types against source text:
+       (a) Currency amounts (unchanged from v3)
+       (b) Dates -- ISO and written forms normalized to datetime.date
+       (c) Federal Register citations -- "91 FR 12345" patterns
+       (d) Counts with unit words -- "15 states", "three agencies"
+     A fabricated date or FR citation is as damaging as a fabricated dollar
+     amount; nothing previously caught one.
+ 10. Hard-fail mode added. HARD_FAIL_ON_UNVERIFIED controls whether an
+     unverified claim is a printed warning (False, current review mode) or
+     aborts the run (True, required before send-to-inbox wiring). The switch
+     is in one place at the top of the file.
+ 11. Foreign content dropped silently. The v2/v3 scope filter required both a
+     funding marker and a foreign marker; in practice, every foreign notice
+     has zero relevance to state HHS leadership. Foreign content is now
+     dropped on any foreign marker alone (no funding requirement), and
+     "codex alimentarius" is added as a standalone international-content
+     marker. Dropped foreign documents are no longer printed in the review
+     output -- they are silently excluded.
+ 12. Cross-Program limited to high-signal instruments. The catch-all
+     Cross-Program section routinely collected 50+ documents, overrunning
+     Gemma's context window and producing outlines instead of prose (the
+     Entry #018 / #021 failure mode). Cross-Program now keeps only proposed
+     rules, final rules, Privacy Act matching program notices, Privacy Act
+     system of records notices, and presidential documents. Routine
+     paperwork (information collection requests, advisory committee meeting
+     notices, drug/device determinations, generic notices) is dropped from
+     Cross-Program and printed in the review output as "DROPPED (routine,
+     Cross-Program)" so the operator can spot a bad call. CMS, SNAP, and
+     TANF sections are unaffected and keep all instruments.
 
 UPSTREAM DEFECT RESOLVED (2026-08-20)
   The scraper TYPE_MAP defect that stored every proposed rule as 'other' is
@@ -95,6 +125,12 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_TIMEOUT = 300                  # seconds; local inference can be slow
 TEMPERATURE = 0.2                     # low = factual, consistent
 NUM_CTX = 8192                        # prompt+response budget; Ollama default 4096 truncated Cross-Program
+
+# Set to True before wiring send-to-inbox. When True, any unverified claim
+# aborts the run instead of printing a warning. While this script is
+# review-only, warnings are informational. In send mode, a brief with an
+# unverified claim must never reach a subscriber's inbox.
+HARD_FAIL_ON_UNVERIFIED = False
 
 DB = dict(
     host="localhost",
@@ -149,27 +185,19 @@ AREA_AUDIENCE = {
                       "across program lines"),
 }
 
-# --------------------- SCOPE FILTER ---------------------
-# Audience is state health and human services leadership. Federal money going
-# to a foreign government or foreign institution does not reach them, so those
-# notices are suppressed before synthesis.
-#
-# Suppression requires BOTH markers below. Requiring both is deliberate: a
-# domestic Medicaid rule that happens to cite another country keeps only the
-# foreign marker and is therefore kept. Every suppressed document is listed in
-# the review output -- a false positive must be visible, never silent.
-FUNDING_MARKERS = (
-    "notice of award",
-    "cooperative agreement",
-    "to fund",
-    "grant to",
-)
+# --------------------- SCOPE FILTER: FOREIGN CONTENT ---------------------
+# Audience is state HHS leadership. Foreign content has zero relevance.
+# Any foreign marker drops the document silently -- no funding requirement,
+# no review output. A domestic rule that merely cites a foreign country in
+# passing is an accepted false-positive risk; in practice the word-boundary
+# matching on country names and the "ministry" marker make this rare.
 
 # A US federal agency is never a "ministry"; that word alone is a reliable
 # foreign-government marker.
 FOREIGN_MARKERS = (
     "ministry of health",
     "ministry of",
+    "codex alimentarius",
 )
 
 # Word-boundary matched so "niger" does not fire on "nigeria" and "india"
@@ -193,25 +221,33 @@ _COUNTRY_RE = re.compile(
 )
 
 
-def out_of_scope(d):
-    """Return a reason string if this document should be suppressed, else None.
-
-    Both conditions must hold: it must look like a funding instrument AND name
-    a foreign recipient.
-    """
+def is_foreign(d):
+    """Return True if the document matches any foreign-content marker."""
     text = f"{d.get('document_title') or ''}\n{d.get('raw_content') or ''}".lower()
 
-    if not any(m in text for m in FUNDING_MARKERS):
-        return None
-
     if any(m in text for m in FOREIGN_MARKERS):
-        return "foreign recipient (government ministry)"
+        return True
 
-    hit = _COUNTRY_RE.search(text)
-    if hit:
-        return f"foreign recipient ({hit.group(1)})"
+    if _COUNTRY_RE.search(text):
+        return True
 
-    return None
+    return False
+
+
+# --------------------- CROSS-PROGRAM INSTRUMENT FILTER ---------------------
+# Cross-Program routinely collects 50+ documents, overrunning Gemma's context
+# window and producing outlines instead of prose. Only high-signal instruments
+# are kept; routine paperwork is dropped. CMS, SNAP, and TANF are unaffected.
+#
+# Dropped documents are printed in the review output so the operator can spot
+# a wrongly-dropped item. Foreign drops are silent; instrument drops are not.
+CROSS_PROGRAM_KEEP = {
+    "proposed rule",
+    "final rule",
+    "Privacy Act matching program notice",
+    "Privacy Act system of records notice",
+    "presidential document",
+}
 
 
 # --------------------- INSTRUMENT TYPING ---------------------
@@ -309,12 +345,25 @@ _EMOJI_RE = re.compile(
 )
 
 
-# --------------------- FIGURE VERIFICATION ---------------------
-# Deterministic backstop for fabricated money. The system prompt forbids
-# arithmetic; this proves it. On 2026-08-20 Gemma reported $15M + $30M + $30M
-# as "approximately $105 million" -- no source states any total, and the sum
-# is wrong regardless. Prompting alone has now failed twice (markdown in v1,
-# arithmetic in v2), so figures get the same enforce-twice treatment.
+# =====================================================================
+# CLAIM VERIFICATION
+# =====================================================================
+# Deterministic backstop for fabricated claims. The system prompt forbids
+# arithmetic and demands source fidelity; this proves it. Prompting alone
+# has now failed twice (markdown in v1, arithmetic in v2), so every
+# verifiable claim type gets the enforce-twice treatment.
+#
+# Four extractors, each following the same pattern:
+#   1. Extract claims from generated prose, normalize to comparable form
+#   2. Extract the same claim type from source text, normalize identically
+#   3. Flag anything in generated that is absent from source
+#
+# False positives are possible (see per-extractor notes). In review mode
+# (HARD_FAIL_ON_UNVERIFIED = False), these print as warnings for operator
+# review. In send mode, any warning aborts the run.
+# =====================================================================
+
+# ----- (a) Currency amounts (unchanged from v3) -----
 _MONEY_RE = re.compile(
     r"\$\s?([\d,]+(?:\.\d+)?)\s*(billion|million|thousand|bn|mm?|k)?\b",
     re.I,
@@ -346,17 +395,250 @@ def _money_values(text):
 def verify_figures(label, generated, source_text):
     """Flag dollar amounts in generated prose absent from the source.
 
-    Returns a list of warning strings. Review-only for now: these are
-    reported, not fatal. Before send-to-inbox wiring, any warning here must
-    abort the run instead.
+    Returns a list of warning strings.
     """
     source = _money_values(source_text)
     warnings = []
     for value in sorted(_money_values(generated) - source):
         warnings.append(
-            f"{label}: ${value:,.0f} appears in the generated text but in no "
-            f"source document for this section"
+            f"[currency] {label}: ${value:,.0f} appears in the generated "
+            f"text but in no source document for this section"
         )
+    return warnings
+
+
+# ----- (b) Dates -----
+# Normalized to datetime.date so "August 17, 2026" matches "2026-08-17".
+# Only specific dates (month + day + year) are checked. Month-only
+# references ("in August 2026") are too vague to be a fabrication risk
+# and are not extracted.
+
+_MONTH_NAMES = {
+    "january": 1, "february": 2, "march": 3, "april": 4,
+    "may": 5, "june": 6, "july": 7, "august": 8,
+    "september": 9, "october": 10, "november": 11, "december": 12,
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4,
+    "jun": 6, "jul": 7, "aug": 8, "sep": 9, "sept": 9,
+    "oct": 10, "nov": 11, "dec": 12,
+}
+
+# ISO dates: 2026-08-17
+_ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+
+# Written dates: August 17, 2026 / Aug. 17, 2026 / Aug 17, 2026
+# The comma after the day is optional to catch informal usage.
+_WRITTEN_DATE_RE = re.compile(
+    r"\b(January|February|March|April|May|June|July|August|September|"
+    r"October|November|December|"
+    r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
+    r"\.?\s+(\d{1,2}),?\s+(\d{4})\b",
+    re.I,
+)
+
+
+def _extract_dates(text):
+    """Every specific date in text, normalized to datetime.date objects."""
+    dates = set()
+    for y, m, d in _ISO_DATE_RE.findall(text or ""):
+        try:
+            dates.add(dt.date(int(y), int(m), int(d)))
+        except ValueError:
+            continue
+    for month_str, day_str, year_str in _WRITTEN_DATE_RE.findall(text or ""):
+        month_num = _MONTH_NAMES.get(month_str.lower().rstrip("."))
+        if month_num:
+            try:
+                dates.add(dt.date(int(year_str), month_num, int(day_str)))
+            except ValueError:
+                continue
+    return dates
+
+
+def verify_dates(label, generated, source_text):
+    """Flag dates in generated prose absent from the source.
+
+    Returns a list of warning strings. False positives are unlikely here:
+    a date either appears in a source document or it does not.
+    """
+    source_dates = _extract_dates(source_text)
+    warnings = []
+    for d in sorted(_extract_dates(generated) - source_dates):
+        warnings.append(
+            f"[date] {label}: {d.strftime('%B %d, %Y')} appears in the "
+            f"generated text but in no source document for this section"
+        )
+    return warnings
+
+
+# ----- (c) Federal Register citations -----
+# Pattern: "91 FR 12345" (volume, page). A fabricated citation number sends
+# a commissioner looking for a document that does not exist.
+
+_FR_CITE_RE = re.compile(r"\b(\d{1,3})\s+FR\s+(\d{3,6})\b", re.I)
+
+
+def _extract_fr_citations(text):
+    """Every Federal Register citation as (volume, page) integer tuples."""
+    cites = set()
+    for vol, page in _FR_CITE_RE.findall(text or ""):
+        cites.add((int(vol), int(page)))
+    return cites
+
+
+def verify_fr_citations(label, generated, source_text):
+    """Flag FR citations in generated prose absent from the source.
+
+    Returns a list of warning strings. False positives are very unlikely:
+    FR volume/page numbers are specific enough that an invented one is
+    almost certainly wrong.
+    """
+    source_cites = _extract_fr_citations(source_text)
+    warnings = []
+    for vol, page in sorted(_extract_fr_citations(generated) - source_cites):
+        warnings.append(
+            f"[FR citation] {label}: {vol} FR {page} appears in the "
+            f"generated text but in no source document for this section"
+        )
+    return warnings
+
+
+# ----- (d) Counts with unit words -----
+# Catches "15 states", "three agencies", "$30M to 47 organizations" etc.
+# Requires a recognized unit word after the number so that bare numbers,
+# section numbers ("Section 3"), and citation numbers ("91 FR") are not
+# swept up.
+#
+# FALSE POSITIVE NOTE: the model legitimately counts its inputs ("the
+# three proposed rules in this section"). That count does not appear in any
+# single source document, so it will be flagged. These are expected and
+# are easy to spot in review. Suppressing them automatically would require
+# knowing how many documents the model was given, which is fragile; better
+# to flag and let the operator clear them.
+
+_WORD_NUMBERS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+    "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40,
+    "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80,
+    "ninety": 90, "hundred": 100,
+}
+
+# Unit words relevant to this domain. Both singular and plural forms map
+# to a canonical singular. Only words likely to appear in federal policy
+# prose are included; adding a word here is cheap and safe.
+_UNIT_NORMALIZE = {}
+_UNIT_PAIRS = [
+    ("state", "states"),
+    ("agency", "agencies"),
+    ("document", "documents"),
+    ("program", "programs"),
+    ("notice", "notices"),
+    ("rule", "rules"),
+    ("award", "awards"),
+    ("grant", "grants"),
+    ("agreement", "agreements"),
+    ("organization", "organizations"),
+    ("entity", "entities"),
+    ("beneficiary", "beneficiaries"),
+    ("recipient", "recipients"),
+    ("application", "applications"),
+    ("comment", "comments"),
+    ("provision", "provisions"),
+    ("requirement", "requirements"),
+    ("condition", "conditions"),
+    ("section", "sections"),
+    ("category", "categories"),
+    ("item", "items"),
+    ("change", "changes"),
+    ("amendment", "amendments"),
+    ("waiver", "waivers"),
+    ("indicator", "indicators"),
+    ("measure", "measures"),
+    ("facility", "facilities"),
+    ("jurisdiction", "jurisdictions"),
+    ("territory", "territories"),
+    ("county", "counties"),
+    ("tribe", "tribes"),
+    ("provider", "providers"),
+    ("hospital", "hospitals"),
+    ("plan", "plans"),
+    ("option", "options"),
+    ("criterion", "criteria"),
+    ("year", "years"),
+    ("day", "days"),
+    ("month", "months"),
+]
+for _sing, _plur in _UNIT_PAIRS:
+    _UNIT_NORMALIZE[_sing] = _sing
+    _UNIT_NORMALIZE[_plur] = _sing
+
+# All unit words for regex alternation (longest first to avoid prefix issues).
+_ALL_UNITS = sorted(_UNIT_NORMALIZE.keys(), key=len, reverse=True)
+_UNIT_PATTERN = "|".join(re.escape(u) for u in _ALL_UNITS)
+
+# All word-form numbers for regex alternation.
+_WORD_NUM_PATTERN = "|".join(
+    sorted(_WORD_NUMBERS.keys(), key=len, reverse=True)
+)
+
+# "15 states", "3 agencies" -- digit followed by a unit word.
+_DIGIT_COUNT_RE = re.compile(
+    rf"\b(\d{{1,6}})\s+({_UNIT_PATTERN})\b", re.I
+)
+
+# "three agencies", "fifteen states" -- word-form number followed by a unit.
+_WORD_COUNT_RE = re.compile(
+    rf"\b({_WORD_NUM_PATTERN})\s+({_UNIT_PATTERN})\b", re.I
+)
+
+
+def _extract_counts(text):
+    """Counts with unit words, normalized to (int, singular_unit) tuples."""
+    counts = set()
+    for num_str, unit in _DIGIT_COUNT_RE.findall(text or ""):
+        canonical = _UNIT_NORMALIZE.get(unit.lower())
+        if canonical:
+            counts.add((int(num_str), canonical))
+    for word, unit in _WORD_COUNT_RE.findall(text or ""):
+        num = _WORD_NUMBERS.get(word.lower())
+        canonical = _UNIT_NORMALIZE.get(unit.lower())
+        if num and canonical:
+            counts.add((num, canonical))
+    return counts
+
+
+def verify_counts(label, generated, source_text):
+    """Flag counted quantities in generated prose absent from the source.
+
+    Returns a list of warning strings. See FALSE POSITIVE NOTE above --
+    small-count flags (e.g. "the three proposed rules") are often the model
+    legitimately counting its inputs, not fabricating.
+    """
+    source_counts = _extract_counts(source_text)
+    warnings = []
+    for num, unit in sorted(_extract_counts(generated) - source_counts):
+        warnings.append(
+            f"[count] {label}: '{num} {unit}(s)' appears in the generated "
+            f"text but in no source document for this section"
+        )
+    return warnings
+
+
+# ----- Unified verification entry point -----
+
+def verify_claims(label, generated, source_text):
+    """Run all four claim verifiers and return collected warnings.
+
+    Each warning is a string prefixed with its type ([currency], [date],
+    [FR citation], [count]) for easy filtering in review output.
+    """
+    warnings = []
+    warnings.extend(verify_figures(label, generated, source_text))
+    warnings.extend(verify_dates(label, generated, source_text))
+    warnings.extend(verify_fr_citations(label, generated, source_text))
+    warnings.extend(verify_counts(label, generated, source_text))
     return warnings
 
 
@@ -608,17 +890,8 @@ def main():
     start = today - dt.timedelta(days=WINDOW_DAYS)
     date_range = f"{start.isoformat()} to {today.isoformat()}"
 
-    # ---- scope filter (applied before anything else sees the rows) ----
-    suppressed = []
-    kept = []
-    for d in rows:
-        reason = out_of_scope(d)
-        if reason:
-            d["_suppressed_reason"] = reason
-            suppressed.append(d)
-        else:
-            kept.append(d)
-    rows = kept
+    # ---- foreign content filter (silent -- no review output) ----
+    rows = [d for d in rows if not is_foreign(d)]
 
     # ---- classify up front so review output and prompts agree ----
     for d in rows:
@@ -626,20 +899,28 @@ def main():
                                            d["document_title"])
         d["_area"] = area_for(d["publishing_agency"])
 
+    # ---- Cross-Program instrument filter (printed for review) ----
+    dropped_routine = []
+    kept = []
+    for d in rows:
+        if d["_area"] == "Cross-Program" and d["_instrument"] not in CROSS_PROGRAM_KEEP:
+            dropped_routine.append(d)
+        else:
+            kept.append(d)
+    rows = kept
+
     # ---- input set (printed for review) ----
     print("=" * 78)
     print(f"INPUT SET  project={PROJECT}  window={WINDOW_DAYS}d "
           f"({date_range})  is_new only")
     print("=" * 78)
-    if suppressed:
-        print(f"SUPPRESSED (out of scope) -- {len(suppressed)} document(s) "
-              f"withheld from the brief:")
-        for d in suppressed:
-            title = (d["document_title"] or "Untitled").strip()[:70]
-            print(f"  [{d['publication_date']}] {d['_suppressed_reason']:42} "
-                  f"{title}")
-        print("  Review these. A wrongly suppressed document is a content "
-              "gap the reader cannot see.")
+    if dropped_routine:
+        print(f"DROPPED (routine, Cross-Program) -- {len(dropped_routine)} "
+              f"document(s) excluded from the brief:")
+        for d in dropped_routine:
+            title = (d["document_title"] or "Untitled").strip()[:60]
+            print(f"  [{d['publication_date']}] {d['_instrument']:38} {title}")
+        print("  Review these. CMS/SNAP/TANF documents are never dropped.")
         print()
     if not rows:
         print("No unprocessed documents in the window. Nothing to brief.")
@@ -661,7 +942,7 @@ def main():
 
     # ---- synthesize each populated area ----
     section_texts = []
-    figure_warnings = []
+    claim_warnings = []
     for area in AREA_ORDER:
         area_rows = rows_by_area.get(area)
         if not area_rows:
@@ -669,8 +950,8 @@ def main():
         print(f"... synthesizing {AREA_HEADING[area]} "
               f"({len(area_rows)} doc(s)) via {MODEL}", file=sys.stderr)
         text = synthesize_section(area, area_rows)
-        figure_warnings.extend(
-            verify_figures(AREA_HEADING[area], text, docs_block(area_rows))
+        claim_warnings.extend(
+            verify_claims(AREA_HEADING[area], text, docs_block(area_rows))
         )
         section_texts.append((area, text))
 
@@ -678,20 +959,30 @@ def main():
     print(f"... synthesizing executive summary via {MODEL}", file=sys.stderr)
     exec_summary = synthesize_exec_summary(date_range, section_texts,
                                            rows_by_area)
-    figure_warnings.extend(
-        verify_figures("EXECUTIVE SUMMARY", exec_summary,
+    claim_warnings.extend(
+        verify_claims("EXECUTIVE SUMMARY", exec_summary,
                        docs_block(rows))
     )
 
-    if figure_warnings:
+    if claim_warnings:
         print()
         print("!" * 78, file=sys.stderr)
-        print("UNVERIFIED FIGURES -- do not send this brief as-is:",
-              file=sys.stderr)
-        for w in figure_warnings:
+        if HARD_FAIL_ON_UNVERIFIED:
+            print("UNVERIFIED CLAIMS -- aborting run (HARD_FAIL_ON_UNVERIFIED "
+                  "is True):", file=sys.stderr)
+        else:
+            print("UNVERIFIED CLAIMS -- review before sending:",
+                  file=sys.stderr)
+        for w in claim_warnings:
             print(f"  ! {w}", file=sys.stderr)
         print("!" * 78, file=sys.stderr)
         print()
+
+        if HARD_FAIL_ON_UNVERIFIED:
+            print("Run aborted. No brief generated. Resolve the warnings "
+                  "above, or if they are false positives, note them and "
+                  "re-run.", file=sys.stderr)
+            sys.exit(2)
 
     # ---- assemble brief ----
     parts = [
