@@ -407,6 +407,37 @@ ALTER TABLE scraped_content
 CREATE INDEX IF NOT EXISTS idx_scraped_content_run ON scraped_content(scraper_run_id);
 
 -- ============================================================================
+-- 14. BRIEF_RUNS (ADR-039 H4 send-to-inbox audit trail)
+-- One row per generate_brief_review.py --send invocation. Review-only runs
+-- (no --send) never write here. Populated by record_brief_run() in
+-- generate_brief_review.py.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS brief_runs (
+    id                      SERIAL PRIMARY KEY,
+    project                 VARCHAR(64) NOT NULL,
+    run_timestamp           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    date_range_start        DATE NOT NULL,
+    date_range_end          DATE NOT NULL,
+    doc_count               INTEGER NOT NULL DEFAULT 0,
+    claim_warning_count     INTEGER NOT NULL DEFAULT 0,
+    verification_status     VARCHAR(20) NOT NULL,
+    send_status             VARCHAR(20) NOT NULL,
+    recipient               VARCHAR(255),
+    error_message           TEXT,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT brief_runs_verification_status_check
+        CHECK (verification_status IN ('clean', 'warnings')),
+    CONSTRAINT brief_runs_send_status_check
+        CHECK (send_status IN ('sent', 'failed', 'skipped_unverified'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_brief_runs_project_timestamp
+    ON brief_runs(project, run_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_brief_runs_send_status
+    ON brief_runs(send_status);
+
+-- ============================================================================
 -- SCHEMA VERSION TRACKING
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -420,17 +451,17 @@ CREATE TABLE IF NOT EXISTS schema_version (
 -- above and is guaranteed empty. No conflict handling needed.
 -- MUST match REQUIRED_SCHEMA_VERSION in app/db.py.
 INSERT INTO schema_version (version, description) VALUES
-    (6, 'Baseline schema — May 17, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038 (with main_identity_check source), ADR-039 H4 (scraped_content + scraper_runs).');
+    (7, 'Baseline schema — August 22, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038 (with main_identity_check source), ADR-039 H4 (scraped_content + scraper_runs + brief_runs).');
 
 -- ============================================================================
 -- DONE
--- Tables created: 13 + 1 view + 1 version tracker
+-- Tables created: 14 + 1 view + 1 version tracker
 --   ADR-035: sessions, session_budget, tool_registry, session_state
 --   ADR-029/035: agent_actions (partitioned, 4 initial monthly partitions)
 --   ADR-037: session_transcripts, agent_heartbeat, service_health, knowledge_updates
 --   ADR-034: hardware_metrics + hardware_alerts view
 --   ADR-038: security_events
---   ADR-039 H4: scraped_content, scraper_runs
+--   ADR-039 H4: scraped_content, scraper_runs, brief_runs
 --   Meta: schema_version
 --
 -- Phase 1.5 deferred: workflow_runs, workflow_steps (ADR-035 §8)

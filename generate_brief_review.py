@@ -1,20 +1,34 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, review-only v4
+generate_brief_review.py - federal_policy_brief, v5
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
 executive brief, appends a deterministic Source Attribution Addendum, then
 prints the result and saves it to a file for operator review.
 
-REVIEW-ONLY. This script:
+DEFAULT MODE IS STILL REVIEW-ONLY. Run with no flags and this script:
   - does NOT send any email
   - does NOT mark rows processed (the is_new flag is left untouched)
   - does NOT write a brief_runs row
 It is therefore safe to run as many times as you like.
 
-No shell or bash is invoked. It reaches PostgreSQL (localhost:5432) and
-Ollama (localhost:11434) over the network only.
+--SEND MODE (new in v5). Pass --send and, if verification is clean, the
+script additionally:
+  - emails the finished brief via authenticated SMTP (self-send to the
+    operator's own iCloud inbox -- ADR-039 H4 sub-decision, August 22, 2026)
+  - marks every consumed scraped_content row is_new = FALSE
+  - writes one brief_runs row recording the outcome (sent/failed/skipped_unverified)
+If verification is NOT clean, --send skips the email and the is_new flip,
+still writes the review file and a brief_runs row (send_status =
+'skipped_unverified'), and exits non-zero. --send never emails an unverified
+brief, independent of the HARD_FAIL_ON_UNVERIFIED switch below, which still
+controls only the review-mode print-vs-abort behavior.
+
+No shell or bash is invoked. It reaches PostgreSQL (localhost:5432),
+Ollama (localhost:11434), and -- in --send mode only -- smtp.mail.me.com:587
+over the network. It must run on the host, not inside Docker: Keychain
+(used for SMTP credentials) is unavailable inside a container.
 
 CHANGES FROM v0
   1. Instrument-type fidelity. Each document now carries an explicit
@@ -102,6 +116,34 @@ CHANGES FROM v3 (2026-08-22, Entry #021)
      Cross-Program)" so the operator can spot a bad call. CMS, SNAP, and
      TANF sections are unaffected and keep all instruments.
 
+CHANGES FROM v4 (2026-08-22, Entry #022)
+ 13. Send-to-inbox wiring added (ADR-039 H4 closure). New --send flag. No
+     ESP or purchased sender domain: the only recipient is the operator's
+     own inbox, so authenticated SMTP against an existing mailbox the
+     operator already controls (iCloud, smtp.mail.me.com:587, STARTTLS) is
+     sufficient and adds no new third-party dependency. Credentials
+     (ICLOUD_SMTP_USER, ICLOUD_SMTP_PASSWORD) are read from macOS Keychain
+     via the same account=openclaw / service=SECRET_NAME convention as
+     app/config.py's _keychain_get(), duplicated here rather than imported
+     because this script is intentionally standalone (no app.* imports,
+     direct psycopg2 connection).
+ 14. Send gated on clean verification. --send checks the SAME claim_warnings
+     list verify_claims() already produces -- no second detection pass. Any
+     warning blocks the email and the is_new flip; the review file and a
+     brief_runs audit row are still written either way. This is deliberately
+     stricter than the module-level HARD_FAIL_ON_UNVERIFIED switch, which
+     stays False (review mode prints warnings but does not abort) -- that
+     switch is reserved for a later, separate flip per the v3/Entry #021
+     plan, not bundled into this change.
+ 15. brief_runs audit trail (migration_006.sql). One row per --send
+     invocation only; review-only runs remain fully side-effect-free, same
+     guarantee v0-v4 always made. Records doc count, verification status,
+     send status, recipient, and any SMTP error.
+ 16. is_new flip on successful send only. Consumed scraped_content rows are
+     marked is_new = FALSE after the SMTP send succeeds, not before -- a
+     failed send leaves the rows eligible for the next run instead of
+     silently losing them.
+
 UPSTREAM DEFECT RESOLVED (2026-08-20)
   The scraper TYPE_MAP defect that stored every proposed rule as 'other' is
   fixed in app/scheduling/scrapers/federal_register.py, and the 15 banked rows
@@ -109,13 +151,20 @@ UPSTREAM DEFECT RESOLVED (2026-08-20)
   has been removed.
 """
 
+import argparse
+import logging
 import os
 import re
+import smtplib
+import subprocess
 import sys
 import datetime as dt
+from email.message import EmailMessage
 
 import psycopg2
 import httpx
+
+log = logging.getLogger(__name__)
 
 # ----------------------------- CONFIG -----------------------------
 WINDOW_DAYS = 7                       # production value
@@ -126,10 +175,23 @@ OLLAMA_TIMEOUT = 300                  # seconds; local inference can be slow
 TEMPERATURE = 0.2                     # low = factual, consistent
 NUM_CTX = 8192                        # prompt+response budget; Ollama default 4096 truncated Cross-Program
 
-# Set to True before wiring send-to-inbox. When True, any unverified claim
-# aborts the run instead of printing a warning. While this script is
-# review-only, warnings are informational. In send mode, a brief with an
-# unverified claim must never reach a subscriber's inbox.
+# ----------------------- SEND-TO-INBOX (v5, ADR-039 H4) -----------------------
+# Self-send only: the sole recipient is the operator's own inbox, so an
+# existing mailbox the operator already controls is used directly -- no ESP,
+# no purchased sender domain. Credentials come from Keychain, never from
+# this file or the environment.
+SMTP_HOST = "smtp.mail.me.com"
+SMTP_PORT = 587
+SMTP_USER_SERVICE = "ICLOUD_SMTP_USER"
+SMTP_PASSWORD_SERVICE = "ICLOUD_SMTP_PASSWORD"
+SMTP_TIMEOUT = 30                     # seconds
+
+# Controls REVIEW-MODE behavior only: whether an unverified claim aborts a
+# review-only run (True) or just prints a warning (False, current). --send
+# mode does NOT read this switch -- it always blocks the email (see
+# maybe_send() below) on any claim_warnings, regardless of this value. Flip
+# this to True separately, later, once send mode has enough clean live runs
+# behind it (v3/Entry #021 plan) -- do not bundle that flip into this change.
 HARD_FAIL_ON_UNVERIFIED = False
 
 DB = dict(
@@ -139,6 +201,34 @@ DB = dict(
     user="openclaw",
     password=os.environ.get("POSTGRES_PASSWORD", "changeme"),
 )
+
+
+def _keychain_get(service, fallback=""):
+    """Read a secret from macOS Keychain (account=openclaw, service=SERVICE).
+
+    Mirrors app/config.py's _keychain_get(). Duplicated rather than imported:
+    this script is intentionally standalone (no app.* imports, direct
+    psycopg2 connection, runs on the host via cron/manually -- not inside
+    the Docker network the app package targets).
+    """
+    try:
+        result = subprocess.run(
+            ["security", "find-generic-password", "-a", "openclaw", "-s", service, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            value = result.stdout.strip()
+            if value and value != "empty":
+                return value
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    except Exception as e:
+        log.warning("Keychain lookup failed for %s: %s", service, e)
+
+    return fallback
+
 
 # --------------------- PROGRAM AREA MAPPING ---------------------
 # publishing_agency is stored as "Parent Department, Sub-agency[, Sub-agency]".
@@ -870,7 +960,175 @@ def attribution(rows_by_area):
     return "\n".join(out)
 
 
+# =====================================================================
+# SEND-TO-INBOX (v5, ADR-039 H4)
+# =====================================================================
+# Self-send only: the operator's own inbox is both sender and recipient, so
+# an existing mailbox the operator already controls is used directly. No
+# ESP, no purchased sender domain -- see the v5 docstring section above for
+# the full rationale. Every function here opens its own short-lived DB
+# connection rather than sharing main()'s -- main() closes its connection
+# immediately after fetch_rows() (unchanged from v0-v4, and correct: the
+# long-running Ollama synthesis has no business holding a DB connection
+# open), so these late-stage writes need their own.
+# =====================================================================
+
+def send_email(subject, body):
+    """Send `body` as a plain-text email, self-addressed via iCloud SMTP.
+
+    Returns the sender/recipient address on success. Raises on any
+    Keychain-lookup or SMTP failure -- callers must catch and record the
+    failure rather than let a bad send pass silently.
+    """
+    user = _keychain_get(SMTP_USER_SERVICE)
+    password = _keychain_get(SMTP_PASSWORD_SERVICE)
+    if not user or not password:
+        raise RuntimeError(
+            f"SMTP credentials not found in Keychain (account='openclaw', "
+            f"service={SMTP_USER_SERVICE!r} / {SMTP_PASSWORD_SERVICE!r}). "
+            f"Store them with `security add-generic-password` before using --send."
+        )
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = user
+    msg["To"] = user
+    msg.set_content(body)
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
+        server.starttls()
+        server.login(user, password)
+        server.send_message(msg)
+
+    return user
+
+
+def mark_processed(conn, ids):
+    """Flip is_new = FALSE for the given scraped_content ids."""
+    if not ids:
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scraped_content SET is_new = FALSE WHERE id = ANY(%s)",
+            (list(ids),),
+        )
+    conn.commit()
+
+
+def record_brief_run(conn, start, end, doc_count, warning_count,
+                      verification_status, send_status,
+                      recipient=None, error_message=None):
+    """Insert one audit row into brief_runs. --send mode only."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO brief_runs
+                (project, date_range_start, date_range_end, doc_count,
+                 claim_warning_count, verification_status, send_status,
+                 recipient, error_message)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (PROJECT, start, end, doc_count, warning_count,
+             verification_status, send_status, recipient, error_message),
+        )
+    conn.commit()
+
+
+def _record_run_best_effort(*args, **kwargs):
+    """record_brief_run() via its own connection; DB trouble is reported, not raised.
+
+    A failure to WRITE THE AUDIT ROW must never be confused with a failure
+    to send the email -- callers report the two separately.
+    """
+    try:
+        conn = psycopg2.connect(**DB)
+    except psycopg2.OperationalError as e:
+        print(f"  (could not record brief_runs row: {e})", file=sys.stderr)
+        return
+    try:
+        record_brief_run(conn, *args, **kwargs)
+    finally:
+        conn.close()
+
+
+def handle_send(rows, claim_warnings, brief, subject, start, today):
+    """--send mode: gate on clean verification, email, flip is_new, audit.
+
+    Returns True iff the email was actually sent. A skip (unverified) or a
+    failure (SMTP or DB) both return False -- the caller uses this as the
+    process exit code, so a cron job's exit status reflects "did the brief
+    actually reach the inbox," not just "did the script run."
+    """
+    doc_count = len(rows)
+    verification_status = "warnings" if claim_warnings else "clean"
+
+    if claim_warnings:
+        print(
+            "--send requested but claim verification is NOT clean -- "
+            "the email was NOT sent. Review the warnings above, then re-run.",
+            file=sys.stderr,
+        )
+        _record_run_best_effort(
+            start, today, doc_count, len(claim_warnings),
+            verification_status, "skipped_unverified",
+        )
+        return False
+
+    try:
+        recipient = send_email(subject, brief)
+    except Exception as e:
+        print(f"SMTP send failed: {e}", file=sys.stderr)
+        _record_run_best_effort(
+            start, today, doc_count, 0, verification_status, "failed",
+            error_message=str(e),
+        )
+        return False
+
+    # Email is out. DB bookkeeping failure past this point must not read as
+    # "the send failed" -- it didn't. Report it distinctly instead.
+    try:
+        conn = psycopg2.connect(**DB)
+    except psycopg2.OperationalError as e:
+        print(
+            f"Sent to {recipient}, but could not connect to PostgreSQL "
+            f"afterward ({e}). is_new NOT flipped, no brief_runs row -- "
+            f"these {doc_count} document(s) will be re-briefed next run.",
+            file=sys.stderr,
+        )
+        return True
+    try:
+        mark_processed(conn, [d["id"] for d in rows])
+        record_brief_run(
+            conn, start, today, doc_count, 0,
+            verification_status, "sent", recipient=recipient,
+        )
+    finally:
+        conn.close()
+
+    print(
+        f"Sent to {recipient}. {doc_count} document(s) marked processed "
+        f"(is_new = FALSE). brief_runs row recorded."
+    )
+    return True
+
+
 def main():
+    parser = argparse.ArgumentParser(
+        description="Generate the federal policy brief. Review-only by "
+                     "default; pass --send to email it once verification "
+                     "is clean."
+    )
+    parser.add_argument(
+        "--send", action="store_true",
+        help="After generating a brief with zero claim_warnings, email it "
+             "via SMTP, mark consumed rows processed (is_new = FALSE), and "
+             "record a brief_runs audit row. If verification is NOT clean, "
+             "the email is skipped (a brief_runs row is still recorded) "
+             "and the script exits non-zero. Default: review-only, no "
+             "side effects.",
+    )
+    args = parser.parse_args()
+
     try:
         conn = psycopg2.connect(**DB)
     except psycopg2.OperationalError as e:
@@ -975,6 +1233,9 @@ def main():
                   file=sys.stderr)
         for w in claim_warnings:
             print(f"  ! {w}", file=sys.stderr)
+        if args.send:
+            print("  --send was requested: the email will be SKIPPED "
+                  "because of these warnings.", file=sys.stderr)
         print("!" * 78, file=sys.stderr)
         print()
 
@@ -1006,8 +1267,11 @@ def main():
 
     # ---- output: screen + file ----
     print("=" * 64)
-    print("GENERATED BRIEF  (review-only: nothing sent, nothing marked "
-          "processed)")
+    if args.send:
+        print("GENERATED BRIEF  (--send requested: see below for outcome)")
+    else:
+        print("GENERATED BRIEF  (review-only: nothing sent, nothing marked "
+              "processed)")
     print("=" * 64)
     print(brief)
 
@@ -1016,6 +1280,12 @@ def main():
         f.write(brief)
     print()
     print(f"Saved to ./{outname}")
+
+    if args.send:
+        print()
+        subject = f"Federal Policy Brief - {date_range}"
+        sent = handle_send(rows, claim_warnings, brief, subject, start, today)
+        sys.exit(0 if sent else 1)
 
 
 if __name__ == "__main__":
