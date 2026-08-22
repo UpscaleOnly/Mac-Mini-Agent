@@ -1617,3 +1617,50 @@ New egress destination activated: `smtp.mail.me.com:587` (self-send only — sen
 | Decide fate of `~/projects/mac-mini` clone; consider an ADR-014 note about the dual-clone scoping gap | Opportunistic |
 | Flip `HARD_FAIL_ON_UNVERIFIED` to `True` once several more clean `--send` runs build confidence | After a few more scheduled sends |
 | ISO date fix and exec summary prompt tuning | Opportunistic |
+
+---
+
+## Entry #023 — August 22, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — new ADR filed (documentation only, no code)
+
+**Commits:** `b27beb4`
+
+### Changes Made
+
+1. **ADR-042 drafted: “ADR Corpus Reconciliation — ‘AI Build’ Project Knowledge vs. Local Document Store.”** Filed OPEN and explicitly deferred by operator direction — Sheldon confirmed the reconciliation itself is a dedicated future project, not in-scope now, after months of prior work building the existing ADR corpus. This entry only records the problem and the known inventory; no reconciliation approach is selected.
+
+2. **Trigger for the ADR:** while confirming ADR-014's text during Entry #022's dual-clone cleanup, a grep of every `ADR-NNN` citation in `changelog.md`, `CURRENT_STATE.md`, `NEXT_SESSION_OPENER.md`, and `app/*.py` against the physical `ADR_*.docx` files in `~/openclaw` found: 9 ADRs with both a document and active references (031, 033–035, 037–041); 1 orphan document never referenced anywhere (036); 12 ADR numbers actively cited as governance with no local document at all (003, 005, 014, 017, 019–022, 027–030) — including ADR-014 itself; and 1 numbering gap with neither a document nor a reference (032). Sheldon confirmed the undocumented-locally ADRs were authored over several months in a Claude.ai Project named “AI Build,” which this Claude Code session cannot read directly (no MCP/API bridge from Claude Code into Claude.ai Projects).
+
+3. **ADR-042 records this inventory as of today** (Section 4) and lists candidate reconciliation approaches for future evaluation (Section 5: consolidate into `~/openclaw`, keep both with a cross-reference index, reverse-consolidate into “AI Build,” or accept the fragmentation as a documented permanent design) without selecting one.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_042.docx` | Created |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-042 | Created. Status OPEN, deferred — no target date. |
+| ADR-014 | Referenced as the motivating example: it governs Claude Code's own working-directory scope but currently has no local document, so a Claude Code session cannot verify its own governing text without leaving the product surface it runs in. |
+
+### NIST Controls Touched
+
+CM-3, CM-8 (component/configuration inventory — this is literally an ADR inventory), CM-9, AU-6
+
+### Risk Assessment
+
+Documentation-only change. No code, no schema, no egress, no credentials touched. Filing this ADR does not resolve the fragmentation it describes — ADR-014 (and eleven other cited ADRs) remain unverifiable from within `~/openclaw` until the deferred reconciliation project happens. Risk is unchanged by this entry, only now explicitly tracked instead of implicit.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| ADR corpus reconciliation (ADR-042) | Dedicated future project — no date set |
+| Export or otherwise obtain read access to “AI Build”'s ADR contents, as a prerequisite for that future project | Whenever Sheldon schedules it |
