@@ -1539,3 +1539,81 @@ Code change to a review-only script — no email sent, no rows marked processed,
 | Send-to-inbox wiring — email provider decision, brief_runs table, is_new flag logic, delivery mechanism | Next session (Claude Code, Manual mode) |
 | ISO date fix and exec summary prompt tuning | Opportunistic, during send-wiring work |
 | v3.0 instructions refresh | Opportunistic |
+
+---
+
+## Entry #022 — August 22, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Feature (federal_policy_brief) — ADR-039 H4 closure (send-to-inbox)
+
+**Commits:** `a6b16f7`
+
+### Changes Made
+
+1. **Email provider / sender domain sub-decision (ADR-039 H4).** No ESP (Postmark/SES/Mailgun) and no purchased sender domain. The only recipient of this brief is the operator's own inbox, so authenticated SMTP against an existing mailbox the operator already controls is sufficient: `smtp.mail.me.com:587`, STARTTLS, self-send (From = To = operator's iCloud address). Re-evaluation trigger carried forward explicitly: the day the audience expands beyond the operator to actual external recipients, revisit and stand up an ESP + real sender domain.
+
+2. **`generate_brief_review.py` v5 — `--send` flag added.** Default (no flag) behavior is byte-for-byte unchanged from v4 — review-only, zero DB writes, safe to run repeatedly (verified: live parity run produced an identical banner, saved the same review file, and left `brief_runs` at 0 rows / all `is_new` rows untouched). `--send`:
+   - Emails the finished brief via `send_email()` — plain-text `EmailMessage`, credentials read from Keychain (`ICLOUD_SMTP_USER` / `ICLOUD_SMTP_PASSWORD`, account `openclaw`) via a `_keychain_get()` helper duplicated from `app/config.py`'s (this script stays intentionally standalone — no `app.*` imports, direct `psycopg2` connection, runs on the host via cron/manually since Keychain is unavailable inside Docker).
+   - Is gated on the **same** `claim_warnings` list `verify_claims()` already produces — no second detection pass. Any warning blocks the email and skips the `is_new` flip; the review file and a `brief_runs` row are still written either way (`send_status = 'skipped_unverified'`). This is deliberately independent of `HARD_FAIL_ON_UNVERIFIED`, which stays `False` and continues to govern only review-mode print-vs-abort behavior — that switch's own flip to `True` remains a separate, later decision (v3/Entry #021 plan), not bundled into this change.
+   - Flips `is_new = FALSE` on consumed `scraped_content` rows **only after** the SMTP send succeeds, so a failed send leaves rows eligible for the next run instead of silently losing them.
+   - Records one `brief_runs` audit row per `--send` invocation (never for review-only runs): doc count, verification status, send status, recipient, and any SMTP/DB error. Each DB write (mark-processed, audit-row insert) uses its own short-lived connection and its own try/except, so a DB hiccup *after* a successful send is reported distinctly from a failed send — the operator is never told "failed" when the email actually went out.
+
+3. **`migration_006.sql` — `brief_runs` table.** `schema_version` 6 → 7. Applied directly to the live `openclaw_postgres` container via `docker cp` + `docker exec ... psql` (no `psql` client on the host). `schema.sql` (fresh-install path) and `app/db.py`'s `REQUIRED_SCHEMA_VERSION` updated to match, so a clean rebuild and an existing DB migrated both land in the same state. `app/db.py` already has a graceful `live_version > REQUIRED_SCHEMA_VERSION` path (log-and-continue, not a hard failure), so the still-running `openclaw_fastapi` container — built from the pre-edit `db.py`, since `fastapi` builds from `Dockerfile` rather than bind-mounting `app/` — logs one harmless warning until it's rebuilt. No outage.
+
+4. **Dual-clone discovery and reconciliation.** This session's Claude Code instance was running in `~/projects/mac-mini`, a second local clone of the `Mac-Mini-Agent` GitHub repo, not `~/openclaw` — the directory ADR-014 (Entry #021) explicitly scopes Claude Code to. Both clones were at the same commit (`fa80ac8`) with byte-identical `generate_brief_review.py`, so nothing had drifted in content, only in location; `~/projects/mac-mini` had no `.env`, which is why the initial live DB connection attempt failed there (stale `changeme` placeholder in both Keychain and the container's env — a already-known, already-documented gap, see `NEXT_SESSION_OPENER.md`). All new/changed files were copied into `~/openclaw` (verified byte-identical post-copy) before any live DB or SMTP action was taken. `~/projects/mac-mini`'s working tree was then reverted to `HEAD` (`git checkout --` on the three modified tracked files, stray `migration_006.sql` and `.bak.v4` removed) so it's clean and no longer diverging. `~/openclaw` is confirmed as the sole ADR-014-sanctioned working copy going forward.
+
+### Verification
+
+- **Review-only parity (`~/openclaw`, no flag):** live run against the real DB — banner read "review-only: nothing sent, nothing marked processed", brief saved to `federal_policy_brief_review_2026-08-22.txt`, `SELECT count(*) FROM brief_runs` = 0 before and after, all 68 `is_new = TRUE` rows in the 7-day window untouched. Matches v4 behavior exactly.
+- **Live `--send` run:** clean verification (0 claim_warnings on 24 documents — CMS 1, SNAP 2, TANF 4, Cross-Program 17), email sent to `sheldon.wheeler@icloud.com`, exit code 0. Post-run DB check: `brief_runs` id 1 — `doc_count=24, claim_warning_count=0, verification_status='clean', send_status='sent', recipient='sheldon.wheeler@icloud.com'`. `is_new = TRUE` count in window dropped from 68 to 44 (68 − 24), confirming only the consumed rows were flipped.
+- **Migration:** `docker exec ... psql -f /tmp/migration_006.sql` — `CREATE TABLE`, 2× `CREATE INDEX`, `COMMENT`, `INSERT 0 1`, no errors. `schema_version` confirmed at 7 post-migration via direct query.
+- **Script compiles clean:** `python3 -m py_compile generate_brief_review.py`; `--help` output confirmed argparse wiring.
+- **DB connection code unchanged:** `diff` confirmed the `DB = dict(...)` block is byte-identical to the v4 backup — the earlier connection failures were a credential/location issue, not a regression from this change.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/generate_brief_review.py` | Modified — v5 (backed up as `generate_brief_review.py.bak.v4` before replacement, gitignored) |
+| `~/openclaw/migration_006.sql` | Created — `brief_runs` table; applied to live DB |
+| `~/openclaw/schema.sql` | Modified — `brief_runs` table added (fresh-install path), version stamp → 7 |
+| `~/openclaw/app/db.py` | Modified — `REQUIRED_SCHEMA_VERSION` 6 → 7 |
+| `~/openclaw/federal_policy_brief_review_2026-08-22.txt` | Modified — overwritten by today's review and `--send` runs |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `~/projects/mac-mini/*` | Reverted to `HEAD` — no changes retained; this clone was out of ADR-014 scope |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-039 H4 | CLOSED. Send-to-inbox delivery mechanism decided (self-send SMTP, no ESP/domain purchase) and implemented end-to-end: `--send` flag, `brief_runs` audit trail, verification-gated send, `is_new` lifecycle. |
+| ADR-014 | No change to the rule itself. This session surfaced that Claude Code had been operating outside the `~/openclaw` scope the ADR-014 resolution (Entry #021) specifies; corrected mid-session — work relocated, off-scope clone reverted. Worth a note in ADR-014 that a second local clone of the same repo can silently violate the scoping rule; no repo-level guard currently prevents it. |
+
+### NIST Controls Touched
+
+IA-5 (authenticator management — SMTP credentials via Keychain, never in code/env/chat), SC-8 (transmission confidentiality — STARTTLS), AU-2, AU-3 (audit trail — `brief_runs`), CM-3, CM-3(2) (change management — migration + version gate), AC-6 (least privilege — self-send only, no new external recipient or third-party data flow)
+
+### Risk Assessment
+
+New egress destination activated: `smtp.mail.me.com:587` (self-send only — sender and sole recipient are the same operator-controlled iCloud address; no third party receives brief content). No new stored PII — the brief content is public Federal Register material. Send is hard-gated on clean claim verification; a brief with any unverified currency/date/FR-citation/count claim is never emailed, only ever saved locally for review. `HARD_FAIL_ON_UNVERIFIED` remains `False` (unchanged) — that is a deliberately separate, later decision per the Entry #021 plan. `is_new` flip is send-success-gated, so a failed send cannot silently drop documents from future briefs. Schema change is additive only (`CREATE TABLE IF NOT EXISTS`); no existing table altered, no data migrated or destroyed. `openclaw_fastapi` container still running pre-edit code — degrades to a log warning, not a failure, until rebuilt.
+
+### Open Items Surfaced This Session
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| Stale `POSTGRES_PASSWORD` in Keychain and container env (`changeme`) vs. real value in `.env` | Medium | Pre-existing, already tracked in `NEXT_SESSION_OPENER.md` ("finish rotation"). Not blocking — `generate_brief_review.py` reads `POSTGRES_PASSWORD` from the environment, and the operator's own shell was exporting the correct value from `.env` for today's live runs. Still worth closing out the credential-store reconciliation. |
+| `openclaw_fastapi` container not rebuilt | Low | Runs on pre-edit `app/db.py` (`REQUIRED_SCHEMA_VERSION=6`) against a live DB now at version 7 — logs a warning, does not fail. Rebuild whenever convenient. |
+| Fate of `~/projects/mac-mini` clone | Low | Working tree is clean and reverted, but the clone itself still exists. No repo-level guard stops Claude Code (or anyone) from being pointed at it again in place of `~/openclaw`. Decide: keep for a specific purpose, or remove it. |
+| ISO dates in reader-facing prose, executive summary length | Low | Unchanged from Entry #021 — still open, opportunistic. |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Reconcile stale `POSTGRES_PASSWORD` in Keychain/container env with the real `.env` value | Next session, low urgency |
+| Rebuild `openclaw_fastapi` to pick up `REQUIRED_SCHEMA_VERSION=7` cleanly | Opportunistic |
+| Decide fate of `~/projects/mac-mini` clone; consider an ADR-014 note about the dual-clone scoping gap | Opportunistic |
+| Flip `HARD_FAIL_ON_UNVERIFIED` to `True` once several more clean `--send` runs build confidence | After a few more scheduled sends |
+| ISO date fix and exec summary prompt tuning | Opportunistic |
