@@ -1,6 +1,6 @@
 # Next-session opener — paste this as your first message
 
-*(Written August 20, 2026 at the close of Entry #019, revised same day. Everything below is stated inline so the session does not depend on memory or on project knowledge.)*
+*(Written August 22, 2026 at the close of Entry #023. Everything below is stated inline so the session does not depend on memory or on project knowledge.)*
 
 ---
 
@@ -9,173 +9,199 @@ inline and supersedes memory. Project knowledge is still a lagging mirror
 (rebuild pending), so trust this message and disk/Git over it. Memory is never
 authoritative.
 
-PRIORITY THIS SESSION: production over governance. The federal_policy_brief
-agent is the deliverable. Governance and housekeeping are opportunistic and do
-not block shipping.
+WORKING MODE HAS CHANGED SINCE AUG 20 — READ THIS BEFORE ANYTHING ELSE.
+ADR-014 (Entry #021, Aug 22) moved from OPEN to RESOLVED with a narrow
+exception: **Claude Code in Manual permission mode may now run shell commands,
+edit files directly, and commit to Git — scoped to `~/openclaw`, per-action
+operator approval, Auto mode never used, Cowork never used.** The old rules
+below (".py delivered as .txt", "no shell on the Mac", "git commit -m only" =
+operator does it) describe the PRE-ADR-014 world and are only accurate for a
+plain Claude Desktop chat session (MCP filesystem, read-only), not for Claude
+Code. If you are in Claude Code: verify you are actually in `~/openclaw`
+first (see the dual-clone warning below), then work directly — edit files,
+run migrations, commit — with per-action approval as normal. If you are in
+Claude Desktop chat: the old rules still apply there.
 
-SOURCE OF TRUTH: Disk (~/openclaw) + Git are canonical. GitHub was fully in
-sync at the close of the Aug 20 session — nothing was left uncommitted or
-unpushed. Live PostgreSQL schema is version 6.
-~/openclaw/CURRENT_STATE.md is current as of Aug 20 — read it.
+⚠️ DUAL-CLONE WARNING (new, Aug 22): a second local clone of this exact repo
+exists at `~/projects/mac-mini`. It was where an entire session's worth of
+work happened before anyone noticed — same GitHub remote, same commit
+history, no `.env`, so it silently fails DB/SMTP operations instead of
+loudly refusing. **Before doing anything, confirm:**
+    pwd && git remote -v
+should show `~/openclaw` and `UpscaleOnly/Mac-Mini-Agent`. If Claude Code
+opened somewhere else, stop and relocate before writing anything. See
+changelog Entry #022 for the full incident and ADR-014 for the scoping rule
+this violated. `~/projects/mac-mini`'s working tree was reverted clean; its
+disposition (keep vs. remove) is still an open item.
 
-IGNORE ANY COMMIT HASH WRITTEN IN THESE DOCUMENTS. A file cannot name the
-commit that contains it, so every hash written into a document is one commit
-out of date the moment it is saved. To see where the repository actually
-stands, run:
-    git log -1 --oneline
-and, to confirm nothing is uncommitted or unpushed:
-    git status
+⚠️ GOVERNANCE IS FRAGMENTED — READ ADR-042 (new, Aug 22, filed OPEN,
+reconciliation explicitly DEFERRED to a future project). Twelve ADR numbers,
+**including ADR-014 itself**, are cited as active governance in code and
+changelog with NO local document in `~/openclaw` — they were authored in a
+Claude.ai Project called "AI Build" that this repo's disk state cannot see.
+Practical consequence: you cannot pull up ADR-014's actual text locally right
+now. The best available proxy is changelog Entry #021 (records the ADR-014
+resolution text verbatim) — treat that as authoritative until ADR-042's
+reconciliation happens. Do not assume any ADR number below 031 (except where
+explicitly quoted in changelog/CURRENT_STATE) says what you think it says.
+
+PRIORITY THIS SESSION: no fixed priority carried forward — Aug 22 closed out
+both the standing production priority (send-to-inbox, ADR-039 H4) and filed
+the governance gap (ADR-042) as a deferred future project. Check IMMEDIATE
+TASKS below for what's actually open.
+
+SOURCE OF TRUTH: Disk (`~/openclaw`) + Git are canonical. **GitHub is NOT in
+sync** — local `main` is 4 commits ahead of `origin/main` as of the close of
+this session (nothing from Aug 22 has been pushed). Confirm current state and
+push status yourself, do not trust this number:
+    git log -1 --oneline && git status -sb
+Live PostgreSQL schema is version 7 (migration_006.sql, `brief_runs` table).
+`~/openclaw/CURRENT_STATE.md` was NOT updated on Aug 22 — it's still dated
+Aug 20 and does not reflect send-to-inbox or ADR-042. Treat this document and
+the Aug 21–23 changelog entries (#020–#023) as more current than
+CURRENT_STATE.md until someone refreshes it.
 
 DO THIS FIRST, BEFORE ANY WORK:
-  1. Grant the Claude desktop app read access to ~/openclaw. It is per-session
-     and it is what makes every step verifiable — files can be read back off
-     disk and diffed against what was built, instead of assumed.
+  1. Confirm you're in `~/openclaw`, not `~/projects/mac-mini` (see dual-clone
+     warning above).
   2. `docker ps` — all four containers up. If the daemon is down, launch
      Docker Desktop and wait for the whale to stop animating.
-  3. CHECK COVERAGE BEFORE RUNNING THE GENERATOR:
+  3. `openclaw_fastapi` is still running PRE-Aug-22 code (`REQUIRED_SCHEMA_VERSION
+     = 6`) against a live DB now at version 7. It logs a harmless warning, not
+     a failure — but rebuild when convenient:
+       docker compose build fastapi && docker compose up -d fastapi
+  4. Export the real Postgres password (Keychain and the container's own env
+     var both still hold the stale "changeme" placeholder — unresolved, see
+     below):
+       export POSTGRES_PASSWORD=$(grep -m1 '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)
+     Verify with a length check, not by echoing the value.
+  5. CHECK COVERAGE BEFORE RUNNING THE GENERATOR:
        docker exec openclaw_postgres psql -U openclaw -d openclaw -c "SELECT max(publication_date), count(*) FROM scraped_content WHERE project = 'federal_policy_brief' AND is_new = TRUE AND publication_date >= CURRENT_DATE - 7;"
+     As of the Aug 22 --send run: 44 documents remain is_new = TRUE in the
+     7-day window (68 minus the 24 consumed by that send). Newest content was
+     Aug 21.
 
-     ⚠️ AN EMPTY 7-DAY WINDOW IS EXPECTED IF THE SCRAPER HAS NOT RUN.
-     Newest content as of Aug 20 is Aug 17, and WINDOW_DAYS is 7. If several
-     days pass without a successful scrape, the generator will correctly print
-     "No unprocessed documents in the window." THAT IS NOT A GENERATOR BUG —
-     it is a scraper outage. Fix the scraper; do not start debugging the
-     brief, and do not raise WINDOW_DAYS to paper over it.
-
-SHIPPED LAST SESSION (Aug 20, Entry #019):
-- Scraper TYPE_MAP fixed. It now accepts BOTH Federal Register vocabularies —
-  the query-filter codes we send (RULE, PRORULE, NOTICE, PRESDOCU) and the
-  display strings the API returns ("Rule", "Proposed Rule", ...). Unknown
-  types now log a WARNING with the document number instead of silently
-  becoming 'other'. Rebuilt and running.
-- 15 banked rows relabeled to proposed_rule. Each document number was checked
-  against the Federal Register API rather than inferred. content_type is now
-  notice 195, final_rule 26, proposed_rule 15, other 0.
-- generate_brief_review.py is at v3. WINDOW_DAYS back to 7.
-- Removed the "document" HIGH_SIGNAL workaround (no longer needed).
-
-THE FINDING THAT MATTERS MOST — GEMMA FABRICATED A DOLLAR FIGURE.
-It reported three CDC awards ($15M + $30M + $30M = $75M) as "totaling
-approximately $105 million." No source states any total; the number is wrong
-by 40%. The system prompt already said "summarize only what the sources
-state" — prompting alone did not hold, the same lesson as markdown in v1.
-v3 adds an explicit arithmetic prohibition plus verify_figures(), which checks
-every currency amount in generated prose against that section's source text.
-TWO IMPORTANT CAVEATS:
-  - verify_figures() has NOT yet fired on a live run. The documents carrying
-    dollar amounts were the ones suppressed as out-of-scope. Unit-tested only.
-    Do not treat it as proven.
-  - It checks CURRENCY ONLY. A fabricated date or Federal Register citation
-    is equally damaging and nothing catches one.
-This is the gate on send-wiring. Task 1 below.
-
-THE OTHER BIG FINDING — ENTRY #018's DIAGNOSIS WAS WRONG.
-Entry #018 recorded "oversized sections degrade output" (roman-numeral
-outlines, self-contradiction, covering a third of inputs, [n] index leakage)
-and proposed building a significance-ranking system. The real cause was that
-Ollama ran gemma4:e4b at a 4096-token context — prompt AND response combined.
-A 19-document section overran it, so the earliest documents fell out unseen
-and the response truncated mid-sentence. Setting NUM_CTX = 8192 fixed it in
-one line; the re-run covered all 19 documents in clean prose. Ranking may
-still be wanted for editorial reasons, but do NOT build it as a fix for
-truncation. If WINDOW_DAYS ever rises, check NUM_CTX first.
+SHIPPED AUG 22 (Entries #020-#023):
+- Entry #020: scraper catch-up logic — days_back computed from scraper_runs
+  history instead of assumed. Aug 18-21 gap closed, self-healing on future
+  outages.
+- Entry #021: verify_claims() extended to dates, FR citations, and counts
+  (beyond currency). HARD_FAIL_ON_UNVERIFIED switch added (still False).
+  Foreign content dropped silently (marker alone, no funding requirement).
+  Cross-Program limited to high-signal instruments (proposed/final rules,
+  Privacy Act notices, presidential documents) — routine paperwork dropped
+  with review-output visibility. ADR-014 OPEN -> RESOLVED (Claude Code Manual
+  mode permitted, scoped to ~/openclaw).
+- Entry #022: generate_brief_review.py v5. New `--send` flag: self-send SMTP
+  via iCloud (smtp.mail.me.com:587, STARTTLS, credentials from Keychain),
+  gated on verify_claims() returning zero warnings, flips is_new only after a
+  successful send, writes one brief_runs audit row per --send invocation.
+  migration_006.sql added the brief_runs table (schema_version 6->7).
+  ADR-039 H4 CLOSED — no ESP or purchased sender domain needed; self-send to
+  the operator's own inbox is sufficient at this audience size.
+  Live-verified end to end: emailed sheldon.wheeler@icloud.com, 24 documents
+  marked processed, clean brief_runs row. Also: the dual-clone discovery and
+  cleanup (see warning above).
+- Entry #023: ADR-042 filed — documents the ADR corpus fragmentation between
+  ~/openclaw's local .docx store and the "AI Build" Claude.ai Project.
+  Status OPEN, reconciliation explicitly deferred to a future project per
+  operator direction.
 
 LIVE-STATE FACTS TO CARRY (do not re-discover these):
 - scraped_content is project-scoped: every query MUST filter
   WHERE project = 'federal_policy_brief'.
-- Coverage is Apr 24 -> Aug 17. GAP: Aug 18-20, not backfilled. All rows are
-  still is_new = TRUE. A 7-day window on Aug 20 returned 21 documents.
+- brief_runs table exists (migration_006, schema v7). One row so far: Aug 22
+  20:39 UTC, 24 docs, verification_status='clean', send_status='sent'.
+- is_new=TRUE count in the 7-day window: 44 as of the close of Aug 22 (see
+  DO THIS FIRST #5 for the live query).
 - raw_content is title + abstract only (~569 chars avg), by design.
 - Generator model: gemma4:e4b (llama3.2 is the lightweight fallback).
+- generate_brief_review.py is at v5. Default (no flag) is still fully
+  review-only and side-effect-free — verified byte-identical to v4 on that
+  path. `--send` is new; see Entry #022 above for exactly what it gates on.
 - DB PASSWORD: the live openclaw role password is NOT "changeme". Container
-  env and Keychain both hold that stale placeholder; the real value is in
+  env and Keychain both still hold that stale placeholder — this was known
+  on Aug 20 and is STILL not reconciled on Aug 22. The real value is in
   ~/openclaw/.env. Host-run scripts need it exported in EVERY new terminal
-  window. Read it WITHOUT printing it:
-    export POSTGRES_PASSWORD=$(grep -m1 '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)
-  Verify with a length check, not by echoing the value.
-- DB queries can skip the password entirely by going through the container:
-    docker exec openclaw_postgres psql -U openclaw -d openclaw -c "..."
-- SCRAPER RELIABILITY: the nightly scrape is APScheduler INSIDE
-  openclaw_fastapi. Two gaps so far. Aug 9-16 was Docker down; Aug 18-20 was
-  the MacBook Air unplugged and run flat — a cold power-off, which no pmset
-  wake fixes (wakepoweron is AC-only, and a cold boot does not restore
-  containers until someone logs in). macOS also allows only ONE repeating
-  power event, so a 00:55 wake would displace the 03:55 backup wake. Do not
-  reach for pmset; build catch-up logic. Check `docker ps` early either way.
+  window (see DO THIS FIRST #4). This will keep costing a few minutes of
+  confusion at the start of every session until someone actually rotates
+  Keychain/container env to match .env, or rotates the DB password itself
+  and updates .env — either resolves it, closing this note for good.
+- SCRAPER RELIABILITY: nightly scrape is APScheduler inside openclaw_fastapi.
+  Catch-up logic (Entry #020) now self-heals gaps regardless of cause
+  (Docker down, Mac unplugged, etc.) — this class of problem should no
+  longer need manual backfill. Still worth an early `docker ps` check.
 
-IMMEDIATE TASKS (production-first):
-
-1. Extend fabrication verification beyond currency — HIGH, do this first.
-   Dates, Federal Register citations and counts need the same treatment
-   verify_figures() gives dollar amounts. Also decide the failure mode: while
-   review-only an unverified figure is a warning, but before send-wiring it
-   must HARD-FAIL the run rather than send. Both the file header and the
-   verify_figures() docstring carry that note.
-
-2. Scraper catch-up logic — AND THIS IS ALSO THE BACKFILL.
-   Compute days_back from the last successful scraper_runs entry instead of
-   assuming 1, so any outage self-heals on the next run regardless of cause.
-   The scraper_runs table already exists (Migration 005). Requires
-   docker compose build fastapi + up -d.
-
-   NOTE THE SECOND EFFECT: the first run after this is built will fetch
-   everything published since the last success, which closes the Aug 18-20
-   gap (and anything lost since) with no separate backfill step. If the
-   7-day window is empty when you start, DO THIS TASK FIRST — it is both the
-   permanent fix and the way to get content back.
-
-3. Output polish (small, do when convenient):
-   - v3 writes ISO dates into reader-facing prose ("published a proposed rule
-     on 2026-08-17"). v2 wrote "August 17, 2026". Fix the prompt.
-   - One document was dropped from the prose in the final v3 run: the FDA
-     "Announcement of Office of Management and Budget Approvals" is in the
-     attribution addendum but not the narrative. 15 of 16 covered.
-   - ORR content routes to TANF (the Burke Law Group withdrawal is an Office
-     of Refugee Resettlement notice). Both sit under the Children and
-     Families Administration. Fixing this means deciding where ORR belongs —
-     a scope decision, not a bug fix.
-
-4. Once the brief reads clean: wire send-to-inbox — delivery mechanism +
-   brief_runs logging + flip is_new on consumed rows. Still gated on the
-   ADR-039 email-provider and sender-domain decisions.
+IMMEDIATE TASKS (nothing here is production-blocking; send-to-inbox is live):
+1. Reconcile stale POSTGRES_PASSWORD in Keychain/container env with the real
+   .env value — low urgency (workaround in DO THIS FIRST #4 works fine), but
+   it's been sitting open since Aug 20.
+2. Rebuild openclaw_fastapi to pick up REQUIRED_SCHEMA_VERSION=7 cleanly (see
+   DO THIS FIRST #3) — cosmetic warning only, no rush.
+3. Decide the fate of ~/projects/mac-mini (keep for a specific purpose, or
+   remove it) — see dual-clone warning above.
+4. Flip HARD_FAIL_ON_UNVERIFIED to True once a few more clean --send runs
+   build confidence. One switch, one place, top of generate_brief_review.py.
+5. Output polish (small, do when convenient, carried over from Aug 20):
+   ISO dates in reader-facing prose ("published 2026-08-17" reads as machine
+   output); executive summary running long; ORR-under-TANF is a scope
+   decision, not a bug.
+6. Push to origin — local main is 4 commits ahead as of the close of Aug 22
+   (see SOURCE OF TRUTH above). Confirm with the operator before pushing.
 
 HOUSEKEEPING (opportunistic — never ahead of the above):
-- v3.0 instructions refresh: schema 4->6; "read changelog first"->"read
-  CURRENT_STATE.md first"; "governance precedes features"->"governance serves
-  shipping"; retire the weekly-reupload mandate as load-bearing; 39+->41+
-  ADRs; ADR-014 OPEN->operative.
+- ADR-042 reconciliation — explicitly a SEPARATE, DEFERRED future project,
+  not opportunistic housekeeping to slot in casually. Needs its own session
+  with "AI Build" export/read-access arranged first. Do not start this
+  without the operator explicitly scheduling it.
+- CURRENT_STATE.md needs refreshing — still dated Aug 20 (see SOURCE OF TRUTH
+  above).
+- v3.0 instructions refresh (carried over from Aug 20, still not done):
+  schema 4->7 (was ->6); "read changelog first"->"read CURRENT_STATE.md
+  first" (only once CURRENT_STATE.md is actually refreshed); retire the
+  weekly-reupload mandate as load-bearing; ADR-014 OPEN->RESOLVED; note the
+  Claude Code Manual-mode exception; note the dual-clone gotcha.
 - Rebuild project knowledge as a clean one-way mirror of disk.
-- Reconcile the stale credential stores (container env, Keychain) with the
-  live Postgres password; finish rotation.
-- Close ADR-041 as "not needed" if that still holds.
-- Fix Ctrl+C not interrupting in Terminal. Less urgent now — a 7-day run takes
-  about a minute, not twenty.
+- Close ADR-041 as "not needed" if that still holds (unconfirmed — no
+  activity on it since May 17).
+- Fix Ctrl+C not interrupting in Terminal. Low urgency.
 
 ROLLBACKS AVAILABLE:
-- generate_brief_review.py.bak.v2 — the working v2 (pre-v3, no scope filter,
-  no figure verification, num_ctx unset).
-- generate_brief_review.py.bak.v0 — the original review-only generator.
-- changelog.md.bak.session21.
-The scraper has no .bak; recover it from Git (`git show 8aa21ed:app/scheduling/scrapers/federal_register.py`).
+- generate_brief_review.py.bak.v4 — the working v4 (pre-v5, review-only,
+  no --send, no SMTP, no brief_runs).
+- generate_brief_review.py.bak.v3, .bak.v2, .bak.v0 — earlier states, see
+  each file's own header comment for what it lacks relative to current.
+- changelog.md.bak.session21, changelog.md.bak.pre-entry020.
+The scraper has no .bak; recover it from Git if needed
+(`git show <commit>:app/scheduling/scrapers/federal_register.py`).
+migration_006.sql has already been applied live — do not re-run it; a second
+run is a no-op (CREATE TABLE IF NOT EXISTS, ON CONFLICT DO NOTHING) but
+confirm schema_version first if in doubt.
 
-WORKING RULES (unchanged): one command at a time, no shell on the Mac, approve
-before building, .py delivered as .txt, git commit -m only, token conservation.
+WORKING RULES:
+- See "WORKING MODE HAS CHANGED" at the top — Claude Code in Manual mode
+  works directly (shell, file edits, commits) scoped to ~/openclaw with
+  per-action approval. Auto mode and Cowork remain prohibited everywhere.
+- A plain Claude Desktop chat session (no Claude Code) still follows the
+  pre-ADR-014 rules: MCP filesystem read-only, no shell, files delivered as
+  .txt for manual copy, operator does all git commands.
+- Token conservation still applies regardless of mode.
 
 PRACTICAL NOTES:
-- A code block in chat means "run this." Illustrative code and mappings belong
-  in prose — pasted into zsh they just produce "command not found."
+- A code block in chat means "run this" (Claude Code) or "here is what ran"
+  (Desktop chat, retrospectively) — don't confuse the two modes' conventions
+  mid-session.
 - Back up a working file before replacing it: cp file.py file.py.bak.vN.
-- Browser download collisions: a second download of the same filename becomes
-  name_1.txt. Check `ls -lt ~/Downloads | head -4` and match the byte count
-  before copying. `cp source.txt dest.py` renames in one step. A one- or
-  two-byte size difference is usually characters vs bytes in a UTF-8 file —
-  diff it before assuming corruption.
-- Granting the Claude desktop app read access to ~/openclaw makes verification
-  fast: every file written this session was read back off disk and diffed
-  against what was built before moving on. That is file transfer, not shell
-  execution, so ADR-014 is untouched. Write access remains declined.
-- Prefer an authoritative source over a clever inference. The 15-row backfill
-  could have been deduced from which type codes could possibly have gotten
-  in; querying the Federal Register API instead took one call and removed the
-  guess — and two "Request for Information" titles would have been plausible
-  wrong calls.
+  Established pattern, kept even though Claude Code can now write files
+  directly — the backup is cheap insurance, not a workaround for a
+  restriction.
+- Prefer an authoritative source over a clever inference. The Aug 22 dual-
+  clone discovery was found by diffing and checking `git log`/`git remote
+  -v` directly rather than assuming; the ADR-042 inventory was built by
+  grepping actual ADR-NNN references rather than guessing which ADRs exist.
+  Same principle both times: verify from disk/Git, not from what seems
+  likely.
+- Every DB-touching command in this document assumes POSTGRES_PASSWORD is
+  exported in the current shell (DO THIS FIRST #4) OR routes through
+  `docker exec openclaw_postgres psql ...`, which needs no host-side
+  password at all.
