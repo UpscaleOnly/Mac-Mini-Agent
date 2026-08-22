@@ -1460,3 +1460,82 @@ Code change, deployed via `docker compose build fastapi` + `docker compose up -d
 | Decide ADR-037 log-directory discrepancy: implement or correct the record | Opportunistic |
 
 ---
+## Entry #021 — August 22, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Feature / scope change (federal_policy_brief) + governance resolution (ADR-014)
+
+**Commits:** `b0000ce`
+
+### Changes Made
+
+1. **Fabrication verification extended beyond currency** — `generate_brief_review.py`. The `verify_claims()` function now runs four extractors against every section's generated prose and source text:
+   - **(a) Currency amounts** — unchanged from v3; `_money_values()` normalizes "$15 million" and "$15,000,000" to the same float.
+   - **(b) Dates** — `_extract_dates()` parses ISO (`2026-08-17`) and written (`August 17, 2026`, `Aug. 17, 2026`) formats, normalizes to `datetime.date` objects, flags any date in generated prose absent from source text.
+   - **(c) Federal Register citations** — `_extract_fr_citations()` matches `NN FR NNNNN` patterns, normalizes to `(volume, page)` integer tuples.
+   - **(d) Counts with unit words** — `_extract_counts()` matches digit or word-form numbers (`15 states`, `three agencies`) against a whitelist of ~40 domain-relevant unit nouns, normalizes to `(int, singular_unit)` tuples. Known false-positive category: the model legitimately counting its inputs (e.g. "the three proposed rules") — flagged but easy to spot in review.
+   - Each warning is prefixed with its type (`[currency]`, `[date]`, `[FR citation]`, `[count]`) for filtering.
+
+2. **Hard-fail mode added** — `HARD_FAIL_ON_UNVERIFIED` constant at the top of `generate_brief_review.py`. When `False` (current review mode), unverified claims print as warnings. When `True` (required before send-to-inbox), any warning aborts the run with `sys.exit(2)` before the brief is assembled. One flip, one place.
+
+3. **Foreign content dropped silently** — `is_foreign()` replaces the v2/v3 `out_of_scope()` function. Foreign content is now suppressed on any foreign marker alone (no funding-instrument requirement). "codex alimentarius" added as a standalone international-content marker. Dropped documents are silently excluded — no review output. Rationale: foreign notices have zero relevance to the state HHS leadership audience; the two-part requirement (funding AND foreign) was overcautious and let Codex Alimentarius and other international content through.
+
+4. **Cross-Program limited to high-signal instruments** — new `CROSS_PROGRAM_KEEP` set restricts Cross-Program to proposed rules, final rules, Privacy Act matching program notices, Privacy Act system of records notices, and presidential documents. Routine paperwork (information collection requests, advisory committee meeting notices, drug/device determinations, generic notices) is dropped from Cross-Program and printed in the review output as "DROPPED (routine, Cross-Program)" so the operator can spot a bad call. CMS, SNAP, and TANF sections are unaffected and keep all instruments. Rationale: Cross-Program routinely collected 50+ documents, overrunning Gemma's 8192-token context window and producing outlines instead of prose (the Entry #018 / earlier-this-session failure mode). With 17 documents instead of 57, Cross-Program produced three flowing paragraphs — the quality level the product requires.
+
+5. **ADR-014 resolved** — the operative rule ("no agent or LLM execution path may invoke shell, bash, or any host command execution on this Mac") remains in force for autonomous execution. A narrow exception is added: Claude Code in Manual permission mode is permitted under these conditions:
+   - Manual mode only — prompts before every action, operator approves each one
+   - Scoped to `~/openclaw` (no system-wide access)
+   - Auto mode must never be used — check the mode indicator at session start
+   - Cowork (cloud-VM agentic execution) must never be used — decline all offers
+   - The MCP filesystem server (read-only, zero execution) remains the default for conversational file reading in Claude Desktop chat
+   - No agent, no scheduled job, no LLM-driven code path may invoke shell execution autonomously — the ADR-014 hard boundary still governs everything that runs without the operator in the loop
+   - Claude Code under Manual mode is operator-supervised execution with per-action approval — Sheldon running commands with Claude's help, not an agent running commands on its own
+   - ADR-014 status: OPEN → RESOLVED
+
+### Verification
+
+- **Verification system:** All four extractors ran on a live 24-document brief (CMS 1, SNAP 2, TANF 4, Cross-Program 17). No unverified claims flagged — clean pass. The TANF section's FR citation (`91 FR 50848`) correctly matched the source and was not flagged.
+- **Foreign filter:** 4 Codex Alimentarius docs + 4 foreign funding awards silently dropped (confirmed absent from input set and brief).
+- **Cross-Program filter:** 36 routine documents dropped with review output. 17 high-signal documents kept. Cross-Program section produced flowing prose (3 paragraphs) instead of the outline/list failure mode seen with 57 documents.
+- **Scheduled scraper run verified:** `scraper_runs` row at `2026-08-22 05:00:00 UTC` (01:00 ET), `status = success`, `docs_fetched = 36`, `docs_inserted = 0`. Catch-up logic from Entry #020 confirmed working in both manual and scheduled paths. Aug 19–21 silent gap fully explained and closed.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/generate_brief_review.py` | Modified — v4 (backed up as `generate_brief_review.py.bak.v3` before replacement) |
+| `~/openclaw/federal_policy_brief_review_2026-08-22.txt` | Created — review output from the v4 run |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-014 | RESOLVED. Shell execution hard boundary remains for autonomous paths. Claude Code in Manual mode permitted as operator-supervised execution under stated conditions. |
+| ADR-039 H4 | Scope filter changes (foreign content, Cross-Program instrument filter) refine the H4 brief generator. No new dependencies or egress. |
+
+### NIST Controls Touched
+
+CM-3, CM-3(2), SA-11, SI-10 (input validation — verify_claims), AC-6 (least privilege — Claude Code scoping)
+
+### Risk Assessment
+
+Code change to a review-only script — no email sent, no rows marked processed, no schema change, no egress change. Foreign filter broadened (drops more content, not less). Cross-Program filter narrows input to the model (drops routine instruments), reducing context-window pressure and improving output quality. Verification system adds four extractors that flag but do not block in review mode; `HARD_FAIL_ON_UNVERIFIED` defaults to `False`. ADR-014 amendment permits a new execution path (Claude Code) but only under operator supervision with per-action approval — the autonomous-execution prohibition is unchanged.
+
+### Open Items Surfaced This Session
+
+| Item | Severity | Notes |
+|------|----------|-------|
+| ISO dates in reader-facing prose | Low | v4 writes "published 2026-08-20" instead of "August 20, 2026" — reads as machine output. Prompt fix in `docs_block()` formatting. |
+| Executive summary too long | Low | More of a condensed restatement than a 4–6 sentence overview. Prompt tuning, not a code change. |
+| ORR content routes to TANF | Low | Unchanged from Entry #019. Scope decision, not a bug fix. |
+| Task 4 — send-to-inbox wiring | High | Still gated on email-provider and sender-domain decisions. Next priority. |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Send-to-inbox wiring — email provider decision, brief_runs table, is_new flag logic, delivery mechanism | Next session (Claude Code, Manual mode) |
+| ISO date fix and exec summary prompt tuning | Opportunistic, during send-wiring work |
+| v3.0 instructions refresh | Opportunistic |
