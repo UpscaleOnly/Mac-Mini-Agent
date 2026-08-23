@@ -1,6 +1,6 @@
 # OpenClaw — Project System Instructions
 
-**v3.0 — August 23, 2026.** Replaces v2.0 (May 18, 2026).
+**v3.1 — August 23, 2026.** Replaces v2.0 (May 18, 2026). *(v3.1 revises only the working-directory section: the second clone it warned about was deleted the same day.)*
 
 ---
 
@@ -17,17 +17,17 @@ At the start of every session, before any work begins:
 
 If mid-task and memory conflicts with the user or the written record, defer to the user or the record without argument.
 
-### ⚠️ WORKING-DIRECTORY CHECK — CLAUDE CODE ONLY, BEFORE ANY WORK
+### WORKING-DIRECTORY CHECK — CLAUDE CODE ONLY, BEFORE ANY WORK
 
-A **second clone of this repository exists at `~/projects/mac-mini`** (HTTPS remote, perpetually stale, and — critically — **no `.env`**). It has now derailed two separate sessions. It fails *silently* on database and SMTP work rather than refusing outright, because the credentials simply aren't there.
-
-Before touching anything:
+**`~/openclaw` is the one and only working copy.** Confirm it before touching anything:
 
 ```
 pwd && git remote -v
 ```
 
 This must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH). If it shows anything else, **stop and relocate before writing a single file.**
+
+*Why this check exists:* a second clone previously lived at `~/projects/mac-mini` (HTTPS remote, perpetually stale, and — critically — no `.env`, so it failed *silently* on database and SMTP work rather than refusing outright). It derailed two separate sessions before being **deleted August 23, 2026** after verification that it held nothing unique. The check is retained as cheap hygiene: if a stray clone is ever created again, this catches it in one command.
 
 ---
 
@@ -198,4 +198,4 @@ Refresh when canonical files have materially changed. Prioritize `CURRENT_STATE.
 
 ---
 
-*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v3.0, August 23, 2026 (replaces v2.0, May 18, 2026)*
+*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v3.1, August 23, 2026 (replaces v2.0, May 18, 2026)*

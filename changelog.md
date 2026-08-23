@@ -1864,3 +1864,76 @@ Documentation and governance only — no code, schema, credential, or infrastruc
 | Settle the target-production-hardware inconsistency flagged inside v3.0 | Whenever decided |
 | Backfill the Aug 4–16 content gap | Soon — it will not self-heal |
 | Dual-clone disposition | Operator decision |
+
+---
+
+## Entry #027 — August 23, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Operational cleanup — dual-clone resolved (destructive, verified before execution)
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **`~/projects/mac-mini` deleted.** The stale second clone that had derailed two sessions — Entry #022 lost most of a session to it, and the Entry #024 session opened in it again — is gone. `~/openclaw` is now the only clone of this repository on the machine.
+
+2. **Verified as safe before deletion, not assumed.** Every recovery path was checked first:
+
+   | Check | Result |
+   |---|---|
+   | Uncommitted changes | none |
+   | Stashes | none |
+   | Local branches not on remote | none (`main` only) |
+   | Unpushed commits | none |
+   | Files deleted upstream since its HEAD (`fa80ac8`) | none — so no tracked file existed only there |
+   | Unique non-`.git` content | `.claude/` (migrated) and `__pycache__/` (disposable) |
+   | Loose git objects unique to it | the abandoned repo-creation commit — a `README.md` reading "# Mac Mini" under a placeholder GitHub identity; detritus |
+
+   The "no files deleted upstream" check is the non-obvious one: a clone eight commits behind would still hold any file removed in those eight commits, and nothing else would flag it.
+
+3. **Migrated the one genuinely irreplaceable item.** `~/projects/mac-mini/.claude/settings.local.json` held **97 accumulated Claude Code permission allow-rules** built up across sessions — and `~/openclaw` had no `.claude/` directory at all, so a naive deletion would have forced re-approval of everything. **91 rules migrated** to `~/openclaw/.claude/settings.local.json`; **6 dropped** as dead (they referenced the deleted path or a session-specific scratchpad).
+
+4. **Two broad rules surfaced for an explicit operator decision rather than migrated silently:** `Bash(git checkout *)` (can discard uncommitted work) and `Bash(python3 -c ' *)` (effectively arbitrary Python execution). Operator elected to **keep both**. The various `rm -rf` entries were left as-is — each is pinned to a specific named scratch directory and cannot reach anything else.
+
+5. **Governing documents updated to match reality.** Both `CURRENT_STATE.md` and the project instructions carried a prominent dual-clone warning that became false the moment the directory was removed — the same class of stale-guidance defect Entry #026 had just corrected elsewhere. In both, the warning was rewritten as a **retained working-directory check with the history as rationale**, rather than deleted outright: the `pwd && git remote -v` habit stays cheap and still catches a stray clone if one is ever created again. Instructions bumped **v3.0 → v3.1** (working-directory section only).
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/projects/mac-mini/` | **Deleted** (2.2 MB) |
+| `~/openclaw/.claude/settings.local.json` | Created — 91 migrated permission rules (gitignored, not in version control) |
+| `~/openclaw/instructions_v3.0.md` | Updated → v3.1; working-directory section rewritten |
+| `~/openclaw/CURRENT_STATE.md` | Updated — dual-clone moved from open item to resolved |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-014 | The violation that started this. ADR-014 scopes Claude Code to `~/openclaw`; the second clone made that scoping silently violable. Removing it makes the rule structurally enforceable rather than merely stated. |
+| ADR-031 | Change management — this entry is the required log entry for a destructive operation. |
+
+### NIST Controls Touched
+
+CM-8 (component inventory — eliminating an untracked duplicate of the system of record), CM-3 (change control)
+
+### Risk Assessment
+
+**Destructive and irreversible, so verified exhaustively beforehand** — see the table above. Residual risk is low: every tracked file remains in `~/openclaw` and on GitHub, and the deleted clone was eight commits behind with a clean working tree. Loss of the permission allowlist was the one real exposure, and it was migrated and validated (91 rules, parsed as JSON) before deletion.
+
+**One genuine caveat:** `.claude/settings.local.json` is covered by the global gitignore (`~/.config/git/ignore`), so the migrated allowlist is **not** in version control. It survives on disk and in backups, but not in Git — a fresh machine setup would start from an empty allowlist. Accepted, not fixed; noted here so it is not a surprise later.
+
+**A second caveat about this session specifically:** this session's identity is still anchored to the old project path (its scratchpad is named `-Users-sheldonwheeler-projects-mac-mini`). Permission grants made for the remainder of this session may route to the old location rather than the migrated file. The migration applies cleanly to any **new** session started in `~/openclaw`; verify there.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Re-paste instructions v3.1 into the claude.ai Instructions panel (v3.0 now contains a false statement about the second clone) | Next convenient moment |
+| Confirm the scrape misfire fix fired — check `scraper_runs` for an Aug 24 run | Morning of Aug 24 |
+| Confirm the migrated permission allowlist takes effect in a fresh session | Next session |
+| Backfill the Aug 4–16 content gap | Soon — it will not self-heal |
+| Project-knowledge rebuild; settle the target-hardware inconsistency | Opportunistic |

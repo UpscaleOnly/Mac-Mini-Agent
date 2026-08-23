@@ -18,13 +18,13 @@ Confirm sync yourself rather than trusting a hash written here:
 git log -1 --oneline && git status -sb
 ```
 
-⚠️ **DUAL CLONE — check your working directory before anything else.** A second clone of this repo exists at **`~/projects/mac-mini`** (HTTPS remote, stale, no `.env`). Two separate sessions have now opened there by mistake — Entry #022 lost most of a session to it, and the Entry #024 session opened there again. It fails *silently* on DB/SMTP work because it has no `.env`. Before touching anything:
+**Check your working directory before anything else.** `~/openclaw` is now the **only** clone on this machine — the stale second clone at `~/projects/mac-mini` was deleted August 23, 2026 (it had derailed two sessions; verified to hold nothing unique first). Keep running the check anyway, as cheap insurance against a stray clone reappearing:
 
 ```
 pwd && git remote -v
 ```
 
-Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH). Disposition of the second clone is **still undecided** — see open items.
+Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH).
 
 ## Schema
 
@@ -76,7 +76,7 @@ Live PostgreSQL schema is **version 7** (`migration_006.sql` — `brief_runs` ta
 
 - **Scraper reliability — MEDIUM (was HIGH; two fixes now in place, neither fully proven).** Root cause of the recurring gaps was finally isolated August 23: the 01:00 ET job carried a **10-minute** misfire grace, the Mac sleeps overnight, and the only repeating `pmset` wake is 03:55 ET — so on any night the machine slept, the run was **silently skipped, not delayed**. Confirmed against `scraper_runs` history and `pmset -g log` (DarkWake from Deep Idle through 01:00). macOS permits exactly **one** repeating power-on event, so a second wake at 00:55 is unavailable without sacrificing the backup's 03:55 wake — the grace window was widened to 3h05m instead. Entry #020's catch-up logic and this fix are complementary: catch-up backfills content once a run fires, this ensures a run actually fires. **Neither has yet been proven across a real overnight cycle.**
 - **PostgreSQL credential reconciliation — open since Aug 20.** The live `openclaw` role password is **NOT** the `changeme` placeholder. The real value lives in `~/openclaw/.env`; container env and Keychain both still hold the stale placeholder. *Read it without echoing it:* `export POSTGRES_PASSWORD=$(grep -m1 '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)` — needed in every new Terminal window for host-run scripts. Verify with a length check, not by printing. Anything routed through `docker exec openclaw_postgres psql ...` needs no host-side password at all.
-- **Dual-clone disposition — UNDECIDED.** `~/projects/mac-mini` has now derailed two sessions. Keep it for a stated purpose or delete it; leaving it is the option that keeps costing time.
+- **Dual-clone — RESOLVED August 23, 2026.** `~/projects/mac-mini` deleted after verification that it held nothing unique (clean tree, no stashes, no local-only branches, no unpushed commits, no files deleted upstream since its `fa80ac8` HEAD). Its one irreplaceable item — an accumulated 91-rule Claude Code permission allowlist — was migrated to `~/openclaw/.claude/settings.local.json` first (six dead rules pointing at the old path were dropped; that file is covered by the global gitignore, so it is **not** in version control and will not survive a fresh machine setup). The now-empty `~/projects` directory was left in place.
 - **ADR corpus — materially improved Aug 23, not finished.** 25 ADR `.docx` files now on disk, up from 12. Five files that were plain text mis-saved with a `.docx` extension (033–037) are now real OOXML; ADR-032 was identified and promoted; twelve partial-recovery ADRs now have explicit **stub** documents (clearly marked as stubs, with per-claim sourcing). **Still unrecovered: ADR-017 and ADR-022** (both cited in live code, zero content found anywhere). No evidence at all for ADR-001, 004, 006–013, 015, 016. Full picture: `adr_fragments_2026-08-22/reconciliation_2026-08-23/`.
 - **ADR-042 (ADR corpus reconciliation) — OPEN, still deferred.** Amended Aug 23 to correct a factual error: it had attributed the missing ADRs to a Claude.ai project called "AI Build." That project was captured directly and proved unrelated (dormant pre-prototype SaaS concept, no ADR-NNN documents). The real counterpart is the **"Mac Mini"** project. Full reconciliation remains a dedicated future project — do not start it casually.
 - **Two Claude.ai projects share the "OpenClaw" working name** — "Mac Mini" (this system) and "AI Build" (an unrelated pre-prototype SaaS concept). This collision has already caused one documented misattribution. Consider renaming one.
