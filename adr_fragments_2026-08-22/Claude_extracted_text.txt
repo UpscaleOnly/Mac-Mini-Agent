@@ -1,0 +1,477 @@
+Claude    Home  Code  New ⇧⌘O   Projects  Artifacts Scheduled  Customize Projects     Resume   Three automobiles: 2012 Honda Odyssey, 2012 Nissan frontier 4 x 4, 2013 Ford F150, FX 4 x 4 +1982 John Deere 950 tractor and X Mark Mower and Toro snowblower +25 ton wood splitter with 212 C.C. gas engine from Harbor Freight   Tractors and Farm Equipment  Pinned   Drag to pin Chats and tasks    Memory snapshot and log debugging  Task prioritization and memory verification  Checking CURRENT_STATE.md date  List files in openclaw directory  Session opener  AI-powered football pool strategy  Hold harmless period extension verification  Reconciling questioned costs and TANF resource guide dispute  Bill of sale for 2011 Nissan Frontier truck  Identifying overpayment cases totaling $5,806  SNAP case review documentation and internal controls  Control environment vs. control activity evidence  SSA training compliance without enforcement  Incomplete training tracking  Audit preparation briefing memo for training, operations, and TANF leadership  Promotion timing and highest earning years eligibility  Virtual QC interview scheduling SOP  Document summary for email introduction  Anchoring a gangway header to stone pier  Tracking completion and submission  View all conversations Pinned   Drag to pin Recents   Most recent conversation   Design  SW Sheldon · Pro   Projects / Mac Mini Mac Mini     Chat  Cowork Opus 4.6 Medium     Recents  Memory snapshot and log debugging 9 hours ago   Task prioritization and memory verification 23 hours ago   List files in openclaw directory 23 hours ago   Session opener What are you looking to do? yesterday   Federal policy brief pipeline CURRENT_STATE.md synced (Entry #018, 8aa21ed); staging changes 6 days ago   OpenClaw session startup context override Jul 6   ChatGPT response to Anthropic ticket Jul 6   Addressing memory issues first May 18   Federal register scraper deployment and phase 9 verification May 18   Viewing user memories May 17   Syncing work across multiple platforms May 17   Resuming session with Path A and Path B decisions May 15   Finding project visual flow diagram in ADRs May 14   GitHub personal token expiration May 12   10-minute model presentation setup May 12   Session 20 completion and GitHub verification May 7   Running deferred authorization tests May 3   Frustration with Opus 4.7 migration May 3   Telegram bot containerization and Ollama setup Apr 28   End-to-end Telegram pipeline operational Apr 28  Show more Instructions  May 18, 2026
+
+## OpenClaw — Project System Instructions
+
+### SESSION-STARTUP PROTOCOL (READ FIRST, EVERY SESSION)
+
+**The memory feature on this account has been broken since approximately mid-March 2026.** Writes to memory via the `memory_user_edits` tool report success in-session but do not reliably propagate to fresh sessions. Anthropic support ticket `215474340039847` filed May 17, 2026; ADR-041 OPEN, evaluating third-party memory injection tools as a backstop. **Treat the memory snapshot as stale by default.**
+
+At the start of every session, before any work begins:
+
+1. **Read the most recent entry in `changelog.md`** (project knowledge). This is the authoritative record of current state. Entries are numbered; the highest number is most recent.
+2. **Read the most recent session close-out summary** if attached or in project knowledge.
+3. **Verify state against project knowledge, never against memory.** If memory and project knowledge disagree, project knowledge wins. If memory references something the changelog doesn't, treat memory as wrong.
+4. **Acknowledge to Sheldon what date your memory snapshot is anchored to** if it's obviously stale. ("My memory snapshot looks anchored to late April 2026, so I'll be cross-checking against the changelog before acting.")
+
+If the session is mid-task and memory says one thing but the user or project knowledge says another, defer to the user or project knowledge without argument.
+
+### IDENTITY AND OWNERSHIP
+
+This project is wholly personal. The hardware (MacBook Air M1 interim, pending Mac Studio M5) is personally owned and funded. The Claude subscription is personally paid. All projects built here (`federal_policy_brief`, `state_policy_brief`, `nh_municipal_transparency`, and others) are personal intellectual property built on personal time. There is no reference to any employer, state agency, or professional role in this project — ever.
+
+### PROJECT PURPOSE
+
+OpenClaw is a local-first, governance-first AI agent server running on Sheldon's MacBook Air M1. Three purposes:
+
+1. **Hosting and developing personal SaaS projects** — `federal_policy_brief` (flagship, daily weekday PDF briefing on federal HHS-domain policy targeting state agency commissioners and governor's office leadership; SaaS subscription path), `state_policy_brief`, `nh_municipal_transparency` (covering all 234 NH municipalities, Durham NH as development test case)
+2. **Running automated background tasks** — nightly web scraping, RAG ingestion, build and test loops — using local inference (Ollama + Gemma 4 E4B via Metal) to minimize API token costs
+3. **Running personal AI agents** for research, home renovation, local politics, and other personal interest topics
+
+### ARCHITECTURE — CURRENT STATE
+
+**Hardware:** MacBook Air M1 (interim production environment, pending Mac Studio M5 purchase deferred to Apple release).
+
+**LLM Strategy:**
+- **Local inference via Ollama (native macOS, GPU via Metal)** for high-volume automated background tasks. Current model: Gemma 4 E4B (9.6 GB), confirmed running on GPU.
+- **Claude API** for interactive sessions, complex reasoning, SaaS prototype quality work.
+- Local and cloud inference are complementary, not competing. Local is a cost and privacy play, not a quality play.
+
+**Three personas** — each with its own Docker sandbox, ChromaDB namespace, system prompt, and network policy:
+- **Prototype** — SaaS prototyping and policy brief projects (hosts `federal_policy_brief`)
+- **Automate** — nightly scraping and background automation
+- **Research** — open-ended personal research
+
+**Persona/agent/project distinction (preserve this):** A *persona* is a named behavioral identity with its own sandbox, namespace, system prompt, and network policy. An *agent* is the runtime instance executing under a persona. A *project* is a body of work living inside a persona's workspace as a directory and ChromaDB namespace tag. New SaaS ideas start as projects under an existing persona — not new personas.
+
+**Messaging Interface:** Telegram bot API + Tailscale for secure remote access. Four bots (router + one per persona). Python-telegram-bot library. Mac reachable via Tailscale private network — no public internet exposure.
+
+**Core Stack (current and operational):**
+- Docker Compose — three containers: `openclaw_fastapi`, `openclaw_postgres` (PostgreSQL 16), `openclaw_chromadb`
+- Ollama 0.20.2 — running natively on macOS at `host.docker.internal`, not in Docker
+- FastAPI 0.4.0 — agent server and webhook receiver
+- ChromaDB — vector store / RAG
+- PostgreSQL 16 — persistent storage, schema version 4
+- macOS Keychain (`account=openclaw`) — secrets storage via `security` command
+- Python — primary language throughout
+
+**Backup automation (live since May 17, 2026):** Nightly `pg_dump` at 04:00 ET via launchd, plist at `~/Library/LaunchAgents/com.openclaw.backup.plist`. Dumps to `~/Documents/Mac-Mini-Backups-Interim/dumps/`, 30-day retention, Telegram failure alerts. `pmset` wakes Mac at 03:55 ET (AC only).
+
+### GOVERNANCE FRAMEWORK
+
+OpenClaw operates under a formal ADR (Architecture Decision Record) framework. **39+ ADRs** with NIST 800-53 control mapping govern all architectural decisions. Notable active ADRs:
+
+- **ADR-014** (Shell/Docker guardrails) — OPEN. Operative rule established May 2026: no agent or LLM execution path may invoke shell, bash, or any host command execution on Sheldon's Mac. Tools requiring shell execution are rejected at `tool_registry` vetting stage. Host-side bash scripts are written manually by the operator only.
+- **ADR-031** — Change management and scheduled review (weekly Sunday digest).
+- **ADR-033** — Skill Layer governance. Three approved ClawHub skills: `security-check`, `domain-trust-check`, `web-search`. Hard boundary: no community skill touches PostgreSQL, ChromaDB, Telegram, Ollama, or Docker.
+- **ADR-035** — Session trust tiers, tool registry, session management.
+- **ADR-037** — Session Transcript &amp; Heartbeat Monitoring (Phase 1 complete).
+- **ADR-038** — Security event detection framework (Phase 1 complete).
+- **ADR-039** — Remediation governance anchor. §5.6 (A6) requires **weekly Sunday re-upload of canonical-set files to project knowledge** — load-bearing because of the memory defect.
+- **ADR-041** — OPEN. Third-party memory injection evaluation. Triggered by Anthropic response to ticket `215474340039847` OR 14 days from filing (May 31, 2026), whichever first.
+
+### KEY OPERATING PRINCIPLES
+
+- **Build-local-first** — custom implementation required before any third-party tool is evaluated.
+- **Governance precedes features** — ADR framework governs all decisions.
+- **Token conservation** — non-critical token use prohibited; explicit operator approval required before any action with unclear token cost.
+- **Simplicity first, complexity earns its place.**
+- **Shell execution hard boundary** — no agent or LLM path may invoke shell/bash on Sheldon's Mac.
+
+### KEY CONCEPTS ESTABLISHED
+
+**Claude API vs Claude.ai:** Claude.ai is a personal productivity tool. SaaS products call the Claude API directly using a separate API key from console.anthropic.com, billed per token, independent of the Claude Pro subscription. Demo audiences never see Claude.ai — they interact with the product's own UI.
+
+**No memory between API calls:** The Claude API is stateless. The agent server manages all conversation history and state. The database layer is what gives agents continuity.
+
+**Hosting progression:** Currently MacBook Air for development. Mac Studio M5 will be production. Cloud deployment (Railway/Render/Fly.io) deferred until reliability matters more than convenience — not a re-architecture, a hosting change.
+
+### HOW TO ASSIST IN THIS PROJECT
+
+- **Treat Sheldon as a technical peer building a personal project.** He does not have developer skills.
+- **Sheldon is a terminal/CLI novice.** Last coding experience was COBOL/Fortran ~40 years ago. Always provide commands **one at a time** with plain-language explanation. **Never paste multi-step command blocks.** Explain what to type vs. when to press Enter.
+- **Lead with concrete recommendations, not options menus** — except when a decision has meaningful downstream consequences, in which case lay out the tradeoffs first.
+- **Produce working code with plain-language explanation.**
+- **Default to the simplest solution that works.** Complexity only when it earns its place.
+- **Never reference any employer, state agency, or professional role.**
+- **Approve before building.** Sheldon explicitly approves deliverables before Claude builds them. Do not produce code, ADRs, or other artifacts without confirmation.
+- **Flag downstream consequences** before proceeding with any decision that has them.
+- **Token-conservation rule applies.** If unsure whether an action is worth the tokens, ask first.
+
+### FILE DELIVERY AND EDITING PATTERNS
+
+- **Never use `nano`, `vim`, or any interactive terminal editor** — terminal freezes when interactive editors are open.
+- **Always use Python one-liners** (`python3 -c`) for file writes and edits.
+- **Always write code files in multiple short parts using `python3 -c` append mode** — never attempt to write a complete file in one long command (truncated silently).
+- **`.py` filename corruption prevention** — write file as `.txt` artifact via `present_files`, user downloads, renames in Finder removing `.txt`, moves to `~/openclaw/`. Use for any file where a `.py` filename must appear in content.
+- Standard file delivery: generate complete replacement file for download; copy via `cp ~/Downloads/filename ~/openclaw/filename`.
+
+### SESSION-CLOSING RITUAL (IN ORDER)
+
+1. `cp` files to `~/openclaw`
+2. `docker compose build fastapi`
+3. `docker compose up -d fastapi`
+4. `docker logs openclaw_fastapi --tail 20`
+5. `git add -A &amp;&amp; git commit &amp;&amp; git push`
+6. **Update `changelog.md`** with a new numbered entry for this session — this is the load-bearing record that compensates for memory defect.
+7. Opportunistic project-knowledge refresh — re-upload canonical-set files (ADR-039 §5.6.4) modified this session. Load-bearing refresh is weekly Sunday per ADR-031 §5.
+
+### CHANGELOG DISCIPLINE
+
+Changelog is reserved for **meaningful, durable changes to system behavior or structure**. Operational cleanup does not qualify. Every session that produces durable change ends with a numbered changelog entry. The changelog is the authoritative record of session-to-session continuity and is the primary tool for working around the memory defect.
+
+---
+
+*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v2.0 (replaces March 15, 2026 founding document)*
+Memory Only you  Purpose &amp; context Sheldon Wheeler is the sole operator and architect of OpenClaw, a local-first federal policy intelligence system running on a Mac Mini, built to scrape Federal Register content and generate executive policy briefs for state health and human services leadership. The flagship deliverable is federalpolicybrief — a daily weekday briefing covering Medicaid/CHIP/Medicare, SNAP, TANF, SAMHSA, CMS, ACF, and related domains, targeting state agency commissioners and governor's office leadership. The stack runs on Docker (FastAPI, PostgreSQL 16, ChromaDB) with Ollama (Gemma 4 E4B, primary; llama3.2, fallback) for local inference, governed by a formal ADR framework (through ADR-041) with NIST 800-53 alignment. Live PostgreSQL schema is at version 6. GitHub repo: UpscaleOnly/Mac-Mini-Agent (SSH auth via ed25519 key added April 2026). Working directory: ~/openclaw. Persona/agent/project distinction (standing rule): A persona is a named behavioral identity with its own sandbox, ChromaDB namespace, system prompt, and network policy (Prototype, Automate, Research). An agent is the runtime instance executing under a persona. A project is a body of work living inside a persona's workspace as a directory and ChromaDB namespace tag. New SaaS ideas start as projects under an existing persona — not new personas. Governing philosophy: "Governance serves shipping." Production work takes priority over governance overhead. --- Current state Brief generation pipeline is proven end-to-end: scrapedcontent → program-area grouping → Gemma synthesis → Source Attribution Addendum → plain-text brief. Two quality issues were identified and resolved in the most recent session: foreign content suppression (now dropped on any foreign marker alone), "codex alimentarius" added as standalone suppression marker, and Cross-Program limited to high-signal instruments (proposed rules, final rules, Privacy Act notices, presidential documents) — reducing Cross-Program doc count from 57 to 17 and resolving a recurring context-window overrun causing Gemma to produce outlines instead of prose. Fabrication verification (generatebriefreview.py) extended in the most recent session: verifyclaims() covers currency amounts, dates (ISO and written, normalized to datetime.date), Federal Register citations (NN FR NNNNN), and counts with unit words. HARDFAILONUNVERIFIED constant added for future send-wiring. Both versions committed (b0000ce, fa80ac8). Scraper catch-up logic deployed: computedaysback() in base.py queries scraperruns for last successful/partial run, computes elapsed days with one-day safety buffer and 30-day cap. federalregister.py sets usesdaysbackcatchup = True. Verified via scheduled 01:00 ET run. ADR-014 resolved (ADR-014 governance): Claude Code in Manual permission mode permitted, scoped to ~/openclaw. Auto mode and Cowork explicitly prohibited. Recorded as ADR-014 close-out (session noted as ADR-014 / ADR-014 governance decision). OpenClaw architectural rule (May 17, 2026): No agent or LLM execution path may invoke shell, bash, or any host command execution on Sheldon's Mac. Tools requiring shell execution are rejected at toolregistry vetting. Host-side bash scripts are written manually by the operator only. This is the operative answer to ADR-014 (Shell/Docker guardrails). Option B backup automation live since May 17, 2026: nightly pgdump at 04:00 ET via launchd plist ~/Library/LaunchAgents/com.openclaw.backup.plist, invoking ~/openclaw/scripts/backup.sh. Dumps to ~/Documents/Mac-Mini-Backups-Interim/dumps/, 30-day retention, Telegram failure alerts. pmset wakes Mac at 03:55 ET (AC only). Full Disk Access granted to /bin/bash for iCloud-synced path writes. --- On the horizon Send-to-inbox wiring is the primary next priority — designated in the most recent session closer (NEXTSESSIONOPENER6.md) to be conducted in Claude Code Manual mode per ADR-014 resolution. ADR-041 (OPEN, drafted May 17, 2026): third-party memory injection evaluation. Triggers on Anthropic response to ticket 215474340039847 OR May 31, 2026, whichever first. Candidates: Claude-mem, Ember, status quo, custom-built. Hard criteria: security posture (no exfiltration) and no-shell-execution compatibility. PostgreSQL password rotation still pending (default placeholder value in use). Two remaining brief quality issues from the July 6 session (executive summary softening specific notices into vague descriptions; program-area mapping routing all Agriculture Dept. content to SNAP rather than only FNS sub-agency items) — status should be confirmed; some content quality fixes were applied in the August session but these specific issues should be verified as resolved. v3.0 instructions refresh and project-knowledge rebuild are opportunistic housekeeping that never block shipping. --- Key learnings &amp; principles Disk and Git are canonical. Project knowledge is a one-way mirror only — never authoritative. Memory is treated as stale by default due to active Anthropic account memory defect (ticket 215474340039847, filed May 17, 2026; memoryuseredits writes report success in-session but do not propagate to fresh sessions, active since ~mid-March 2026). Rely on project knowledge and changelog.md for current state. If Fin attempts FAQ-style closure, escalate with: "please escalate this conversation to a human support agent." Session openers as state restoration: Sheldon uses inline session opener documents (e.g., NEXTSESSIONOPENER6.md) rather than relying on Claude's memory. This is the reliable mechanism for session continuity. Context-window overrun pattern: Sending too many Cross-Program documents causes Gemma to produce outlines instead of prose. The fix is filtering Cross-Program to high-signal instruments only — not tuning the model. Source fidelity rules (B-002/B-004): Briefs must not soften or abstract specific regulatory notices into vague descriptions. Executive summaries must preserve specificity of the source content. Governance serves shipping: ADR overhead should never block production work. The shift from "governance precedes features" to "governance serves shipping" is a permanent governing principle. --- Approach &amp; patterns One command at a time with explicit approval before building. Sheldon is a terminal/CLI novice (last hands-on coding: COBOL/Fortran ~40 years ago). Always provide commands one at a time with plain-language explanation of what each does. Never paste multi-step command blocks. Explain what to type vs. when to just press Enter. File delivery convention: .py files delivered as .txt artifacts via presentfiles. Sheldon downloads, renames in Finder (removing .txt), and moves to ~/openclaw/. Variable concatenation workarounds (e.g., fn = 'telegrambot' + '.py') are unreliable — the chat interface corrupts .py filenames even inside downloaded files. File writes: Never use nano, vim, or any interactive terminal editor (terminal freezes). Always use python3 -c one-liners. Write code files in multiple short parts using python3 -c append mode — never attempt to write a complete file in one long command (silent truncation). Git commits: Always git commit -m with inline message only. Never bare git commit (causes editor-freeze risk). Browser download collision: When the same base filename is downloaded multiple times in a session, the browser appends 2, 3, etc. Confirm correct file with ls -lt ~/Downloads/generatebrief* | head -4 and match by byte count before copying. cp source.txt dest.py handles copy and rename in one step. Session closing ritual: (1) cp files to ~/openclaw, (2) docker compose build fastapi, (3) docker compose up -d fastapi, (4) docker logs openclawfastapi --tail 20, (5) git add -A &amp;&amp; git commit -m "..." &amp;&amp; git push, (6) opportunistic project-knowledge refresh — re-upload canonical-set files (ADR-039 §5.6.4) modified that session. Load-bearing refresh is weekly Sunday per ADR-031 §5. docker restart does NOT pick up code changes — rebuild required. Service: fastapi; container: openclawfastapi. A6 governance (ADR-039 §5.6): Weekly project-knowledge refresh cadence fires every Sunday. Load-bearing because of the memory defect — project knowledge is the effective source of truth for fresh sessions. Changelog-driven governance: Every meaningful change produces a numbered changelog entry. Operational cleanup does not qualify. MCP filesystem connector (openclaw-filesystem:readtextfile): Read-only, supports tail parameter for large files. Zero execution capability — cannot run commands, write files, or modify disk. File creation for delivery uses createfile to /mnt/user-data/outputs/ followed by presentfiles. --- Tools &amp; resources Stack: Docker (FastAPI, PostgreSQL 16, ChromaDB), Ollama native on macOS (Gemma 4 E4B primary, llama3.2 fallback), APScheduler, launchd for scheduled jobs Local models: gemma4:e4b (9.6 GB, primary Tier 2 default), llama3.2 (2.0 GB, lightweight fallback) Secrets: macOS Keychain (account=openclaw) via security command. Six secrets including all four Telegram bot tokens (rotated April 2026). config.py uses Keychain-aware SecretsOverlay with keychainget() helper. PostgreSQL password rotation pending. GitHub: UpscaleOnly/Mac-Mini-Agent, SSH auth (ed25519, April 2026). ~/openclaw is working directory; Git repo consolidation into single ~/openclaw directory deferred to Mac Studio setup day. ADR-033 Skill Layer: Three approved ClawHub skills — security-check (install first), domain-trust-check (Automate + Prototype), web-search (Research). 5-step vetting protocol. Hard boundary: no community skill touches PostgreSQL, ChromaDB, Telegram, Ollama, or Docker. ADR-037 Session Transcript &amp; Heartbeat Monitoring: Phase 1 complete. Session capture to PostgreSQL + markdown, concurrent health monitor, four structured log files (transcript, heartbeat, servicehealth, telegram), Telegram alerts on timeout/failure. Setup-day integration pending. H4 scraper: federalregister.gov scraper deployed; scheduled at 01:00 ET nightly. scraperruns table with TIMESTAMPTZ timestamps, status CHECK constraint (running, success, partial, failed), index on (scrapername, startedat DESC). Telegram: Operator control plane. Real-time alerts for security events and backup failures. Quiet hours apply for non-critical alerts. Last updated 8 hours ago Context   11% of project capacity used Search mode changelog.md 949 lines md  changelog_entry_015.md 80 lines md  ADR_041.docx 108 lines docx  ADR_031.docx 353 lines docx  ADR_039.docx 396 lines docx  entry_011.md 105 lines md  Mac_Mini_Project_Status_Session9_diagrams.docx 29 lines docx  unauth_application_steps.md 230 lines md  Session_19_Review_2026-04-30.md 290 lines md  federal_register_scraper.py 159 lines py  DATA_BOUNDARIES.md 64 lines md  ADR_040.docx 139 lines docx  db.py 251 lines py  schema.sql 369 lines sql  main.py 336 lines py  security.py 419 lines py  interceptor.py 378 lines py  scheduler.py 73 lines py  jobs.py 105 lines py  migration_003.sql 34 lines sql  ADR_038.docx 289 lines docx  migration_002.sql 68 lines sql  models.py 190 lines py  audit.py 78 lines py  llm.py 177 lines py  telegram_bot.py 179 lines py  session_loader.py 204 lines py  tool_registry_seed.sql 340 lines sql  federal_policy_brief_CURRENT_STATE.md 151 lines md  federal_policy_brief_KNOWLEDGE.md 129 lines md  federal_policy_brief_CODE_REFERENCE.md 191 lines md  federal_policy_brief_DECISIONS.md 94 lines md  Federal_Policy_Brief_Knowledge_Files.docx 507 lines docx  README_OPTION_B.md 109 lines md  Federal_Policy_Brief_Project_Spec.docx 240 lines docx  IR_Runbook.docx 301 lines docx  ADR_037.docx 662 lines docx  ADR_036.docx 264 lines docx  ADR 035.docx 460 lines docx  ADR_033_Session10_3.docx 498 lines docx  Dashboard_Metrics_Visual_Reference_Final13.docx 246 lines docx  hw_collector.py 331 lines py  hw_collector_setup.py 167 lines py  hardware_metrics.sql 114 lines sql  ADR_034_Hardware_Telemetry_Collector.docx 170 lines docx  Dashboard_Metrics_Framework_Visual_Reference.docx 230 lines docx  Mac_Mini_Project_Status_Session7_final_1.docx 182 lines docx  Mac_Mini_NIST_800_53_Compliance.docx 260 lines docx  pdf  Scheduled  Set up recurring tasks for this project. ADR_031.docx  1 **ADR-031**
+2 &nbsp;
+3 **Change Management and Security Review Triggers**
+4 &nbsp;
+5 OpenClaw — Phase 1 | Recorded April 18, 2026 | Amended May 17, 2026
+6 &nbsp;
+7 # **1. Decision Record**
+8 &nbsp;
+9 | **ADR Number** | ADR-031 |
+10 | --- | --- |
+11 | **Title** | Change Management and Security Review Triggers |
+12 | **Status** | DECIDED — April 18, 2026. Amended May 17, 2026 (project-knowledge refresh cadence — ADR-039 §5.6 A6). |
+13 | **Deciders** | Sheldon Wheeler (owner, sole operator) |
+14 | **ADR References** | ADR-019 (Backup) · ADR-024 (Little Snitch) · ADR-027 (Interceptor) · ADR-028 (Approval) · ADR-029 (Audit Table) · ADR-033 (Dashboard) · ADR-035 (Runtime Plumbing) · ADR-037 (Transcripts) · ADR-038 (Security Events) · ADR-039 (Adversarial Review) |
+15 | **NIST Controls** | AU-2 · AU-6 · AU-6(1) · CM-1 · CM-3 · CM-3(2) · CM-4 · CM-7(1) · CM-8(1) · CM-9 · SI-4 |
+16 | **Phase Scope** | Phase 1 — all sections required before first agent tool call. Weekly digest, security alerting, and project-knowledge refresh are Phase 1 cadences. |
+17 | **Supersedes** | None. Original April 18, 2026 recording amended in place; prior content preserved. |
+18 &nbsp;
+19 # **2. Purpose**
+20 &nbsp;
+21 ADR-031 is the change management framework for OpenClaw. It defines: (1) the named events that require a formal change log entry before or after a change is made, (2) the ADR impact map that tells the operator which ADRs to review for each trigger category, (3) the scheduled review cadences that maintain ongoing compliance posture, (4) the weekly automated Telegram digest that surfaces operational and security metrics, (5) the retention policy for audit logs and change records, and (6) the project-knowledge refresh cadence that keeps Claude.ai project knowledge aligned with the local disk (added May 17, 2026 per ADR-039 §5.6 A6).
+22 &nbsp;
+23 This ADR is the single source of truth for configuration management policy. All other ADRs that reference ADR-031 for change triggers, review cadences, or retention rules defer to this document.
+24 &nbsp;
+25 # **3. Change Trigger Categories**
+26 &nbsp;
+27 The following seven categories define the events that require a formal changelog entry. Each entry must be recorded in changelog.md before the change is deployed (pre-change) or immediately after detection (post-change for unplanned events).
+28 &nbsp;
+29 ## **3.1 Infrastructure Changes**
+30 &nbsp;
+31 Trigger on any of the following:
+32 &nbsp;
+33 - Adding, removing, or replacing a Docker container
+34 &nbsp;
+35 - Changing Docker Compose configuration (ports, volumes, environment variables, network definitions)
+36 &nbsp;
+37 - Adding or removing a Python dependency in requirements.txt
+38 &nbsp;
+39 - Changing PostgreSQL schema (new table, column addition, column removal, index change, partition modification)
+40 &nbsp;
+41 - Changing Ollama model — pulling a new model or removing an existing one
+42 &nbsp;
+43 - Modifying .env or config files that affect runtime behavior
+44 &nbsp;
+45 ADRs to review: ADR-005 (Model Strings), ADR-019 (Backup), ADR-035 (Runtime Plumbing), ADR-037 (Transcripts).
+46 &nbsp;
+47 ## **3.2 Egress and Network Changes**
+48 &nbsp;
+49 Trigger on any of the following:
+50 &nbsp;
+51 - Adding a new permitted destination to Little Snitch (ADR-024)
+52 &nbsp;
+53 - Adding a new domain to any persona network policy YAML (ADR-030)
+54 &nbsp;
+55 - Enabling a tool in tool_registry that declares a new permitted_network_destination
+56 &nbsp;
+57 - Changing Tailscale configuration — adding devices, changing ACLs, enabling exit nodes
+58 &nbsp;
+59 - Any outbound connection to a domain not in the current allowlist (detected by Little Snitch or audit log)
+60 &nbsp;
+61 ADRs to review: ADR-024 (Little Snitch), ADR-030 (Network Policy), ADR-033 (Dashboard), ADR-035 (Tool Registry).
+62 &nbsp;
+63 ## **3.3 Access and Account Changes**
+64 &nbsp;
+65 Trigger on any of the following:
+66 &nbsp;
+67 - Creating, modifying, or deleting a macOS user account
+68 &nbsp;
+69 - Changing SSH key configuration — adding or revoking authorized keys
+70 &nbsp;
+71 - Changing Tailscale device authorization
+72 &nbsp;
+73 - Modifying file permissions on ~/openclaw, PostgreSQL data directory, or iCloud backup path
+74 &nbsp;
+75 - Rotating API keys (Anthropic, OpenRouter, Telegram bot tokens)
+76 &nbsp;
+77 ADRs to review: ADR-020 (Account Structure), ADR-023 (Encryption Posture).
+78 &nbsp;
+79 ## **3.4 Model and LLM Changes**
+80 &nbsp;
+81 Trigger on any of the following:
+82 &nbsp;
+83 - Changing the default Ollama model string in .env
+84 &nbsp;
+85 - Changing model tier confidence thresholds (ADR-021 — 0.85 Tier 1→2, 0.90 Tier 2→3)
+86 &nbsp;
+87 - Enabling Tier 3 (Sonnet via OpenRouter) for any persona for the first time
+88 &nbsp;
+89 - Any Tier 4 (Opus) usage — hard gate, requires operator approval, automatic alert
+90 &nbsp;
+91 - Adding a new model tier or routing rule to llm.py
+92 &nbsp;
+93 ADRs to review: ADR-003 (Model Selection), ADR-005 (Model Strings), ADR-021 (LayerModel), ADR-027 (Interceptor), ADR-028 (Approval).
+94 &nbsp;
+95 ## **3.5 Code Deployment Changes**
+96 &nbsp;
+97 Trigger on any of the following:
+98 &nbsp;
+99 - Any commit pushed to the mac-mini-agent GitHub repository
+100 &nbsp;
+101 - Any change to app/ Python files deployed to the running container
+102 &nbsp;
+103 - Changes to interceptor logic, audit logic, session loader, or LLM execution path
+104 &nbsp;
+105 - Docker image rebuild and redeploy
+106 &nbsp;
+107 ADRs to review: ADR-027 (Interceptor), ADR-029 (Audit Table), ADR-035 (Runtime Plumbing).
+108 &nbsp;
+109 ## **3.6 OS and Dependency Updates**
+110 &nbsp;
+111 Trigger on any of the following:
+112 &nbsp;
+113 - macOS major version update — requires full ADR review pass before proceeding
+114 &nbsp;
+115 - macOS minor update — log entry required, no full review unless behavior changes
+116 &nbsp;
+117 - Docker Desktop version update
+118 &nbsp;
+119 - Ollama version update
+120 &nbsp;
+121 - PostgreSQL version update
+122 &nbsp;
+123 - ChromaDB version update
+124 &nbsp;
+125 - Python version update inside container
+126 &nbsp;
+127 ADRs to review: ADR-023 (Encryption Posture), ADR-036 (GPU Allocation — iogpu.wired_limit_mb behavior may change on OS update).
+128 &nbsp;
+129 ## **3.7 Canonical File Set Maintenance**
+130 &nbsp;
+131 *Added May 17, 2026 per ADR-039 §5.6 A6.*
+132 &nbsp;
+133 Trigger on any of the following:
+134 &nbsp;
+135 - Adding a new project that introduces files matching the canonical file set patterns defined in ADR-039 §5.6.4 (e.g. a new project's *_CURRENT_STATE.md, *_DECISIONS.md, *_CODE_REFERENCE.md, *_KNOWLEDGE.md)
+136 &nbsp;
+137 - Adding a new module under app/ or any new file under app/scheduling/scrapers/ that the canonical file set pattern covers
+138 &nbsp;
+139 - Removing a file currently named in the canonical file set, including project shutdown or module deletion
+140 &nbsp;
+141 - Renaming a canonical file (the rename produces both an add and a remove)
+142 &nbsp;
+143 - Any change to the canonical file set itself in ADR-039 §5.6.4 — pattern changes, scope changes, additions or removals of named files
+144 &nbsp;
+145 ADRs to review: ADR-039 (§5.6.4 canonical file set is the authoritative list); ADR-037 (the *_CURRENT_STATE.md / *_DECISIONS.md / *_CODE_REFERENCE.md / *_KNOWLEDGE.md per-project pattern is governed there).
+146 &nbsp;
+147 The §5.6.4 list is the single source of truth for which files are subject to the weekly Sunday project-knowledge refresh defined in §5 of this ADR. Maintaining the list current is a precondition for the refresh cadence to be load-bearing.
+148 &nbsp;
+149 # **4. ADR Impact Map**
+150 &nbsp;
+151 Before making a change in a trigger category, review the ADRs listed. The table below maps each trigger to the minimum required review set. Additional ADRs may be relevant depending on the specific change.
+152 &nbsp;
+153 | **Trigger Category** | **Required ADR Review** | **Approval Required** |
+154 | --- | --- | --- |
+155 | Infrastructure | ADR-005, ADR-019, ADR-035, ADR-037 | Operator self-approval. Log entry before deploy. |
+156 | Egress / Network | ADR-024, ADR-030, ADR-033, ADR-035 | Operator self-approval. Log entry before deploy. |
+157 | Access / Accounts | ADR-020, ADR-023 | Operator self-approval. Log entry same day. |
+158 | Model / LLM | ADR-003, ADR-005, ADR-021, ADR-027, ADR-028 | Operator self-approval. Tier 4 usage requires explicit Telegram Y/N gate. |
+159 | Code Deployment | ADR-027, ADR-029, ADR-035 | Operator self-approval. Log entry with commit hash. |
+160 | OS / Dependency | ADR-023, ADR-036 | macOS major update: full ADR pass required. Minor: log entry only. |
+161 | Canonical File Set Maintenance | ADR-039 §5.6.4, ADR-037 | Operator self-approval. Log entry same day. §5.6.4 list updated in same commit. |
+162 &nbsp;
+163 # **5. Scheduled Reviews**
+164 &nbsp;
+165 The following reviews run on defined cadences. Weekly and 90-day reviews are automated (Telegram digest and query). Monthly and 60-day reviews are manual operator actions. The Sunday project-knowledge refresh is a manual operator action with no automated enforcement — the canonical file set in ADR-039 §5.6.4 is the operator's checklist.
+166 &nbsp;
+167 | **Cadence** | **Review Action** | **Mechanism** | **NIST Control** |
+168 | --- | --- | --- | --- |
+169 | Weekly — Sunday 08:00 | Automated Telegram digest: call volume, tier distribution, API spend, circuit breaker hits, Opus count, escalation count, p50/p95 response time, security event summary (injections, suspicious patterns, blocked requests, SSH failures) | weekly_digest task in main.py | AU-6(1) · SI-4 |
+170 | Weekly — Sunday (operator session) | Project-knowledge refresh. Re-upload every file named in the canonical file set defined in ADR-039 §5.6.4 to the Claude.ai project. Verify byte sizes and counts match the local disk. Log completion in changelog.md as part of the Sunday session entry. End-of-session refresh during the week is encouraged but not load-bearing; Sunday catches whatever weekday session closes missed. | Manual operator action. Optional refresh_pk.sh helper may be added later per ADR-039 §5.6.3. | CM-3 · CM-4 · CM-9 · SA-11 |
+171 | Monthly | Full audit log review via PostgreSQL. Review agent_actions for anomalies, unexpected tier escalations, unusual call volumes. Enumerate running macOS services and LaunchAgents — compare to prior month. Log findings in changelog.md. | Manual operator query | CM-7(1) · AU-6 |
+172 | 60 days post-setup | Review Mac-Mini-Backups folder size trend from backup_logs. Flag if retention window needs adjustment. Review iCloud storage consumption. | Manual operator query | AU-4 |
+173 | 90 days | Review tool_registry for tools not reviewed in 90 days (last_reviewed_at). Any tool with last_reviewed_at &gt; 90 days triggers a review entry and Telegram alert. Review all enabled=TRUE tools for continued necessity. | Automated Telegram alert from main.py startup check | CM-7(1) |
+174 &nbsp;
+175 # **6. Weekly Telegram Digest**
+176 &nbsp;
+177 The weekly digest is an automated Phase 1 task. It runs inside the openclaw_fastapi container as a scheduled asyncio task, fires every Sunday at 08:00 local time, and sends a single formatted Telegram message to the operator chat. It requires no manual action.
+178 &nbsp;
+179 ## **6.1 Implementation**
+180 &nbsp;
+181 The digest task is added to main.py alongside the existing heartbeat loop. On startup, an asyncio task calculates seconds until the next Sunday 08:00 and sleeps until that time, then fires weekly thereafter. The task queries agent_actions and security_events (ADR-038) directly via the existing PostgreSQL pool.
+182 &nbsp;
+183 ## **6.2 Digest Content**
+184 &nbsp;
+185 The digest covers the 7-day window ending at the time of sending (Sunday 08:00). All metrics are calculated from agent_actions and security_events for that window.
+186 &nbsp;
+187 | **Section** | **Metric** | **Source Table** | **Alert Threshold** | **NIST** |
+188 | --- | --- | --- | --- | --- |
+189 | ACTIVITY | Total calls — by persona (Prototype / Automate / Research) | agent_actions | None — informational | AU-2 |
+190 | ACTIVITY | Tier distribution — % at Tier 1, 2, 3, 4 | agent_actions | Tier 4 &gt; 0: immediate alert | AU-6(1) |
+191 | ACTIVITY | Escalation count — Tier 1→2 and Tier 2→3 | agent_actions | None — trend signal | AU-6(1) |
+192 | COST | Estimated API spend for the week (sum cost_usd) | agent_actions | Weekly spend &gt; $5.00: flag in digest | AU-6(1) |
+193 | COST | Spend by tier — Tier 3 vs Tier 4 breakdown | agent_actions | Tier 4 spend &gt; $0.00: flag | AU-6(1) |
+194 | PERFORMANCE | p50 response time (median seconds) | agent_actions (resolved_at - created_at) | None — baseline reference | SI-4 |
+195 | PERFORMANCE | p95 response time (95th percentile seconds) | agent_actions (resolved_at - created_at) | p95 &gt; 120s: flag in digest | SI-4 |
+196 | RELIABILITY | Circuit breaker hit count | agent_actions (circuit_breaker_hit = TRUE) | Any hit: flag in digest | SC-5 |
+197 | RELIABILITY | Opus usage count (Phase 1 target: 0) | agent_actions (model_tier = 4) | Any usage: flag in digest + immediate alert | AU-6(1) |
+198 | SECURITY | Prompt injection attempts (flag-and-continue) | security_events (event_type = injection) | Any attempt: immediate real-time alert + weekly count | SI-4 |
+199 | SECURITY | Suspicious input pattern count | security_events (event_type = suspicious_input) | Count &gt; 3 in week: flag in digest | SI-4 |
+200 | SECURITY | Blocked request count | agent_actions (validation_verdict = blocked) | Spike &gt; 5 in 24h: immediate alert | SI-4 |
+201 | SECURITY | Unauthorized user ID attempts | agent_actions (error_message contains unauthorized) | Any attempt: immediate alert | AC-3 |
+202 | SECURITY | SSH authentication failures (Phase 1.5) | security_events (event_type = ssh_failure) | Count &gt; 3 in week: flag in digest | SI-4 |
+203 &nbsp;
+204 ## **6.3 Real-Time Alerts**
+205 &nbsp;
+206 The following events send an immediate Telegram alert regardless of the weekly digest schedule. These are not batched — they fire at the moment of detection via the interceptor or security scanner.
+207 &nbsp;
+208 - Prompt injection attempt detected — fires immediately, includes persona, session ID, input snippet (first 100 chars)
+209 &nbsp;
+210 - Opus (Tier 4) usage — fires immediately with session ID and cost estimate
+211 &nbsp;
+212 - Unauthorized user ID attempt — fires immediately with user ID and channel
+213 &nbsp;
+214 - Blocked request spike — 5 or more blocked requests from the same channel_id within 60 minutes
+215 &nbsp;
+216 - p95 response time exceeds 300 seconds for any 1-hour rolling window — fires once per hour maximum
+217 &nbsp;
+218 ## **6.4 Digest Format**
+219 &nbsp;
+220 The Telegram message uses a fixed plain-text format for readability on mobile. Emoji used as section markers. Example structure:
+221 &nbsp;
+222 OpenClaw Weekly Digest — Sun Apr 20 2026
+223 &nbsp;
+224 ACTIVITY
+225 &nbsp;
+226 Total calls: 142 (Prototype 98 / Automate 31 / Research 13)
+227 &nbsp;
+228 Tier distribution: T1 84% / T2 14% / T3 2% / T4 0%
+229 &nbsp;
+230 Escalations: T1-&gt;T2: 20 T2-&gt;T3: 3
+231 &nbsp;
+232 COST
+233 &nbsp;
+234 API spend: $0.42 (T3: $0.42 / T4: $0.00)
+235 &nbsp;
+236 PERFORMANCE
+237 &nbsp;
+238 p50 response: 18s | p95 response: 67s
+239 &nbsp;
+240 RELIABILITY
+241 &nbsp;
+242 Circuit breaker hits: 0 | Opus calls: 0
+243 &nbsp;
+244 SECURITY
+245 &nbsp;
+246 Injection attempts: 0 | Suspicious inputs: 0
+247 &nbsp;
+248 Blocked requests: 2 | Unauth attempts: 0
+249 &nbsp;
+250 SSH failures: 0
+251 &nbsp;
+252 All clear. Next digest: Sun Apr 27 08:00.
+253 &nbsp;
+254 # **7. Retention Policy**
+255 &nbsp;
+256 This section is the single source of truth for all retention and rotation windows in OpenClaw. Other ADRs that reference retention periods defer to this table.
+257 &nbsp;
+258 | **Data Store** | **Retention Window** | **Mechanism** | **ADR Source** |
+259 | --- | --- | --- | --- |
+260 | agent_actions (PostgreSQL) | 90 days full retention. Partitioned by month. DROP PARTITION after 90 days. | PostgreSQL declarative partitioning — ADR-029 | ADR-029, ADR-035 |
+261 | security_events (PostgreSQL) | 90 days full retention. Same partition strategy as agent_actions. | PostgreSQL declarative partitioning — ADR-038 | ADR-038 |
+262 | session_transcripts (PostgreSQL) | 90 days. Compress to cold storage after 90 days (Phase 2). | Manual or Phase 2 archival script | ADR-037 |
+263 | Log files (/var/log/openclaw/) | 30 days. logrotate with gzip compression. | logrotate — ADR-037 Section 10 | ADR-037 |
+264 | PostgreSQL nightly backup (iCloud) | 30-day rolling window. Oldest backup deleted when new one lands. | pg_dump cron job — ADR-019 | ADR-019 |
+265 | Replay buffer | 30 days local, then archived to iCloud Drive. | Scheduled cleanup task | ADR-027 |
+266 | changelog.md | Permanent. No rotation. File grows indefinitely. | Git history as secondary archive | ADR-031 (this ADR) |
+267 | scraper_runs (PostgreSQL) | 180 days. Manual prune via scheduled task (Phase 1.5). | Scheduled cleanup task (deferred) | Entry #011 — see ADR-039 H4 closure |
+268 &nbsp;
+269 # **8. Changelog Entry Requirements**
+270 &nbsp;
+271 Every change log entry in changelog.md must include the following fields. Entries without all required fields are incomplete.
+272 &nbsp;
+273 - Entry number and date
+274 &nbsp;
+275 - Operator name
+276 &nbsp;
+277 - Trigger category (from Section 3)
+278 &nbsp;
+279 - Description of the change — what was changed and why
+280 &nbsp;
+281 - Files changed — file name and action (created / modified / replaced / deleted)
+282 &nbsp;
+283 - ADRs affected — which ADRs were reviewed and what the relationship is
+284 &nbsp;
+285 - NIST controls touched
+286 &nbsp;
+287 - Risk assessment — egress changes, tools enabled, behavior changes
+288 &nbsp;
+289 For code deployment entries: commit hash is required. For model changes: old and new model string required. For egress changes: the new domain and its purpose required. For canonical-file-set maintenance entries (§3.7): the §5.6.4 list edit (file added or removed) is required.
+290 &nbsp;
+291 # **9. NIST 800-53 Alignment**
+292 &nbsp;
+293 | **Control** | **Title** | **Status After ADR-031** | **Mechanism** |
+294 | --- | --- | --- | --- |
+295 | CM-1 | Policy and Procedures | MET | This ADR is the configuration management policy document. |
+296 | CM-3 | Configuration Change Control | MET | Seven named trigger categories with required ADR review per category. §3.7 canonical-file-set maintenance added May 17, 2026. |
+297 | CM-3(2) | Change Control — Testing and Documentation | PARTIAL → IMPROVED | Changelog entry required for every deployment. Formal test plan deferred to Phase 1.5. |
+298 | CM-4 | Impact Analysis | MET | ADR impact map (Section 4) specifies required reviews per trigger category. |
+299 | CM-7(1) | Least Functionality — Periodic Review | MET | Monthly service enumeration and 90-day tool registry review both defined as named scheduled reviews. |
+300 | CM-8(1) | Component Inventory — Updates During Installation | IMPROVED | Infrastructure and OS trigger categories require changelog entry on new component installation. |
+301 | CM-9 | Configuration Management Plan | MET | ADR-031 is the formal CM plan for OpenClaw. Project-knowledge refresh cadence (§5, weekly Sunday) added May 17, 2026 per ADR-039 §5.6 A6. |
+302 | AU-6 | Audit Record Review | IMPROVED | Monthly full audit log review defined as named scheduled review. |
+303 | AU-6(1) | Audit Review — Automated Process Integration | MET | Weekly automated Telegram digest implemented in Phase 1 (Section 6). |
+304 | SA-11 | Developer Testing and Evaluation | IMPROVED | Project-knowledge refresh cadence reduces stale-artifact risk during adversarial review sessions. |
+305 | SI-4 | System Monitoring | IMPROVED | Weekly digest includes performance metrics (p50/p95) and security event summary drawing from ADR-038 security_events table. |
+306 &nbsp;
+307 # **10. ADR Cross-Reference**
+308 &nbsp;
+309 | **ADR** | **Relationship** |
+310 | --- | --- |
+311 | ADR-019 | Backup Strategy. Nightly pg_dump retention window (30 days) is governed by this ADR. Backup failure alert is a real-time event — not batched into weekly digest. |
+312 | ADR-024 | Little Snitch. Egress change trigger (Section 3.2) covers Little Snitch rule additions. Any new permitted domain requires a changelog entry before activation. |
+313 | ADR-027 | Middleware Interceptor. Code deployment trigger (Section 3.5) covers interceptor changes. Real-time security alerts (Section 6.3) fire through the interceptor's post-call hook. |
+314 | ADR-028 | Operator Approval. Tier 4 usage alert routes through ADR-028 Telegram Y/N gate. Weekly digest respects quiet hours (7pm–7am) — delivery delayed to 08:00 if quiet hours are active at send time. |
+315 | ADR-029 | Audit Table. agent_actions is the primary source for all digest metrics. Retention policy for agent_actions (90 days, DROP PARTITION) is governed by this ADR Section 7. |
+316 | ADR-033 | Dashboard Metrics. Weekly digest metrics overlap with Phase 2 dashboard panels. Dashboard will visualize historical digest data when implemented. |
+317 | ADR-035 | Runtime Plumbing. Tool registry 90-day review trigger (Section 5) governs last_reviewed_at staleness check defined in ADR-035. |
+318 | ADR-037 | Transcripts and Heartbeat. Log rotation (30 days, /var/log/openclaw/) is governed by this ADR Section 7. Heartbeat timeouts are real-time alerts — not batched. Per-project canonical file naming pattern (*_CURRENT_STATE / *_DECISIONS / *_CODE_REFERENCE / *_KNOWLEDGE) referenced by §3.7 originates here. |
+319 | ADR-038 | Security Events. Application-layer and SSH security events are written to the security_events table defined in ADR-038. The weekly digest security section draws from that table. Real-time injection and unauthorized access alerts are defined in both ADR-031 Section 6.3 and ADR-038. |
+320 | ADR-039 | Adversarial Review. §5.6 A6 (project-knowledge refresh cadence) sources the weekly Sunday refresh rule added to §5 of this ADR. §5.6.4 (canonical file set) is the authoritative list referenced by §3.7 and §5 of this ADR. |
+321 &nbsp;
+322 # **11. Implementation Sequence**
+323 &nbsp;
+324 All steps are required before the first agent tool call is dispatched.
+325 &nbsp;
+326 | **Step** | **Action** | **Account** | **Dependency** |
+327 | --- | --- | --- | --- |
+328 | 1 | Write ADR-038 (Security Events). Define security_events table, interceptor pattern scanner, SSH log forwarder. | dev | ADR-031 complete |
+329 | 2 | Create security_events table in PostgreSQL using ADR-038 schema. | dev | Step 1 complete |
+330 | 3 | Add pattern scanner to interceptor (ADR-027). Flag-and-continue on suspicious inputs. Write to security_events. | dev | Step 2 complete |
+331 | 4 | Add weekly_digest asyncio task to main.py. Queries agent_actions and security_events. Sends Telegram message Sunday 08:00. | dev | Steps 2–3 complete |
+332 | 5 | Add 90-day tool registry staleness check to main.py startup sequence. Telegram alert on any tool with last_reviewed_at &gt; 90 days. | dev | Step 4 complete |
+333 | 6 | Add SSH log forwarder script (Phase 1.5). Reads macOS unified log. Writes SSH events to security_events. | dev | Mac Studio setup day |
+334 | 7 | Verify weekly digest fires correctly. Confirm Telegram message received Sunday 08:00. | operator | Step 4 complete |
+335 | 8 | Write changelog entry for ADR-031 implementation (Entry #004 or next available). | operator | Step 7 complete |
+336 &nbsp;
+337 # **12. Future Considerations**
+338 &nbsp;
+339 - Phase 2: compliance_monitor sub-agent automates the monthly audit log review and service enumeration, replacing the manual operator query. Results delivered via Telegram.
+340 &nbsp;
+341 - Phase 2: Weekly digest delivered as a formatted HTML email in addition to Telegram, for archival and readability on larger screens.
+342 &nbsp;
+343 - Phase 2: Digest anomaly detection — flag weeks where any metric deviates more than 2 standard deviations from the 90-day rolling baseline.
+344 &nbsp;
+345 - Phase 2: Dashboard visualization of historical digest data — call volume trends, tier distribution over time, spend trend, security event timeline.
+346 &nbsp;
+347 - Phase 3: Multi-operator digest delivery if the operator group expands.
+348 &nbsp;
+349 - Phase 1.5: refresh_pk.sh helper script (optional per ADR-039 §5.6.3) — lists canonical files and opens the Claude.ai project URL in browser. Reduces friction; does not automate.
+350 &nbsp;
+351 *ADR-031 recorded April 18, 2026. Change management framework formally adopted. Weekly automated digest and real-time security alerting defined as Phase 1 deliverables.*
+352 &nbsp;
+353 *Amended May 17, 2026 per ADR-039 §5.6 A6. §3.7 (canonical file set maintenance) added to change trigger categories. §5 (Scheduled Reviews) gains weekly Sunday project-knowledge refresh row. §4 (ADR Impact Map) gains the corresponding row. §7 (Retention Policy) adds scraper_runs row reflecting Entry #011 H4 closure. §9 (NIST Alignment) cites CM-9 mechanism for the new cadence and SA-11 IMPROVED. §10 (Cross-Reference) adds ADR-039 and updates ADR-037.*
