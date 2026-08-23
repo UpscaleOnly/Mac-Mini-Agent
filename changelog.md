@@ -1734,3 +1734,70 @@ Documentation-only change. No code, schema, egress, or credentials touched. Ever
 | Content-diff ADR-033/ADR-035 against Mac Mini KB counterparts | If those files are ever located/exported |
 | Resolve the ADR-027/ADR-038 pattern-scanner attribution ambiguity flagged in the ADR-027 stub | Opportunistic |
 | Decide whether AI Build and Mac Mini should be renamed on claude.ai to stop the “OpenClaw” naming collision recurring | Whenever Sheldon has a moment |
+
+---
+
+## Entry #025 — August 23, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Reliability fix (federal_policy_brief scraper) + state documentation refresh
+
+**Commits:** `5e8fafc`, plus this entry
+
+### Changes Made
+
+1. **Root-caused the recurring scraper gaps — the nightly run was being silently skipped, not delayed.** Discovered while answering a routine "what's next" state check: `scraper_runs` showed no run for August 23, and the last successful run was August 22 at 01:00 ET. Three independent sources established why:
+   - `app/scheduling/scheduler.py` registered `federal_policy_scrape` at 01:00 ET with `misfire_grace_time=600` (10 minutes).
+   - `pmset -g sched` shows exactly one repeating wake, **03:55 ET**, added for the ADR-019 04:00 backup.
+   - `pmset -g log` shows the machine in DarkWake from Deep Idle through 01:00 — i.e. genuinely asleep, not merely idle.
+
+   With the machine asleep at 01:00 and not waking until 03:55 — 2h55m later, far outside a 10-minute grace — APScheduler **discarded** the run rather than firing it late. The run history corroborates precisely: a successful 01:00 run on Aug 22 (the operator happened to be working late that night), nothing on Aug 23, and earlier multi-day gaps.
+
+2. **Confirmed macOS cannot simply be given a second wake.** `man pmset` states a system "may only have one pair of repeating events scheduled — a 'power on' event and a 'sleep/shutdown' event." Adding a 00:55 repeating wake would have **replaced** the 03:55 wake and broken the ADR-019 backup. This was checked *before* running anything, not after. Notably, the previous CURRENT_STATE.md had already recorded this constraint; the conclusion it drew from it ("the durable fix is catch-up logic") was correct but incomplete — catch-up cannot help a run that never fires at all.
+
+3. **Fix applied:** `misfire_grace_time` 600 → **11100** (3h05m) and `coalesce=True` on `federal_policy_scrape`. A run missed at 01:00 because the Mac slept now fires when the machine wakes at 03:55; Entry #020's catch-up logic then computes `days_back` across the elapsed span and backfills. `coalesce=True` ensures a multi-day miss produces one run, not several, since catch-up already covers the whole window. Rationale recorded as an inline comment in `scheduler.py` so the unusual value is not "cleaned up" by a future session.
+
+4. **`openclaw_fastapi` rebuilt.** Required by the `scheduler.py` change, and it also cleared the long-standing stale-schema warning. Startup now logs `Schema version OK — live database is at version 7 (required 7)`. Verified in the running container that the job carries `grace=11100`.
+
+5. **Correction to a documented fact: the historical content gap is larger than recorded.** CURRENT_STATE.md described a gap of "Aug 9–16." Querying the live table directly shows only Aug 3 (23 docs) and Aug 17 (21 docs) exist in that span — roughly **nine missing weekdays, Aug 4–16**. It predates the Entry #020 catch-up logic and will not self-heal, since the catch-up window computes from the last successful run and has long since moved past it. Recoverable only by explicit backfill; recorded as an active task, not fixed in this entry.
+
+6. **CURRENT_STATE.md refreshed** — was dated August 20 and four entries stale (#020–#024). Substantive corrections beyond simple additions: schema 6 → 7; generator v3 → v5 with `--send` semantics; delivery no longer "BLOCKED" (ADR-039 H4 closed); the **Hard Rules section's "no shell/bash from any agent path" rule replaced** with the ADR-014 Manual-mode exception, since the old text actively misdescribed how Claude Code now operates; dual-clone warning promoted to the top; content counts, ADR corpus state, and the corrected gap all updated against live sources. Previous version preserved at `CURRENT_STATE.md.bak.aug20`.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/app/scheduling/scheduler.py` | Modified (misfire grace, coalesce, docstring) |
+| `~/openclaw/CURRENT_STATE.md` | Rewritten (was 4 entries stale) |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `openclaw_fastapi` container image | Rebuilt |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-039 (H4) | Scraper scheduling behavior corrected — no design change, the job simply now runs when scheduled to. |
+| ADR-019 | Untouched, and deliberately protected — its 03:55 wake was the reason the 00:55-wake approach was rejected. |
+| ADR-031 | Change management — this entry is the required log entry for the scheduling change. |
+| ADR-014 | Not amended, but its Manual-mode exception is now correctly reflected in CURRENT_STATE.md's Hard Rules, which previously contradicted it. |
+
+### NIST Controls Touched
+
+CM-3 (configuration change control), AU-6 (audit review — the fix was derived from `scraper_runs` and `pmset` log review), SI-4 (system monitoring)
+
+### Risk Assessment
+
+Low. One scheduling constant and one boolean changed; no schema, credential, egress, or data change. The wider grace window means a scrape may now run at ~03:55 instead of 01:00 — acceptable for a daily batch job whose output is consumed manually, and strictly better than not running. `coalesce=True` prevents a backlog from triggering redundant concurrent runs. The `pmset` configuration was deliberately **not** touched, so the ADR-019 backup is unaffected. Rollback available at `app/scheduling/scheduler.py.bak.pre-misfire-fix`.
+
+**The fix is verified in configuration but not yet in behavior** — it has not survived a real overnight cycle. First confirmation opportunity is the morning of August 24.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Confirm the misfire fix actually fired — check `scraper_runs` for an Aug 24 run | Morning of Aug 24 |
+| Backfill the Aug 4–16 content gap (explicit `days_back` or targeted FR API pull) | Soon — it will not self-heal |
+| Flip `HARD_FAIL_ON_UNVERIFIED` to `True` | After a few more clean `--send` runs |
+| Dual-clone disposition — `~/projects/mac-mini` has now derailed two sessions | Operator decision |
+| v3.0 instructions refresh, project-knowledge rebuild | Opportunistic |
