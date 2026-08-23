@@ -1,6 +1,6 @@
 # Next-session opener — paste this as your first message
 
-*(Written August 22, 2026 at the close of Entry #023. Everything below is stated inline so the session does not depend on memory or on project knowledge.)*
+*(Written August 22-23, 2026 at the close of Entry #023, revised late the same evening after an ADR-042 fragment-hunt session. Everything below is stated inline so the session does not depend on memory or on project knowledge.)*
 
 ---
 
@@ -34,16 +34,44 @@ changelog Entry #022 for the full incident and ADR-014 for the scoping rule
 this violated. `~/projects/mac-mini`'s working tree was reverted clean; its
 disposition (keep vs. remove) is still an open item.
 
-⚠️ GOVERNANCE IS FRAGMENTED — READ ADR-042 (new, Aug 22, filed OPEN,
-reconciliation explicitly DEFERRED to a future project). Twelve ADR numbers,
-**including ADR-014 itself**, are cited as active governance in code and
-changelog with NO local document in `~/openclaw` — they were authored in a
-Claude.ai Project called "AI Build" that this repo's disk state cannot see.
-Practical consequence: you cannot pull up ADR-014's actual text locally right
-now. The best available proxy is changelog Entry #021 (records the ADR-014
-resolution text verbatim) — treat that as authoritative until ADR-042's
-reconciliation happens. Do not assume any ADR number below 031 (except where
-explicitly quoted in changelog/CURRENT_STATE) says what you think it says.
+⚠️ GOVERNANCE IS FRAGMENTED — READ ADR-042 (filed OPEN Aug 22, full
+reconciliation still explicitly DEFERRED to a future project — but a
+fragment-hunt session happened the same evening and moved several things).
+Read `~/openclaw/adr_fragments_2026-08-22/README.md` for the full writeup
+before touching this area again. Summary:
+- **ADR-014 has been reconstructed** (not an original — clearly flagged as
+  such) at `~/openclaw/ADR_014.docx`, committed `7558894`. Built from two
+  independently-maintained sources that agree word-for-word. Use this
+  instead of changelog Entry #021 now; Section 6 of the document itself
+  carries the full provenance trail.
+- **ADR-036 is not an orphan.** It's real, DECIDED policy (GPU VRAM
+  Allocation, April 4, 2026) — just never cross-referenced by the exact
+  string "ADR-036" locally, which is what the original grep checked for.
+  Separately: `~/openclaw/ADR_036.docx` is NOT a valid .docx file — it's
+  plain markdown text saved with a `.docx` extension (an old
+  ".txt-renamed-in-Finder" mistake). Reads fine as plain text; breaks
+  `unzip`/pandoc/python-docx until fixed. Quick opportunistic fix, does not
+  need to wait for the full reconciliation.
+- **ADR-032's likely identity found**, not confirmed: probably
+  `Mac_Mini_NIST_800_53_Compliance.docx` (archived in the fragments folder
+  above), based on ADR-036 citing "ADR-032 (NIST)" in its own reference
+  list. The document itself never self-identifies as ADR-032.
+- **Real titles + partial substance recovered** (via cross-references
+  inside ADR-031 and ADR-036, NOT full original documents) for ADR-002,
+  003, 005, 019, 020, 021, 023, 024, 027, 028, 029, 030. Full table in the
+  fragments README. None built into stub documents yet — deliberately held
+  back pending a fuller source, see next point.
+- **`Mac_Mini_ADR_v2_6.docx` ruled out** as a hoped-for master multi-ADR
+  document — opened and checked; it's just another copy of the ADR-031
+  draft. Don't re-chase this specific file. `Mac_Mini_ADR_v1_3.docx` was
+  never actually opened — technically still unconfirmed, low priority now.
+- **ADR-017 and ADR-022 remain completely unrecovered** — zero fragments
+  anywhere, including a direct in-project search for both numbers. If they
+  exist, they're somewhere not yet checked.
+- The Claude.ai project the fragments came from has sidebar text reading
+  "Projects / Mac Mini" — **still unconfirmed** whether this is the project
+  Sheldon calls "AI Build," or a different one. Get this confirmed before
+  trusting anything above as complete.
 
 PRIORITY THIS SESSION: no fixed priority carried forward — Aug 22 closed out
 both the standing production priority (send-to-inbox, ADR-039 H4) and filed
@@ -51,9 +79,10 @@ the governance gap (ADR-042) as a deferred future project. Check IMMEDIATE
 TASKS below for what's actually open.
 
 SOURCE OF TRUTH: Disk (`~/openclaw`) + Git are canonical. **GitHub is NOT in
-sync** — local `main` is 4 commits ahead of `origin/main` as of the close of
-this session (nothing from Aug 22 has been pushed). Confirm current state and
-push status yourself, do not trust this number:
+sync** — local `main` is 2 commits ahead of `origin/main` as of the close of
+this session (the ADR-014 reconstruction and the fragments archive were
+committed after the last push). Confirm current state and push status
+yourself, do not trust this number:
     git log -1 --oneline && git status -sb
 Live PostgreSQL schema is version 7 (migration_006.sql, `brief_runs` table).
 `~/openclaw/CURRENT_STATE.md` was NOT updated on Aug 22 — it's still dated
@@ -106,6 +135,14 @@ SHIPPED AUG 22 (Entries #020-#023):
   ~/openclaw's local .docx store and the "AI Build" Claude.ai Project.
   Status OPEN, reconciliation explicitly deferred to a future project per
   operator direction.
+- Late Aug 22 (no changelog entry — a search session, not a durable system
+  change per ADR-031's changelog discipline): ADR-042 fragment hunt across
+  Downloads, OneDrive, iCloud Drive, and a Claude.ai project. Produced the
+  ADR-014 reconstruction (commit `7558894`), the archived fragments folder
+  (commit `aff928a`, see `~/openclaw/adr_fragments_2026-08-22/README.md`),
+  and everything summarized in the GOVERNANCE IS FRAGMENTED section above.
+  No ADR-042 reconciliation decision was made — this was search, not
+  reconciliation.
 
 LIVE-STATE FACTS TO CARRY (do not re-discover these):
 - scraped_content is project-scoped: every query MUST filter
@@ -146,8 +183,11 @@ IMMEDIATE TASKS (nothing here is production-blocking; send-to-inbox is live):
    ISO dates in reader-facing prose ("published 2026-08-17" reads as machine
    output); executive summary running long; ORR-under-TANF is a scope
    decision, not a bug.
-6. Push to origin — local main is 4 commits ahead as of the close of Aug 22
+6. Push to origin — local main is 2 commits ahead as of the close of Aug 22
    (see SOURCE OF TRUTH above). Confirm with the operator before pushing.
+7. Fix ~/openclaw/ADR_036.docx — it's plain text with a .docx extension, not
+   a real OOXML file (see GOVERNANCE IS FRAGMENTED above). Quick, low-risk,
+   independent of the ADR-042 reconciliation project.
 
 HOUSEKEEPING (opportunistic — never ahead of the above):
 - ADR-042 reconciliation — explicitly a SEPARATE, DEFERRED future project,
