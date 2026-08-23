@@ -1664,3 +1664,73 @@ Documentation-only change. No code, no schema, no egress, no credentials touched
 |--------|------|
 | ADR corpus reconciliation (ADR-042) | Dedicated future project — no date set |
 | Export or otherwise obtain read access to “AI Build”'s ADR contents, as a prerequisite for that future project | Whenever Sheldon schedules it |
+
+---
+
+## Entry #024 — August 23, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — ADR corpus reconciliation, Phase 0 (inventory, then operator-directed execution same day)
+
+**Commits:** `918b70e`
+
+### Changes Made
+
+1. **Session opened in the wrong clone, corrected before any work.** Claude Code opened in `~/projects/mac-mini` (stale, 8 commits behind `origin/main`, HTTPS remote) instead of `~/openclaw` (current, SSH remote). Caught immediately via `pwd && git remote -v` per the dual-clone warning in `NEXT_SESSION_OPENER.md`, and the session was moved to `~/openclaw` before any file was touched.
+
+2. **“AI Build” captured directly and confirmed distinct from “Mac Mini.”** Operator saved a complete page export of the “AI Build” Claude.ai Project (`adr_fragments_2026-08-22/AI_Build.html`). It is a dormant, pre-prototype multi-tenant SaaS platform for SNAP compliance decision support — a different product from the live `~/openclaw` system, last updated March 27, 2026, only 3 knowledge-base files, no ADR-NNN numbering, explicitly “no code written yet.” This resolves the open question from Entry #023's fragment hunt: “Mac Mini” and “AI Build” are two separate Claude.ai Projects, not the same project renamed.
+
+3. **ADR-042 corrected.** ADR-042's own Problem Statement had misattributed the missing ADRs to “AI Build,” per something Sheldon said in an earlier session. Finding #2 above proves that attribution wrong — the project that actually matches this repository is “Mac Mini.” Every “AI Build” reference in ADR-042 was corrected to “Mac Mini,” with the correction documented transparently in a new dated Section 9 (Amendment Log) inside ADR-042 itself, not a silent edit. Verified with a full line-diff against the pre-amendment version and the docx skill's OOXML schema validator. Original preserved as `ADR_042.docx.bak.pre-amendment-2026-08-23` (gitignored).
+
+4. **Five ADR files found to be broken, not just ADR-036.** `ADR_033.docx`, `034`, `035`, `036`, and `037` were all plain text saved with a `.docx` extension — not valid OOXML. Entry #023's fragment hunt only caught 036. All five converted to real Word documents this session; content verified token-for-token against the plain-text originals (zero words lost or added). Originals preserved as `ADR_NNN.docx.bak.plaintext-format` (gitignored).
+
+5. **ADR-018 investigated — real substance found, not just a title.** Not part of ADR-042's original 12-number gap list; surfaced this session via a clean word-boundary grep of every `ADR-NNN` citation. `tool_registry_seed.sql` and `schema.sql` show a 0–100 `irreversibility_score` field governed by ADR-018, with concrete calibration points: 0 = read-only tools, 5 = sandboxed/namespace-isolated writes, 10 = sandboxed code execution, 15 = DB INSERT/UPDATE (no DELETE/DDL), 25 = shell execution (which separately always requires Telegram approval regardless of score). A bonus fragment for ADR-022 also surfaced in the same files (output-schema validation, prompt-injection flagging) — still far short of full recovery, but no longer completely blank.
+
+6. **ADR-032 identity confirmed by the operator and promoted.** Two independent local documents (ADR-033 and ADR-036) each cite “ADR-032 (NIST)” by name as the NIST 800-53 alignment reference. `Mac_Mini_NIST_800_53_Compliance.docx` (archived in `adr_fragments_2026-08-22/`) matches that description and was promoted to `ADR_032.docx`, with an identification note added at the top of the document — the source text itself still does not self-identify as ADR-032 anywhere in its own original content, which is unchanged.
+
+7. **Stub documents built for the 12 partial-recovery ADRs.** ADR-002, 003, 005, 019, 020, 021, 023, 024, 027, 028, 029, 030 previously had only a title or fragment recoverable via cross-reference inside other ADRs, never a physical document. Per operator direction, each now has an explicit stub `.docx` — clearly marked STUB, not an original, with “What Is Known” / “What Is NOT Known” / “Sources” sections citing the exact file and line for every claim. Nothing was embellished beyond what was actually found; ADR-027's stub explicitly flags a possible ADR-027/ADR-038 mis-attribution in last night's fragment recovery rather than silently resolving it.
+
+8. **Two items intentionally left undone, per operator direction.** Content-diffing ADR-033/ADR-035 against their differently-named Mac Mini knowledge-base counterparts was not possible — those two files could not be located for export. ADR-041's lapsed trigger condition (Anthropic support ticket, alongside a 2026-05-31 date that has since passed) was not pursued — operator confirmed the ticket never got resolved and is not worth chasing. ADR-041 itself was left unedited; its status remains OPEN.
+
+9. **Deliverables:** `ADR_Corpus_Inventory_2026-08-23.xlsx` (42-row ADR-by-ADR comparison across `~/openclaw` and the Mac Mini project, with live COUNTIF summary formulas) and `ADR_Reconciliation_Plan_2026-08-23.docx` (methodology, findings, proposed rules, and an Execution Log addendum documenting what was actually done vs. proposed), both in `adr_fragments_2026-08-22/reconciliation_2026-08-23/`.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_002.docx` through `ADR_030.docx` (12 files: 002, 003, 005, 019, 020, 021, 023, 024, 027, 028, 029, 030) | Created (stubs) |
+| `~/openclaw/ADR_032.docx` | Created (promoted from `adr_fragments_2026-08-22/Mac_Mini_NIST_800_53_Compliance.docx`) |
+| `~/openclaw/ADR_033.docx`, `034`, `035`, `036`, `037` | Fixed (plain text → real OOXML) |
+| `~/openclaw/ADR_042.docx` | Amended (AI Build → Mac Mini correction, new Section 9) |
+| `~/openclaw/adr_fragments_2026-08-22/AI_Build.html`, `AI_Build_extracted_text.txt` | Created |
+| `~/openclaw/adr_fragments_2026-08-22/reconciliation_2026-08-23/` (2 files) | Created |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-042 | Amended — factual correction (AI Build → Mac Mini), Section 9 added, status remains OPEN. |
+| ADR-032 | Numbering gap resolved — document promoted to canonical filename. |
+| ADR-002, 003, 005, 019, 020, 021, 023, 024, 027, 028, 029, 030 | Stub documents created — explicitly partial, not originals. |
+| ADR-033, 034, 035, 036, 037 | File format fixed — no content change. |
+| ADR-018, 022 | Investigated — new fragments found, still not fully recovered. |
+| ADR-041 | Left unedited — trigger lapsed, operator declined to pursue further. |
+
+### NIST Controls Touched
+
+CM-3, CM-8, CM-9 (configuration/component inventory — this entry is an ADR inventory correction), AU-6
+
+### Risk Assessment
+
+Documentation-only change. No code, schema, egress, or credentials touched. Every file-format fix and content correction was verified (token-diff, OOXML schema validation, or both) before being installed, and every original was preserved as a gitignored `.bak` before being overwritten. The 12 stub documents carry explicit "not an original" warnings and per-claim sourcing to avoid a future session mistaking partial recovery for a complete record. ADR-042's correction was made transparently (dated amendment section) rather than as a silent edit, consistent with ADR-014's precedent.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Full ADR-042 reconciliation approach selection (Section 5 of the plan) | Still deferred — dedicated future project, no date set |
+| Content-diff ADR-033/ADR-035 against Mac Mini KB counterparts | If those files are ever located/exported |
+| Resolve the ADR-027/ADR-038 pattern-scanner attribution ambiguity flagged in the ADR-027 stub | Opportunistic |
+| Decide whether AI Build and Mac Mini should be renamed on claude.ai to stop the “OpenClaw” naming collision recurring | Whenever Sheldon has a moment |
