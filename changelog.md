@@ -1801,3 +1801,66 @@ Low. One scheduling constant and one boolean changed; no schema, credential, egr
 | Flip `HARD_FAIL_ON_UNVERIFIED` to `True` | After a few more clean `--send` runs |
 | Dual-clone disposition — `~/projects/mac-mini` has now derailed two sessions | Operator decision |
 | v3.0 instructions refresh, project-knowledge rebuild | Opportunistic |
+
+---
+
+## Entry #026 — August 23, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — project instructions v2.0 → v3.0 (deployed)
+
+**Commits:** `7f95456` (draft), plus this entry
+
+### Changes Made
+
+1. **Project instructions rewritten v2.0 → v3.0 and deployed** to the "Mac Mini" claude.ai project. v2.0 dated May 18, 2026 and had drifted materially from the running system across four changelog entries. Source of record kept on disk at `~/openclaw/instructions_v3.0.md`, committed `7f95456`, so the instruction set is version-controlled rather than existing only inside a web panel.
+
+2. **The correction that motivated the refresh: v2.0's execution boundary was actively wrong.** It stated as a hard rule that "no agent or LLM execution path may invoke shell, bash, or any host command execution on Sheldon's Mac." ADR-014 superseded that on August 22. Until today, every fresh Desktop session was being instructed that Claude Code cannot do things it had already been doing for a day — the exact class of stale-guidance problem the written-state discipline exists to prevent. v3.0 replaces it with a **surface-dependent boundary**: Claude Code in Manual permission mode may run shell commands, edit files, and commit, scoped to `~/openclaw` with per-action approval, while Auto mode and Cowork remain prohibited; Claude Desktop chat retains the pre-ADR-014 read-only rules unchanged.
+
+3. **Other substantive corrections** (not merely additions): session-startup now points at `CURRENT_STATE.md` rather than the most recent changelog entry — the changelog is history, the state doc is state; "governance precedes features" → **"governance serves shipping"**, recorded as a permanent deliberate inversion; ADR-039 §5.6 weekly re-upload **retired as load-bearing**, downgraded to housekeeping that must never block shipping; schema version 4 → **7**; "three containers" → **four** (`telegram-bot` had simply been omitted); "39+ ADRs" → **numbers run 001–042, 25 documents on disk**; and `federal_policy_brief` described as a "daily weekday PDF briefing" → plain-text email, which is what it actually produces.
+
+4. **New material added:** the dual-clone working-directory check (`pwd && git remote -v`), promoted to the startup protocol since `~/projects/mac-mini` has now derailed two sessions; the stale-`POSTGRES_PASSWORD` gotcha with the read-without-echoing pattern; ADR-042 and the "OpenClaw" naming collision between the "Mac Mini" and "AI Build" claude.ai projects; the `git push` permission-classifier gating; the `pmset` single-repeating-wake constraint; and a session-closing step to update `CURRENT_STATE.md`, whose absence is why it had gone four entries stale.
+
+5. **Facts verified rather than copied forward.** Hardware confirmed as MacBook Air M1 **16 GB** via `system_profiler`. This surfaced a governance observation worth recording: **ADR-036 (GPU VRAM Allocation) specifies 32 GB and 64 GB configurations only**, so it governs future hardware and has never applied to the machine actually running. Ollama server confirmed at 0.32.15 (CLI client reports 0.20.2 — expected skew, noted so it is not mistaken for a defect).
+
+6. **Two items deliberately left unresolved inside v3.0 rather than guessed.** The target production machine is recorded inconsistently across sources — v2.0 said "Mac Studio M5," project memory said "M4 Mac Mini 32GB, possibly waiting for the M5 Mini" — and is flagged in the document as an open question. Separately, v3.0 runs **~65% longer than v2.0 (2,478 vs 1,502 words)**, a standing per-conversation token cost that sits against the token-conservation principle; judged worth it (the dual-clone check alone has cost two sessions) but recorded so it can be trimmed if it starts to bite.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/instructions_v3.0.md` | Created (disk source of record for the deployed instructions) |
+| "Mac Mini" claude.ai project instructions | Replaced v2.0 → v3.0 (operator action) |
+| `~/openclaw/CURRENT_STATE.md` | Updated — v3.0 item moved from open to deployed |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-014 | Not amended — but its resolved state is now correctly reflected in the governing instructions, which previously contradicted it outright. |
+| ADR-039 §5.6 (A6) | Weekly project-knowledge re-upload retired as load-bearing. The cadence survives as housekeeping; the mandate does not. |
+| ADR-031 | Change management — this entry is the required log entry for the instruction change. |
+| ADR-036 | Unchanged, but noted as inapplicable to current 16 GB hardware; it governs the 32/64 GB target machine only. |
+| ADR-042 | Now surfaced directly in the instructions, including the corrected "Mac Mini" (not "AI Build") attribution. |
+
+### NIST Controls Touched
+
+CM-3 (configuration change control), CM-9 (configuration management planning)
+
+### Risk Assessment
+
+Documentation and governance only — no code, schema, credential, or infrastructure change. Net risk **reduction**: the previous instructions gave fresh sessions an execution-boundary rule that contradicted the ADR actually in force, and pointed session startup at a document that had gone four entries stale. Rollback is trivial — v2.0 text is preserved in the August 22 project capture at `adr_fragments_2026-08-22/Claude_extracted_text.txt`.
+
+**Verification note:** v3.0 governs sessions only if it is in the project's **Instructions** panel. If it was instead uploaded as a knowledge-base *file*, v2.0 remains live and this entry overstates the deployment — worth a glance at the panel to confirm.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Confirm the scrape misfire fix fired — check `scraper_runs` for an Aug 24 run | Morning of Aug 24 |
+| Project-knowledge rebuild — the remaining half of this housekeeping pair | Opportunistic |
+| Settle the target-production-hardware inconsistency flagged inside v3.0 | Whenever decided |
+| Backfill the Aug 4–16 content gap | Soon — it will not self-heal |
+| Dual-clone disposition | Operator decision |
