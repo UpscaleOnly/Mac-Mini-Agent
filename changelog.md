@@ -1937,3 +1937,59 @@ CM-8 (component inventory — eliminating an untracked duplicate of the system o
 | Confirm the migrated permission allowlist takes effect in a fresh session | Next session |
 | Backfill the Aug 4–16 content gap | Soon — it will not self-heal |
 | Project-knowledge rebuild; settle the target-hardware inconsistency | Opportunistic |
+
+---
+
+## Entry #028 — August 23, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — session-handoff practice consolidated to a single document
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **`NEXT_SESSION_OPENER.md` retired and deleted.** `CURRENT_STATE.md` is now the single session-handoff document. The opener is recoverable from Git history — last version at commit `861f4d9` — should the decision ever need revisiting.
+
+2. **Why, stated fairly: the opener was a workaround whose root cause got fixed.** It existed because `CURRENT_STATE.md` could not be trusted to be current, and it genuinely carried that load — its dual-clone warning is precisely what caught this session starting in the wrong clone that morning. But Entry #025 brought `CURRENT_STATE.md` current, and Entry #026 deployed instructions v3.0 designating it as *the* session-startup entry point. Neither governing document referenced the opener any more; it was already orphaned by the new structure.
+
+3. **The cost had become concrete, not theoretical.** Three documents describing state means three chances to disagree, and on this single day they did: the opener asserted `main` was 2 commits ahead of `origin/main` when it was in sync, and `CURRENT_STATE.md` recorded the content gap as "Aug 9–16" when the live table showed Aug 4–16. By the afternoon the opener was false in five separate places — it warned about a clone deleted in Entry #027, described `ADR_036.docx` as an invalid `.docx` (fixed in Entry #024), and called `CURRENT_STATE.md` stale and dated Aug 20 (refreshed in Entry #025). Its opening line instructed the reader to "trust this message and disk/Git over project knowledge," which is the most hazardous possible shape for a stale document: one asserting its own precedence.
+
+4. **Nothing useful was discarded.** The two sections not already covered elsewhere were folded into `CURRENT_STATE.md` and updated to current reality: a **"Start here — session startup commands"** block (working-directory check, container check, git state, the Postgres password export, and the pre-generator coverage query — the last now noting that a Friday `max(publication_date)` on a weekend is correct, not a fault), and a **"Rollbacks available"** section, expanded to include the rollback points created today and to state plainly that all `.bak*` files are gitignored and exist on disk only.
+
+5. **Guarded against silent recreation.** A future session, seeing no opener, could reasonably decide to helpfully write one — re-creating the exact drift problem this entry resolves. Both `CURRENT_STATE.md` (new "Handoff practice" section) and the instructions now say explicitly: **do not create a separate opener; change `CURRENT_STATE.md` instead.** Instructions bumped **v3.1 → v3.2**.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/NEXT_SESSION_OPENER.md` | **Deleted** (`git rm`; recoverable at `861f4d9`) |
+| `~/openclaw/CURRENT_STATE.md` | Added "Start here" startup commands, "Rollbacks available", and "Handoff practice" |
+| `~/openclaw/instructions_v3.0.md` | Updated → v3.2; startup protocol now forbids recreating a separate opener |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-031 | Change management — this entry is the required log entry for the practice change. |
+| ADR-039 §5.6 | Consistent with Entry #026's retirement of the weekly re-upload mandate: both reduce redundant state-carrying mechanisms now that disk and Git are reliably maintained. |
+
+### NIST Controls Touched
+
+CM-3 (change control), CM-9 (configuration management planning — reducing the number of authoritative state records from three to two: state and history)
+
+### Risk Assessment
+
+Documentation only. The deliberate tradeoff: consolidating removes a redundant safety net, and `CURRENT_STATE.md` **did** go four entries stale before today, so the failure mode is real. The judgment is that two documents do not mitigate it — they produce two stale documents that disagree, which is worse than one stale document, because a reader cannot tell which to trust. The actual mitigation is step 7 of the session-closing ritual (update `CURRENT_STATE.md` when state changes), added in Entry #026, with `changelog.md` as the historical backstop. Fully reversible: the opener is one `git show 861f4d9:NEXT_SESSION_OPENER.md` away.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Re-paste instructions v3.2 into the claude.ai Instructions panel (supersedes both v3.0 and v3.1) | Next convenient moment |
+| Confirm the scrape misfire fix fired — check `scraper_runs` for an Aug 24 run | Morning of Aug 24 |
+| Confirm the migrated permission allowlist takes effect in a fresh session | Next session |
+| Backfill the Aug 4–16 content gap | Soon — it will not self-heal |
+| Project-knowledge rebuild; settle the target-hardware inconsistency | Opportunistic |

@@ -26,6 +26,35 @@ pwd && git remote -v
 
 Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH).
 
+## Start here — session startup commands
+
+*(Folded in from the retired `NEXT_SESSION_OPENER.md`, August 23, 2026. This file is now the single handoff document — see "Handoff practice" at the bottom.)*
+
+1. **Working directory** — the check above.
+2. **Containers** — `docker ps`; expect four up. If the daemon is down, launch Docker Desktop and wait for the whale to stop animating.
+3. **Git state** — `git log -1 --oneline && git status -sb`. Confirm rather than trusting any hash written in a document.
+4. **Postgres password** (only for host-run scripts; anything via `docker exec openclaw_postgres psql ...` needs no password):
+   ```
+   export POSTGRES_PASSWORD=$(grep -m1 '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)
+   ```
+   Verify by length, never by echoing.
+5. **Coverage check before running the generator:**
+   ```
+   docker exec openclaw_postgres psql -U openclaw -d openclaw -c "SELECT max(publication_date), count(*) FROM scraped_content WHERE project = 'federal_policy_brief' AND is_new = TRUE AND publication_date >= CURRENT_DATE - 7;"
+   ```
+   A Friday `max(publication_date)` seen on a weekend is **correct** — the Federal Register does not publish Saturdays or Sundays.
+
+## Rollbacks available
+
+- `generate_brief_review.py.bak.v4` — working v4 (pre-v5: review-only, no `--send`, no SMTP, no `brief_runs`). Also `.bak.v3`, `.bak.v2`, `.bak.v0`; each file's header comment says what it lacks.
+- `app/scheduling/scheduler.py.bak.pre-misfire-fix` — pre-August-23 scheduler (10-minute misfire grace).
+- `ADR_033.docx.bak.plaintext-format` … `ADR_037.docx.bak.plaintext-format` — the original plain-text-as-`.docx` files, pre-conversion.
+- `ADR_042.docx.bak.pre-amendment-2026-08-23` — pre-"Mac Mini" correction.
+- `CURRENT_STATE.md.bak.aug20` — the version this file replaced.
+- `changelog.md.bak.session21`, `changelog.md.bak.pre-entry020`.
+- **All `.bak*` files are gitignored** — they exist on disk only. Anything tracked is recoverable from Git instead: `git show <commit>:path/to/file`.
+- **`migration_006.sql` has already been applied live — do not re-run it.** A second run is a no-op (`CREATE TABLE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`), but confirm `schema_version` first if in doubt.
+
 ## Schema
 
 Live PostgreSQL schema is **version 7** (`migration_006.sql` — `brief_runs` table; ADR-039 H4 send-wiring). `openclaw_fastapi` was rebuilt August 23 and now logs `Schema version OK — live database is at version 7 (required 7)`; the long-standing version-6 startup warning is gone. *(The v2.0 instructions still say "version 4" — stale, corrected in the pending v3.0 refresh.)*
@@ -114,4 +143,14 @@ Live PostgreSQL schema is **version 7** (`migration_006.sql` — `brief_runs` ta
 
 ---
 
-*Sheldon Wheeler — OpenClaw Personal Stack — CURRENT_STATE.md — maintained at each session close.*
+## Handoff practice (changed August 23, 2026)
+
+**This file is the single session-handoff document.** `NEXT_SESSION_OPENER.md` was retired and deleted on August 23, 2026 — recoverable from Git history (last version at commit `861f4d9`) if ever needed.
+
+*Why:* the opener existed as a workaround for this file being unreliable, and it did carry that load — its dual-clone warning is what caught a wrong-directory session start on August 23. But once this file was brought current and instructions v3.1 designated it as *the* startup entry point, the opener became a second competing source of truth. Maintaining both meant two documents to keep accurate and two chances to drift — and they had already drifted: on the morning of August 23 the opener claimed `main` was 2 commits ahead when it was in sync, and this file recorded a content gap as "Aug 9–16" when it was actually Aug 4–16. By that afternoon the opener was false in five separate places.
+
+**Do not recreate a separate opener document.** If session-start guidance needs to change, change it here. The corresponding discipline is step 7 of the session-closing ritual: update this file whenever state actually changes. A single accurate document beats two documents that disagree.
+
+---
+
+*Sheldon Wheeler — OpenClaw Personal Stack — CURRENT_STATE.md — the single handoff document, maintained at each session close.*

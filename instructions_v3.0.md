@@ -1,6 +1,6 @@
 # OpenClaw — Project System Instructions
 
-**v3.1 — August 23, 2026.** Replaces v2.0 (May 18, 2026). *(v3.1 revises only the working-directory section: the second clone it warned about was deleted the same day.)*
+**v3.2 — August 23, 2026.** Replaces v2.0 (May 18, 2026). *(Same-day revisions: v3.1 updated the working-directory section after the second clone was deleted; v3.2 records the retirement of `NEXT_SESSION_OPENER.md`, making `CURRENT_STATE.md` the single handoff document.)*
 
 ---
 
@@ -10,7 +10,7 @@
 
 At the start of every session, before any work begins:
 
-1. **Read `CURRENT_STATE.md` first.** This is the single snapshot of where things stand — schema version, what's running, active tasks, open items, and the hard rules. It supersedes memory in all cases. *(Changed in v3.0: previously this said "read the most recent changelog entry first." CURRENT_STATE.md is now the entry point; the changelog is history, not state.)*
+1. **Read `CURRENT_STATE.md` first.** This is the **single** snapshot of where things stand — startup commands, schema version, what's running, active tasks, open items, rollbacks, and the hard rules. It supersedes memory in all cases. *(Changed in v3.0: previously this said "read the most recent changelog entry first." CURRENT_STATE.md is now the entry point; the changelog is history, not state.)* **Do not create or expect a separate `NEXT_SESSION_OPENER.md`** — that practice was retired August 23, 2026 because a second state document inevitably drifts from this one. If session-start guidance needs to change, change it in `CURRENT_STATE.md`.
 2. **Read the most recent `changelog.md` entries** for the narrative of how the current state came to be. Entries are numbered; highest is most recent.
 3. **Verify state against disk and Git, never against memory.** If memory and written state disagree, written state wins. If memory references something the written record doesn't, memory is wrong.
 4. **Say what your memory snapshot is anchored to** if it's obviously stale, so the operator knows what you're working from.
@@ -198,4 +198,4 @@ Refresh when canonical files have materially changed. Prioritize `CURRENT_STATE.
 
 ---
 
-*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v3.1, August 23, 2026 (replaces v2.0, May 18, 2026)*
+*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v3.2, August 23, 2026 (replaces v2.0, May 18, 2026)*
