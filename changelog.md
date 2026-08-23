@@ -1993,3 +1993,92 @@ Documentation only. The deliberate tradeoff: consolidating removes a redundant s
 | Confirm the migrated permission allowlist takes effect in a fresh session | Next session |
 | Backfill the Aug 4–16 content gap | Soon — it will not self-heal |
 | Project-knowledge rebuild; settle the target-hardware inconsistency | Opportunistic |
+
+---
+
+## Entry #029 — August 23, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Operational cleanup — third clone eliminated, prototype history preserved (destructive, verified before execution)
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **A third repository directory was found and removed: `~/mac-mini-agent`.** Entry #027 resolved the *dual*-clone problem; it did not know about this one. `~/mac-mini-agent` was the original March–April prototype — 21 files, 432 KB, last touched April 13 — sitting in the home directory alongside `~/openclaw` the entire time. `~/openclaw` is now genuinely the only repository directory for this project on the machine.
+
+2. **It was more dangerous than the clone Entry #027 removed, for a specific reason.** Its remote was `git@github.com:UpscaleOnly/mac-mini-agent.git` — differing from the sanctioned `Mac-Mini-Agent` **only in letter case**. GitHub treats repository names case-insensitively, so it is the same remote; but the `pwd && git remote -v` startup check added in Entry #027 compares against a string, and a case difference is exactly the kind of thing a reader confirms at a glance and gets wrong. The check would have *appeared* to pass.
+
+3. **Its Git history was unrelated to this repository's — and existed nowhere else.** `git merge-base` returned nothing: different root commits (`9d5e80d` vs `061dac6`), no shared ancestry. `~/openclaw`'s reflog shows why — on April 19 a `rebase (start): checkout origin/main` from the prototype tip `fe3bb69` was abandoned via `reset: moving to d3b3ccf`, and `~/openclaw`'s independent history became `origin/main`. `git ls-remote` confirmed GitHub holds only the 51-commit `~/openclaw` line. **The prototype's 5 commits were not on GitHub and not reachable from any ref** — they survived solely as unreachable objects in `~/openclaw`'s object database, one `git gc --prune` from permanent loss.
+
+4. **Preserved before deletion, in-scope, at zero cost.** All 39 objects of the prototype history were verified intact inside `~/openclaw` (every commit, tree, and blob resolved), then tagged and pushed:
+
+   | Item | Value |
+   |---|---|
+   | Tag | `prototype-2026-04` (annotated, `0dde82a`) |
+   | Target | `fe3bb69` — "Option B: /persona message sends in one step" |
+   | History preserved | 5 commits, March 16 – April 12, 2026 |
+   | Remote state | `refs/tags/prototype-2026-04` confirmed via `ls-remote` |
+
+   Tagging also made those objects reachable again, closing the `gc` exposure. This is the repository's first tag.
+
+5. **Verified as holding nothing unique before deletion.** Working tree clean, no stashes, nothing unpushed. A full path-by-path comparison (21 files vs 1,558) found **exactly one** path present there and absent from `~/openclaw`: `.env.example`, three lines of Claude API placeholders, superseded by `.env.template` (23 keys). Every other file exists in `~/openclaw` at an equal or newer revision; `app/telegram_bot.py` was byte-identical. `~/openclaw/old_skeleton/` already preserved the even earlier April 7–8 flat-file version.
+
+6. **Entry #027's deletion was found to have partially reverted — root cause identified.** `~/projects/mac-mini/.claude/settings.local.json` was back on disk, holding the **original pre-migration 97 rules plus 14 accumulated since**, re-diverging from the migrated copy within hours. The cause is not a missed dotfile: **Claude Code rewrites its settings file into whatever working directory it was launched with**, so every session started from the old path recreates the directory. The fix is behavioural, not a second deletion — launch from `~/openclaw`. Confirmed working: a session relaunched in `~/openclaw` picked up the migrated allowlist, closing the "confirm the migrated allowlist takes effect" item carried in Entries #027 and #028. `~/projects/` was then removed.
+
+7. **Only 2 of those 14 accumulated rules were worth migrating.** Eleven referenced paths that no longer exist (`~/projects/mac-mini`, `~/mac-mini-agent`, a session-specific scratchpad). Migrated: `Bash(python3 -)` and `Bash(git -C ~/openclaw log --oneline -10)`. Allowlist now 93 rules, validated as JSON, no duplicates.
+
+8. **One rule was declined on ADR-040 grounds — and the decision needs an operator ruling because it re-granted itself.** `Read(//Users/sheldonwheeler/**)` pre-authorizes reads across the entire home directory, **including all three paths DATA_BOUNDARIES.md §2 names as never-touch**: the FTI-bearing iCloud root, `~/Documents`, and `~/Desktop`. It was deliberately not migrated. It then reappeared in `~/openclaw/.claude/settings.local.json` (line 97) when a routine `ls` during this session's verification prompted for approval. Left in place pending an explicit decision rather than silently reverted; line 13 already grants `Read(//Users/sheldonwheeler/openclaw/**)`, which is the narrow replacement.
+
+### Governance finding — the permission surface ADR-040 does not reach
+
+ADR-040 governs what **OpenClaw's code** may touch. It does not govern `.claude/settings.local.json`, which is a **parallel, undocumented permission surface** capable of authorising exactly what the boundary policy forbids — and which is gitignored, so the contradiction never appears in a diff and cannot be caught in review.
+
+This was not theoretical during this session. Locating the backup folder, an `ls -d ~/Library/Mobile Documents/com~apple~CloudDocs/*ackup*` caused the shell to glob the **prohibited iCloud root** to resolve the pattern. Only the two matching directory names printed and no FTI filename was displayed, but the root was read — the Session 16 event recorded in DATA_BOUNDARIES.md §4, recurring with the policy already written. Two lessons: **a glob is a directory read**, and **the policy binds interactive shell commands, not only application code**. The correct path was in a table in `DATA_BOUNDARIES.md` the whole time and should have been the first thing consulted.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/mac-mini-agent/` | **Deleted** (432 KB, 21 files) — history preserved as tag `prototype-2026-04` first |
+| `~/projects/` | **Deleted** — the empty shell Entry #027's deletion left behind |
+| `~/openclaw` tag `prototype-2026-04` | **Created and pushed** — first tag in this repository |
+| `~/openclaw/.claude/settings.local.json` | 2 rules merged → 93 total (gitignored, not in version control) |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-014 | Completes what Entry #027 began. ADR-014 scopes Claude Code to `~/openclaw`; two directories could silently satisfy or defeat that scoping, and only one was known about. |
+| ADR-040 | **Amendment candidate.** The filesystem boundary policy has no authority over the Claude Code permission allowlist, which can grant reads into §2-prohibited paths; and §4's rationale addresses application code but not operator shell commands. Both gaps were exercised today. |
+| ADR-031 | Change management — required log entry for a destructive operation. |
+
+### NIST Controls Touched
+
+CM-8 (component inventory — eliminating a second untracked duplicate), CM-3 (change control), AC-3 / AC-6 (access enforcement and least privilege — the `Read(//Users/sheldonwheeler/**)` grant is a least-privilege exception), SI-12 (information retention — prototype history preserved rather than destroyed)
+
+### Risk Assessment
+
+**Destructive and irreversible, so the recovery path was built before anything was deleted.** The material exposure here was different in kind from Entry #027's: that clone's content was fully redundant with GitHub, whereas this directory held the **only surviving copy of five commits** — invisible to the usual checks, because `git status` was clean, nothing was unpushed, and its `origin/main` ref pointed at a commit the remote no longer had. A clean working tree is not evidence that a repository is redundant when its history has been orphaned by a force-push. The tag was pushed and verified on the remote before `rm -rf` was run.
+
+**Residual risk: low.** Everything of substance existed in `~/openclaw` at a newer revision; the sole unique file was a superseded 3-line template.
+
+**Open exposure, unresolved:** `Read(//Users/sheldonwheeler/**)` remains in the allowlist (item 8). Until narrowed, the permission layer authorises reads that DATA_BOUNDARIES.md §2 prohibits.
+
+**Second open exposure, unexamined:** `~/Documents/Mac-Mini-Backups-Interim` exists inside a §2-prohibited path. Not opened, not listed. Either it predates ADR-040 and needs migrating, or it is an undocumented second backup destination — a backup folder in a prohibited path is the kind of thing that quietly becomes load-bearing.
+
+**Note on the backup that did not happen:** the original plan was a tarball into `~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/`. ADR-040 §1 scopes that folder to *"PostgreSQL pg_dump output only"*, so a repository archive would have been a scope expansion requiring an §3 amendment before the first write. The Git tag achieved the same preservation entirely within sanctioned scope, and survives a machine rebuild — which the tarball would not have.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Decide `Read(//Users/sheldonwheeler/**)` — narrow to `~/openclaw/**` or accept with documented rationale | Next session |
+| Resolve `~/Documents/Mac-Mini-Backups-Interim` — migrate and remove, or amend ADR-040 to sanction it | Soon |
+| ADR-040 amendment: extend the boundary policy to cover the Claude Code permission allowlist and operator shell commands | Operator decision |
+| Re-paste instructions v3.2 into the claude.ai Instructions panel | Next convenient moment |
+| Confirm the scrape misfire fix fired — check `scraper_runs` for an Aug 24 run | Morning of Aug 24 |
+| Backfill the Aug 4–16 content gap | Soon — it will not self-heal |
+| Project-knowledge rebuild; settle the target-hardware inconsistency | Opportunistic |
