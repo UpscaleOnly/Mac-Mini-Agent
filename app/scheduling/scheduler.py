@@ -14,6 +14,8 @@ Scheduled jobs (ADR-039 H4 added federal_policy_scrape):
   keep_warm              — every 5 min  — health ping
   weekly_digest          — Sun 07:00 ET — ADR-031 weekly digest
   federal_policy_scrape  — daily 01:00 ET — scraper dispatcher for federal_policy_brief
+                           (wide misfire grace: may actually run at the 03:55 ET
+                            wake if the Mac slept through 01:00 — see the job)
 
 Future per-project scraper crons follow the same pattern:
   medical_brief_scrape   — daily HH:MM ET — when medical_brief comes online
@@ -89,7 +91,16 @@ def register_jobs() -> None:
         id="federal_policy_scrape",
         name="Federal Policy Brief Scrape (daily 01:00 ET) — ADR-039 H4",
         replace_existing=True,
-        misfire_grace_time=600,  # 10-minute grace — scraping can fire late
+        # 3h05m grace, not 10 minutes. The Mac sleeps overnight and the only
+        # repeating pmset wake is 03:55 ET (added for the ADR-019 04:00 backup;
+        # macOS permits only one repeating power-on event, so a second wake at
+        # 00:55 is not available without sacrificing that one). With a 10-minute
+        # grace the 01:00 job was silently SKIPPED on every night the machine
+        # slept — confirmed Aug 23, 2026 against scraper_runs history and
+        # `pmset -g log`. This window lets the missed run fire on the 03:55 wake
+        # instead; Entry #020 catch-up logic then backfills the elapsed days.
+        misfire_grace_time=11100,
+        coalesce=True,  # if several runs were missed, run once — catch-up handles the span
     )
     log.info("Scheduled job registered: federal_policy_scrape (daily 01:00 ET)")
 
