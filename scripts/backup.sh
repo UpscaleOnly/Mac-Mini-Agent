@@ -213,6 +213,52 @@ if [ "$LOG_DELETED" -gt 0 ]; then
   log "RETENTION: deleted $LOG_DELETED log file(s) older than 90 days"
 fi
 
+# ── Off-device copy to iCloud (ADR-046 F1 follow-up, 2026-09-20) ─────
+# WHY: $BACKUP_DIR lives on the same disk as the database it protects. That
+# survives corruption, a bad migration or a dropped table -- it does NOT
+# survive disk failure or loss of the machine. Entry #035 established that no
+# off-device copy had existed since 2026-05-17, four months, because the
+# ~/Documents destination was believed to be iCloud-synced and was not
+# ("Desktop & Documents Folders" sync is off on this host).
+#
+# This path IS the ADR-040 §1 sanctioned destination -- the only write
+# permitted outside ~/openclaw, scoped to "PostgreSQL pg_dump output only".
+#
+# NON-FATAL BY DESIGN. Entry #013 recorded that launchd-spawned scripts
+# cannot write here without a TCC grant. A launchctl-submitted probe on
+# 2026-09-20 wrote successfully, suggesting that is no longer true -- but a
+# submitted job may inherit the submitter's TCC context, so it is not proof.
+# The real test is a scheduled 04:00 run. Until that has passed, a failure
+# here must not take down a backup that has already succeeded locally:
+# every branch below logs and continues.
+OFFSITE_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/offsite"
+if /bin/mkdir -p "$OFFSITE_DIR" 2>/dev/null && [ -d "$OFFSITE_DIR" ]; then
+  if /bin/cp "$DUMP_FILE" "$OFFSITE_DIR/" 2>/dev/null; then
+    OFFSITE_FILE="$OFFSITE_DIR/$(/usr/bin/basename "$DUMP_FILE")"
+    OFFSITE_SIZE=$(/usr/bin/stat -f %z "$OFFSITE_FILE" 2>/dev/null || echo 0)
+    if [ "$OFFSITE_SIZE" = "$DUMP_SIZE" ]; then
+      log "OFFSITE_OK: copied to iCloud, size matches (${OFFSITE_SIZE}B)"
+      # Match local retention so the off-device copy stays bounded.
+      OFF_DELETED=$(/usr/bin/find "$OFFSITE_DIR" -type f -name 'openclaw_*.sql.gz' -mtime +30 -print -delete 2>/dev/null | /usr/bin/wc -l | /usr/bin/tr -d ' ')
+      [ "$OFF_DELETED" -gt 0 ] && log "OFFSITE_RETENTION: deleted $OFF_DELETED file(s) older than 30 days"
+    else
+      log "OFFSITE_SIZE_MISMATCH: local=${DUMP_SIZE}B offsite=${OFFSITE_SIZE}B -- copy may be mid-upload or truncated"
+      send_telegram_alert "offsite_size_mismatch" "iCloud copy size ${OFFSITE_SIZE}B != local ${DUMP_SIZE}B"
+    fi
+  else
+    log "OFFSITE_COPY_FAILED: could not copy to $OFFSITE_DIR (TCC grant likely required for the launchd context). LOCAL BACKUP SUCCEEDED."
+    send_telegram_alert "offsite_copy_failed" "Local backup OK, but the iCloud off-device copy failed. No off-site copy for this run."
+  fi
+else
+  log "OFFSITE_DIR_UNAVAILABLE: $OFFSITE_DIR not creatable (TCC or iCloud not ready). LOCAL BACKUP SUCCEEDED."
+  send_telegram_alert "offsite_dir_unavailable" "Local backup OK, but the iCloud destination was unreachable. No off-site copy for this run."
+fi
+
+# NOTE: a file written into iCloud Drive is uploaded asynchronously by
+# bird(8). "OFFSITE_OK" means it is on local disk inside the synced folder,
+# not that the upload has completed. Confirm in Finder / iCloud before
+# treating a given dump as genuinely off-device.
+
 # ── Folder size check — Telegram alert if total > 5GB (one-time per cross) ──
 # ADR-019 specifies this. We use a marker file to keep it one-time per crossing.
 TOTAL_BYTES=$(/usr/bin/find "$BACKUP_DIR" -type f -name '*.sql.gz' -exec /usr/bin/stat -f %z {} \; 2>/dev/null | /usr/bin/awk '{s+=$1} END {print s+0}')

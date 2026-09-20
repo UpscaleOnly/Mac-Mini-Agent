@@ -2779,3 +2779,62 @@ Recorded rather than fixed, because the fix needs its own verification run. This
 | A second `--send` run, building toward the `HARD_FAIL_ON_UNVERIFIED` flip | When convenient |
 | **Do NOT flip `HARD_FAIL_ON_UNVERIFIED`** until two further clean runs | Standing |
 | Off-device backup — unchanged top infrastructure item | Unchanged |
+
+---
+
+## Entry #039 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Infrastructure — off-device backup restored to iCloud. First off-site copy since May 17.
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **`scripts/backup.sh` now copies each dump to the ADR-040 §1 sanctioned iCloud path** — `~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/offsite/`. That is the only write this project is permitted outside `~/openclaw`, scoped by policy to "PostgreSQL pg_dump output only", which is exactly this use. No ADR amendment needed.
+
+2. **Entry #013's TCC claim was tested and is false on this machine.** It recorded that "launchd-spawned scripts cannot write directly to `~/Library/Mobile Documents/` (macOS TCC restriction)" — the belief that sent backups into `~/Documents` in the first place, and the reason ADR-046 considered granting Full Disk Access to `/bin/bash`.
+
+   Two probes: a direct write from an interactive shell (proves little — it inherits the parent app's TCC), then a `launchctl submit` job, which wrote successfully. **Seventh documented-but-false claim found today.**
+
+   Stated honestly: a submitted job may inherit the submitting process's TCC context, so this is strong evidence rather than proof. **The definitive test is the scheduled 04:00 run.**
+
+3. **The copy is non-fatal by design.** Because point 2 is not yet proven, a failure must not take down a backup that already succeeded locally. Every branch logs and continues: `OFFSITE_OK`, `OFFSITE_COPY_FAILED`, `OFFSITE_DIR_UNAVAILABLE`, or `OFFSITE_SIZE_MISMATCH`, with a Telegram alert on each failure path. The script still exits 0 on a local success.
+
+4. **Size is verified, not assumed.** The copy is compared byte-for-byte against the local dump before being logged as OK. 30-day retention is applied to the off-device folder too, matching local policy, so it stays bounded.
+
+5. **Live-tested end to end.** A real run produced `openclaw_20260920_161239.sql.gz` (151,242 B) locally and in iCloud, sizes matching, `gunzip -t` clean on the off-device copy, `brctl` reporting no pending uploads.
+
+6. **No TCC grant was made.** ADR-046's Option A — Full Disk Access for `/bin/bash` — was rejected because it would have given every shell script on the machine read/write access to all §2-prohibited paths. That rejection stands, and turned out to be unnecessary as well as undesirable.
+
+### Caveat recorded in the script
+
+A file written into iCloud Drive uploads asynchronously via `bird(8)`. **`OFFSITE_OK` means the dump is on local disk inside the synced folder — not that the upload has completed.** Until it has, the "off-device" copy is still on the same disk. For a 148 KB file the window is short, but the distinction is exactly the kind that produced the May-to-September gap, so it is written into the script rather than assumed.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/scripts/backup.sh` | Off-device copy step added after retention; non-fatal, size-verified, 30-day retention |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `~/openclaw/CURRENT_STATE.md` | Off-device gap closed pending confirmation |
+
+### Risk Assessment
+
+**The four-month gap is closed, pending one confirmation.** Every dump from now on has a second copy in iCloud. What is not yet proven is that the *scheduled* run can write there; the probe strongly suggests it can.
+
+**Worst case is the status quo ante.** If TCC blocks the launchd context, the copy fails, the local backup still succeeds, a Telegram alert fires, and the log says `OFFSITE_COPY_FAILED`. Nothing regresses.
+
+**Remaining exposure:** old dumps still sit in `~/Documents/Mac-Mini-Backups-Interim` (§2-prohibited, operator action). And until `bird` finishes an upload, that run's copy is not genuinely off-device.
+
+**Rollback:** `scripts/backup.sh.bak.pre-offsite`.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| **Check tomorrow's 04:00 log for `OFFSITE_OK`** — the definitive TCC test | Tomorrow |
+| Confirm in Finder that the dumps show as uploaded, not just present | Tomorrow |
+| Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` | Operator action |
+| A second `--send` run (path ungated since Entry #038) | When convenient |
