@@ -2266,3 +2266,83 @@ CM-3 (configuration change control), CM-8 (component inventory), SA-2 (allocatio
 | Apply ADR-045 §7's revised NIST mapping into ADR-040 §7 at its next revision | Opportunistic |
 | Review-only `generate_brief_review.py` run — still the top production task | Next session |
 | Backfill the August 4–16 content gap | Soon |
+
+---
+
+## Entry #032 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Audit — ADR corpus checked for dedicated-host assumptions (ADR-046). One live policy violation found in running code.
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **ADR-036 was not a one-off.** Entry #031 closed it but flagged that it had been found by accident and nothing had checked for siblings. All 28 ADR `.docx` files were parsed and searched for dedicated-host indicators: memory sizes, named hardware, "headless", "setup day", the openclaw/admin/dev account model, LaunchDaemon and sysctl usage, purchase-conditional language. **Eleven documents carry live dependencies on hardware, an operating profile, or an account structure that does not exist**, across four failure modes. Filed as **ADR-046**, status OPEN pending two operator decisions.
+
+2. **F1 — HIGH, and the reason this audit mattered: `scripts/backup.sh` writes to a DATA_BOUNDARIES §2 prohibited path, and has since May 17.** Line 34 sets `ICLOUD_ROOT="$HOME/Documents/Mac-Mini-Backups-Interim"`. ADR-040 §1 sanctions only `~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/`. The script also runs `mkdir -p` (line 128) and `find ... -mtime +30 -print -delete` (line 176) inside that path.
+
+   Three details make it worse than a stray path. **The header comments at lines 10–12 still describe the sanctioned iCloud path** — only line 34 is operative, so the file's own documentation reads as compliant, which is how this survived four months. **It was deliberate**: line 33 records that Desktop-and-Documents sync reaches iCloud without a TCC grant, so a real deployment problem was solved by crossing a boundary. And **ADR-019's stub records it as one of three interim MacBook Air deviations "all three reverting on Mac Studio setup day"** — a day ADR-043 has now made permanent by making it never arrive.
+
+3. **F1 resolves the `~/Documents/Mac-Mini-Backups-Interim` item carried unresolved since Entry #029.** It was recorded then as a possible undocumented second backup destination. It is neither undocumented nor second: it is the only destination the system uses.
+
+   Worth stating plainly: the three §2 breaches in Entries #029 and #030 were transient agent reads. **This one is the project's own automation, writing and deleting, nightly, for four months** — a more serious class of finding than the events that produced ADR-045.
+
+4. **F2 — HIGH: ADR-032's NIST 800-53 mapping asserts control statuses against the absent architecture.** AC-11 Device Lock dismissed as "not meaningful for headless daemon operation" on a laptop with a screen; AC-18 assessed expecting WiFi disabled on a headless host, on a MacBook Air; SA-2 MET citing "32GB unified memory, 512GB SSD" against 16 GB; AC-6 MET citing "sheldon vs openclaw accounts" where the openclaw account does not exist. **For AC-11 and AC-18 the error understates obligation** — both were dismissed as inapplicable and both in fact apply.
+
+5. **F3 — MEDIUM, and the most operationally deceptive: ADR-033 sets memory alerts at 28 GB yellow and 30 GB red against "Total 32GB."** On 16 GB those thresholds can never be crossed. They will report healthy under every possible condition including genuine exhaustion. A missing alert is visibly missing; an alert that cannot fire looks like a passing check.
+
+6. **F4 to F6 — MEDIUM and LOW.** "Mac Studio setup day" is a live scheduling target in ADR-031, 038, 039 and 041 — work that is not wrong, just stalled, with nothing marking it unreachable. ADR-039's deferred items include the Keychain decryption key paired with the A4 backup destination work, which is the same item as F1. The openclaw/admin/dev account model assumed by ADR-020, 033, 034, 035 and 038 does not exist. And `backup.sh`'s comments contradict its own code, recorded separately because that lesson outlives F1's fix.
+
+7. **Method limits recorded in ADR-046 §3 rather than left implicit.** Only ADR documents were audited, not application code — `backup.sh` was read solely because a finding required verification, which is itself an argument for widening the scope. Twelve documents are reconstructed stubs, where a dedicated-host reference is weaker evidence. Hits where "Mac Mini" names the Claude.ai project rather than hardware were discarded as noise. Absence of an indicator is not proof of soundness.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_046.docx` | **Created** — audit findings and remediation plan, status OPEN |
+| `~/openclaw/CURRENT_STATE.md` | Open items and active tasks updated |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+**No remediation was performed.** F1 and F2 require operator decisions (ADR-046 §9); the rest are sequenced in §10.
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-046 | **Created.** Audit findings, status OPEN. |
+| ADR-040 | **Live breach identified (F1)** — running code violates §1/§2. Not an amendment; a compliance failure against the policy as written. |
+| ADR-032 | **Re-assessment required (F2)** — four control statuses named, more likely. |
+| ADR-033 | **Defect (F3)** — dead memory thresholds; stale model reference. |
+| ADR-019 | Explains F1's origin — the interim deviation that was never reverted. |
+| ADR-031, 038, 039, 041 | **Stalled (F4)** — deferred to a date that cannot arrive. |
+| ADR-020, 034, 035 | **Premise invalid (F5)** — three-account model not implemented. |
+| ADR-043 / ADR-044 | The trigger and the first instance. |
+
+### NIST Controls Touched
+
+CA-2 (Control Assessments — F2 is an assessment-validity finding), CM-8, CM-3, AC-3 and AC-6 (F1 is a live access-enforcement breach), SI-4 (F3 — monitoring that cannot detect).
+
+### Risk Assessment
+
+**F1 is the only finding with live operational exposure.** Database dumps containing the full contents of `scraped_content` and `brief_runs` are written nightly into a path the project's own policy prohibits, alongside personal documents, and pruned there by an automated `find -delete`. The data itself is public Federal Register material, so the sensitivity is low — but the boundary violation is real, ongoing, and in code rather than in a transient command.
+
+**F2 is the highest-consequence finding if the mapping is ever relied upon.** A compliance artifact asserting MET against premises that do not hold is precisely the defect this project's owner assesses professionally in other systems.
+
+**F3 is the one most likely to cause an unnoticed operational failure**, because it fails silently in the safe-looking direction.
+
+**Residual:** the audit covered ADR documents only. Application code, scripts, and launchd configuration were not systematically checked, and F1 was found in a script. The true size of the class is still not known.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| **Decision 1 — backup destination (ADR-046 §9)**: move to the sanctioned path and grant TCC, or amend ADR-040 §1 to sanction the interim path | Next session |
+| **Decision 2 — ADR-032 re-assessment scope**: the four named controls, or the full Moderate baseline | Next session |
+| Re-tune ADR-033 thresholds to 16 GB; correct the 32B model reference | Soon |
+| Replace "Mac Studio setup day" triggers in ADR-031, 038, 039, 041; re-triage ADR-039's stalled security items | Soon |
+| Record the three-account model as not implemented; decide per document | Soon |
+| **Extend the audit to application code, scripts and launchd config** — F1 was found in a script, not an ADR | Soon |
+| Implement ADR-045 §8.2 and §8.3 (allowlist narrowing, traversal-verb hook) | Carried from #031 |
+| Review-only `generate_brief_review.py` run | Carried — still the top production task |
