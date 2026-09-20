@@ -861,6 +861,29 @@ def ground_truth_counts(rows):
     return truth
 
 
+def acceptable_counts(rows_by_area, all_rows):
+    """Ground truth for the EXECUTIVE SUMMARY, which is scope-ambiguous.
+
+    The summary legitimately makes section-scoped claims -- "CMS issued three
+    notices" is correct even though the window holds 21 notices in total.
+    Checking it against the global aggregate alone produces exactly that false
+    positive, observed on the first v7 run. So a count is acceptable here if
+    it is true of the whole window OR of any single section.
+
+    This is wider than a per-section check and deliberately so: the summary
+    cannot be attributed to one section without parsing it. A number matching
+    no section and not the total is still caught, which is the case that
+    matters.
+    """
+    acc = {}
+    for unit, n in ground_truth_counts(all_rows).items():
+        acc.setdefault(unit, set()).add(n)
+    for rows in rows_by_area.values():
+        for unit, n in ground_truth_counts(rows).items():
+            acc.setdefault(unit, set()).add(n)
+    return acc
+
+
 def verify_counts(label, generated, source_text, truth=None):
     """Flag counted quantities in generated prose against ground truth.
 
@@ -884,11 +907,17 @@ def verify_counts(label, generated, source_text, truth=None):
     for num, unit in sorted(_extract_counts(generated) - source_counts):
         actual = truth.get(unit)
         if actual is not None:
-            if num == actual:
+            # A truth value may be a single int (one section) or a set of
+            # acceptable ints (the executive summary, which legitimately makes
+            # section-scoped claims -- see acceptable_counts()).
+            ok = {actual} if isinstance(actual, int) else set(actual)
+            if num in ok:
                 continue  # verified against the documents themselves
+            expected = (str(actual) if isinstance(actual, int)
+                        else " or ".join(str(v) for v in sorted(ok)))
             warnings.append(
                 f"[count] {label}: '{num} {unit}(s)' is WRONG -- the source "
-                f"documents for this section contain {actual}"
+                f"documents contain {expected}"
             )
         else:
             warnings.append(
@@ -1405,11 +1434,12 @@ def main():
     print(f"... synthesizing executive summary via {MODEL}", file=sys.stderr)
     exec_summary = synthesize_exec_summary(date_range, section_texts,
                                            rows_by_area)
-    # The summary draws on every document in the window, so its ground truth
-    # is the full row set rather than any one section's.
+    # The summary mixes whole-window and section-scoped claims, so its ground
+    # truth is the union of both -- see acceptable_counts().
     claim_warnings.extend(
         verify_claims("EXECUTIVE SUMMARY", exec_summary,
-                       docs_block(rows), ground_truth_counts(rows))
+                       docs_block(rows),
+                       acceptable_counts(rows_by_area, rows))
     )
 
     if claim_warnings:
