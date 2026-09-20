@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 20, 2026 (Entry #030 — four-week re-entry; scraper reliability proven; 37 GB reclaimed; ADR-043 hardware decision)
+**Last updated:** September 20, 2026 (Entry #031 — ADR-036 superseded by ADR-044; ADR-040 amended by ADR-045; DATA_BOUNDARIES v2.0)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -52,6 +52,9 @@ Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH)
 - `app/scheduling/scheduler.py.bak.pre-misfire-fix` — pre-August-23 scheduler (10-minute misfire grace).
 - `ADR_033.docx.bak.plaintext-format` … `ADR_037.docx.bak.plaintext-format` — the original plain-text-as-`.docx` files, pre-conversion.
 - `ADR_042.docx.bak.pre-amendment-2026-08-23` — pre-"Mac Mini" correction.
+- `ADR_036.docx.bak.pre-supersede-2026-09-20` — before the SUPERSEDED marking.
+- `ADR_040.docx.bak.pre-amendment-2026-09-20` — before the ADR-045 amendment annotation.
+- `DATA_BOUNDARIES.md.bak.pre-adr045` — v1, before the v2.0 rewrite.
 - `CURRENT_STATE.md.bak.pre-entry030` (this file's previous version), `CURRENT_STATE.md.bak.aug20`.
 - `changelog.md.bak.pre-entry030`, `changelog.md.bak.session21`, `changelog.md.bak.pre-entry020`.
 - **All `.bak*` files are gitignored** — they exist on disk only. Anything tracked is recoverable from Git instead: `git show <commit>:path/to/file`.
@@ -107,26 +110,31 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 ## Active task (in order)
 
 1. **[Next]** Run `generate_brief_review.py` with **no flags** — review-only, side-effect-free — to assess output quality against current content after four weeks of drift, before considering a live send.
-2. **[Then]** Decide **ADR-036 disposition** — it is DECIDED policy that cannot be executed (see Top open items). Operator decision required.
-3. **[Then]** Backfill the August 4–16 content gap (explicit `days_back`, or a targeted Federal Register API pull).
-4. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
-5. **[Then]** Refresh the local model — `gemma4:e4b` is five months old; a current model in the same size class is likely the highest-value zero-cost improvement available.
-6. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
-7. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
+2. **[Then]** Implement **ADR-045 §8.2 and §8.3** — remove the home-wide `Read` grant; build the traversal-verb hook. Both decided, neither built.
+3. **[Then]** **Audit the ADR corpus for other dedicated-host assumptions** — ADR-036 was found by accident and nothing has checked for siblings.
+4. **[Then]** Backfill the August 4–16 content gap (explicit `days_back`, or a targeted Federal Register API pull).
+5. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
+6. **[Then]** Refresh the local model — `gemma4:e4b` is five months old; a current model in the same size class is likely the highest-value zero-cost improvement available.
+7. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
+8. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
 
 ## Top open items
 
-- **ADR-036 is not implementable — NEW, needs an operator decision.** Its GPU VRAM Allocation Policy specifies a LaunchDaemon allocating 28672 MB (32 GB host) or 58982 MB (64 GB host). Both presume the dedicated machine that was never acquired; neither applies to a 16 GB MacBook Air. This is DECIDED policy referencing hardware that does not exist. Suspend, amend, or supersede. **It was found by accident while matching document formatting — other ADRs written in the "dedicated host" era may carry the same defect, and none have been audited for it.**
+- **ADR corpus audit for dedicated-host assumptions — the highest-value open item.** ADR-036 specified VRAM allocation for hardware never acquired, and **was found by accident** while being read as a formatting reference. Nothing audited for it. Other ADRs written in the dedicated-host era may carry the same defect; the size of that class is unknown. *(ADR-036 itself is now resolved — superseded by ADR-044, Entry #031.)*
 
-- **Filesystem boundary — DATA_BOUNDARIES.md §2 breached three times.** The most recent was September 20 (Entry #030): `du` commands run during a disk investigation traversed `~/Documents`, `~/Desktop`, and `~/Library`, the last necessarily entering the FTI-bearing iCloud root. No file contents were read and no filenames displayed — aggregate byte counts only — but §2 prohibits listing and traversal, not merely reading. **Three recurrences under an unchanged policy is evidence about the control, not about any one session:** the policy is a document that must be remembered, enforced by nothing at the moment a command runs. ADR-040 amendment candidate, alongside the allowlist gap below.
+- **Filesystem boundary — decided September 20 (ADR-045), implementation pending.** DATA_BOUNDARIES.md §2 has been breached three times (Session 16, Entry #029, Entry #030). ADR-045 amends ADR-040 with an enforcement model and — more importantly — corrects the control classification: **AC-3 was overstated as IMPROVED and is NOT MET** until a technical control ships. PL-4 and AU-6 are accurate; the real compensating control is **disclosure**, since all three breaches were self-reported rather than detected. `DATA_BOUNDARIES.md` is now **v2.0** with §2.1 (binds all execution surfaces), §2.2 (listing and traversal prohibited, not just reading), §6 (enforcement posture) and §7 (governed artifacts).
+  **Structural finding:** Claude Code matches Bash rules against *command strings*, not the paths they reach — `Bash(du:*)` permits `du` anywhere. **Shell is unbounded by construction**, so every path-scoped `Read(...)` rule is irrelevant when the same data is reachable through a shell command.
+  **Still to implement:** ADR-045 §8.2 and §8.3 below.
 
-- **`Read(//Users/sheldonwheeler/**)` remains in the Claude Code allowlist** — carried from Entry #029, still open. It pre-authorises reads across the entire home directory including all three §2-prohibited paths. Line 13 already grants the narrow `Read(//Users/sheldonwheeler/openclaw/**)` replacement. Note `.claude/settings.local.json` is gitignored, so this contradiction never appears in a diff.
+- **ADR-045 §8.3 — traversal-verb hook, not yet built.** A PreToolUse hook gating `du`, `find`, `ls -R`, `grep -r`, `tree`, `mdfind`, `locate` when not explicitly scoped to `~/openclaw`. It must match on **commands, not path literals** — a path blacklist would not have caught `cd ~ && du -sh */`, which contains no prohibited path. Verify hook mechanics against the live settings schema before building. **It is a speed bump, not a boundary** — document it as such.
+
+- **`Read(//Users/sheldonwheeler/**)` remains in the Claude Code allowlist** — carried from Entry #029, now formally pending removal under **ADR-045 §8.2**. It pre-authorises reads across the entire home directory including all three §2-prohibited paths; the narrow `Read(//Users/sheldonwheeler/openclaw/**)` replacement already exists alongside it. `.claude/settings.local.json` is now a **governed artifact** under DATA_BOUNDARIES §7 — but it is gitignored, so the contradiction never appears in a diff and must be inspected manually at each review.
 
 - **`~/Documents/Mac-Mini-Backups-Interim`** — carried from Entry #029, unexamined, inside a §2-prohibited path. Either it predates ADR-040 and needs migrating, or it is an undocumented second backup destination.
 
 - **PostgreSQL credential reconciliation — open since Aug 20.** The live `openclaw` role password is **NOT** the `changeme` placeholder. The real value lives in `~/openclaw/.env`; container env and Keychain both still hold the stale placeholder. *Read it without echoing it:* `export POSTGRES_PASSWORD=$(grep -m1 '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)` — needed in every new Terminal window for host-run scripts. Anything via `docker exec openclaw_postgres psql ...` needs no host-side password at all.
 
-- **ADR corpus — materially improved Aug 23, not finished.** 26 ADR `.docx` files now on disk (ADR-043 added September 20). **Still unrecovered: ADR-017 and ADR-022** (both cited in live code, zero content found anywhere). No evidence at all for ADR-001, 004, 006–013, 015, 016. Full picture: `adr_fragments_2026-08-22/reconciliation_2026-08-23/`.
+- **ADR corpus — materially improved Aug 23, not finished.** 28 ADR `.docx` files now on disk (ADR-043, 044, 045 added September 20). **Still unrecovered: ADR-017 and ADR-022** (both cited in live code, zero content found anywhere). No evidence at all for ADR-001, 004, 006–013, 015, 016. Full picture: `adr_fragments_2026-08-22/reconciliation_2026-08-23/`.
 
 - **ADR-042 (ADR corpus reconciliation) — OPEN, still deferred.** The counterpart Claude.ai project is **"Mac Mini"**, not "AI Build" (corrected by dated amendment Aug 23). Full reconciliation remains a dedicated future project — do not start it casually.
 
@@ -165,6 +173,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #031 (Sep 20):** Governance. **ADR-036 SUPERSEDED by ADR-044** — VRAM policy for hardware never acquired; `sysctl iogpu.wired_limit_mb` verified 0, so it was never implemented and no remediation was needed. **ADR-040 AMENDED by ADR-045** — enforcement model, scope language, and a control reclassification: AC-3 downgraded from IMPROVED to NOT MET, with disclosure named as the real compensating control. `DATA_BOUNDARIES.md` → v2.0. Both source ADRs marked in place.
 - **Entry #030 (Sep 20):** Four-week re-entry. Both scraper fixes proven across four weeks of unattended operation — reliability closed. 37 GB reclaimed (Docker images; 11 GB of abandoned git temp packs). **ADR-043 created** — production host platform decided: retain the MacBook Air, no hardware purchase, split the workloads instead. Found **ADR-036 unimplementable**. Git identity corrected from placeholder. **Third DATA_BOUNDARIES §2 breach disclosed.** Commit `7200b8e`.
 - **Entry #029 (Aug 23):** Third repository directory `~/mac-mini-agent` found and removed; its unique 5-commit prototype history preserved as pushed tag `prototype-2026-04` first. Identified the Claude Code allowlist as an undocumented parallel permission surface ADR-040 does not reach. Commit `ef80e2c`.
 - **Entry #028 (Aug 23):** `NEXT_SESSION_OPENER.md` retired and deleted; handoff consolidated into this file. Instructions v3.1 → v3.2. Commit `672bcc1`.

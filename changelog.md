@@ -2182,3 +2182,87 @@ CM-8 (component inventory — platform of record now documented), CM-3 (change c
 | Refresh the local model — `gemma4:e4b` is now five months old | Opportunistic, likely high value |
 | Flip `HARD_FAIL_ON_UNVERIFIED` to `True` after further clean `--send` runs | Blocked — only one send has ever occurred |
 | Set the GitHub numeric-ID noreply address if commits do not link to the account | Opportunistic |
+
+---
+
+## Entry #031 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — ADR-036 superseded, ADR-040 amended for enforcement (two operator decisions taken same session as Entry #030)
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **ADR-036 superseded by ADR-044 — operator decision.** Entry #030 surfaced that ADR-036's GPU VRAM Allocation Policy specifies `iogpu.wired_limit_mb` values for 32 GB and 64 GB headless hosts that were never acquired. The operator chose supersession over amendment. The defect is broader than the MB values: §4 states the reserve figures "reflect a headless server profile. No GUI applications, no display server workload, and no interactive user sessions" — the production host is a personal laptop running a full desktop session, so the premise fails independently of the numbers and the policy could not be rescued by substituting a 16 GB value.
+
+2. **Verified before deciding: the LaunchDaemon was never installed.** `sysctl iogpu.wired_limit_mb` returns **0** — the macOS default, meaning nothing is setting it. ADR-036 was written on setup day for a machine that did not arrive and never took effect. This makes the supersession a documentation correction rather than a remediation: no misconfiguration to unwind, no rollback.
+
+   Method note: `/Library/LaunchDaemons` is not in DATA_BOUNDARIES.md §1 and is prohibited by default, so the plist was **not** inspected directly. The sysctl read establishes the same fact without a filesystem access, since a loaded daemon would necessarily show a non-zero value. Given the §2 breach recorded hours earlier in Entry #030, the distinction was worth honouring rather than rationalising.
+
+3. **No replacement VRAM policy issued, deliberately.** Raising `iogpu.wired_limit_mb` on a 16 GB host running a GUI session, four containers and a 9.6 GB model would wire away memory macOS needs — producing exactly the swap pressure ADR-036 §4 itself warns about. macOS defaults are tuned for shared interactive machines and are the correct policy here. ADR-044 §7 records the conditions under which ADR-036's approach becomes valid again, so a future dedicated host revisits rather than rewrites it.
+
+4. **ADR-040 amended by ADR-045 — enforcement, scope, and control classification.** ADR-040's intent and prohibited-path list are unchanged. What changed is the honesty of its claims and the existence of a planned technical control. Three gaps were identified: **(A)** nothing enforces the policy at the point a command executes; **(B)** the Claude Code allowlist is a parallel permission surface that can grant what §2 forbids, and being gitignored, the contradiction never appears in a diff; **(C)** §2's scope language reads as governing the application, leaving each session to rediscover that it binds interactive shell commands too.
+
+5. **Structural finding — shell is a universal bypass of path-based permission.** Claude Code matches Bash invocations against *command strings*, not the paths they reach. `Bash(du:*)` permits `du` anywhere on the volume; there is no expressible rule meaning "`du`, but only inside `~/openclaw`." Every path-scoped `Read(...)` rule is therefore enforced against the Read tool only and is irrelevant when the same data is reachable through a shell command. This was not understood when ADR-040 was written and it determines what enforcement is achievable.
+
+   Corollary that shaped the design: **a hook scanning for prohibited path literals would not have caught the Entry #030 breach.** `cd ~ && du -sh */` contains no prohibited path — the traversal comes from a glob resolved after approval. The adopted control gates **traversal verbs** (`du`, `find`, `ls -R`, `grep -r`, `tree`, `mdfind`, `locate`) rather than paths.
+
+6. **Control classification corrected — the substantive output of ADR-045.** ADR-040 §7 recorded **AC-3 (Access Enforcement)** as IMPROVED, via "explicit filesystem boundary enforces access control by policy." That claim does not survive three breaches. AC-3 concerns the *system* enforcing authorisations; a document that must be remembered directs behaviour, it does not enforce. Revised mapping: **PL-4 (Rules of Behavior)** and **AU-6 (Audit Review)** accurate and effective; **AC-3 NOT MET** until the hook ships; **AC-6 PARTIAL**; **CM-7** newly proposed. An overstated control mapping is worse than a missing one, because it removes the prompt to fix the gap.
+
+7. **OS-level isolation considered and rejected with reasons recorded.** A separate macOS account with ACL denials, or a `sandbox-exec` profile, would be genuinely airtight — and is disproportionate for a single-operator personal stack, where the operator owns the protected files, defeating ordinary POSIX permissions. Recorded in ADR-045 §5 so the reasoning is available if the posture ever needs to change.
+
+8. **`DATA_BOUNDARIES.md` raised to v2.0**, implementing ADR-045 §8.1 immediately. New §2.1 binds all execution surfaces explicitly. New §2.2 states that listing and traversal are prohibited, not only reading, with the two worked examples that actually caused breaches. New §6 documents the enforcement posture honestly — including that §4's claim to have closed the gap "permanently" was optimistic, and that **the real compensating control is disclosure**, since all three breaches entered the record by self-report rather than detection. New §7 declares `.claude/settings.local.json` a governed artifact. Existing §1–§5 numbering preserved so cross-references in ADR-040 and ADR-045 remain valid.
+
+9. **Both source ADRs marked in place, so a reader opening either alone is not misled.** `ADR_036.docx` now reads `Status: SUPERSEDED by ADR-044` with a DO NOT IMPLEMENT banner recording the sysctl verification. `ADR_040.docx` status cell notes the amendment, and its footer moves to v1.1. Both remain valid OOXML, verified after patching. Not doing this would have recreated precisely the fragmentation ADR-042 exists to address — a decided document that looks current and is not.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_044.docx` | **Created** — supersedes ADR-036 |
+| `~/openclaw/ADR_045.docx` | **Created** — amends ADR-040 |
+| `~/openclaw/ADR_036.docx` | Status → SUPERSEDED, DO NOT IMPLEMENT banner added |
+| `~/openclaw/ADR_040.docx` | Status annotated, footer v1.0 → v1.1 |
+| `~/openclaw/DATA_BOUNDARIES.md` | v1 → **v2.0** — §2.1, §2.2, §6, §7 added |
+| `~/openclaw/CURRENT_STATE.md` | Open items updated to reflect both decisions |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-044 | **Created.** Supersedes ADR-036. |
+| ADR-045 | **Created.** Amends ADR-040 — enforcement model, scope language, control reclassification. |
+| ADR-036 | **SUPERSEDED.** Retained as historical record; marked in the document itself. |
+| ADR-040 | **AMENDED (v1.1).** Intent and path list unchanged; §7 NIST mapping superseded by ADR-045 §7. |
+| ADR-043 | Referenced — establishes the hardware reality ADR-044 follows from. |
+| ADR-033 | Referenced — its threshold amendment lived in ADR-036 §7; substance unaffected, confirm intact during the corpus audit. |
+| ADR-031 | Change management — required log entry. |
+
+### NIST Controls Touched
+
+CM-3 (configuration change control), CM-8 (component inventory), SA-2 (allocation of resources), and — as the subject of the work rather than a side effect — AC-3, AC-6, AU-6, PL-4, CM-7 reclassified for the filesystem boundary.
+
+### Risk Assessment
+
+**Risk of the ADR-036 supersession: none.** The policy was never implemented (`sysctl` verified 0), so withdrawing it changes no running state. The only loss is ADR-036 §5's LaunchDaemon pattern — auditable, version-controlled, SIP-intact — which was sound engineering worth remembering if boot-time configuration is ever needed.
+
+**Risk of the ADR-040 amendment: reduces overstated assurance, adds no new exposure.** Nothing was loosened. The prohibited-path list is unchanged. What changed is that the record now says what the control actually does.
+
+**Residual, explicitly accepted:** the filesystem boundary remains unenforced. Shell is unbounded by construction; the planned hook narrows the common case only. The compensating control is disclosure. Two specific exposures are unchanged from Entry #029 — the home-wide `Read` grant is still in the allowlist pending §8.2, and `~/Documents/Mac-Mini-Backups-Interim` is still unexamined inside a prohibited path.
+
+**The finding that should worry most:** ADR-036 was discovered by accident while being read as a formatting reference. Nothing audited for it. Other ADRs written in the dedicated-host era may carry the same defect and the size of that class is unknown.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| **Audit the ADR corpus for other dedicated-host assumptions** — highest-value item arising from both entries | Soon |
+| Implement ADR-045 §8.2 — remove `Read(//Users/sheldonwheeler/**)`, verify the narrow rule suffices | Next session |
+| Implement ADR-045 §8.3 — traversal-verb PreToolUse hook; verify hook mechanics against the live settings schema first | Next session |
+| Resolve `~/Documents/Mac-Mini-Backups-Interim` | Carried from #029, still open |
+| Apply ADR-045 §7's revised NIST mapping into ADR-040 §7 at its next revision | Opportunistic |
+| Review-only `generate_brief_review.py` run — still the top production task | Next session |
+| Backfill the August 4–16 content gap | Soon |
