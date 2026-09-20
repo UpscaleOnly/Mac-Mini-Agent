@@ -1,16 +1,25 @@
 #!/bin/bash
 #
-# OpenClaw nightly backup — interim MacBook Air operation
-# Per ADR-019 (interim deviation recorded in changelog Entry #013)
-# Runs as user 'sheldonwheeler' via cron at 04:00 ET on the MacBook Air.
-# Mac Studio setup day reverts to ADR-020 'dev' account with launchd.
+# OpenClaw nightly backup — MacBook Air (the production host, per ADR-043)
+# Per ADR-019. Runs as user 'sheldonwheeler' at 04:00 ET.
+#
+# ADR-046 F1 remediation (2026-09-20): the destination below was reverted from
+# ~/Documents/Mac-Mini-Backups-Interim back to the ADR-040 §1 sanctioned path.
+# The interim destination had been in use since 2026-05-17 and was a standing
+# DATA_BOUNDARIES.md §2 violation. See "Paths" below for the TCC consequence.
+#
+# NOTE: two other ADR-019 interim deviations are NOT reverted and are now
+# permanent — this runs as 'sheldonwheeler' rather than the ADR-020 'dev'
+# account, and under launchd rather than cron. Both were scoped to revert on
+# "Mac Studio setup day"; ADR-043 established that day never arrives. The
+# 'dev' account does not exist on this host (ADR-046 F5).
 #
 # Behavior:
 #   1. pg_dump (compressed -Z 9) the openclaw database to:
-#      ~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/interim-macbook-air/openclaw_YYYYMMDD_HHMMSS.sql.gz
+#      $BACKUP_DIR/openclaw_YYYYMMDD_HHMMSS.sql.gz
 #   2. Write a log line to:
-#      ~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/interim-macbook-air-logs/backup_YYYYMMDD.log
-#   3. Apply 30-day retention to the interim folder per ADR-031 §7.
+#      $LOG_DIR/backup_YYYYMMDD.log
+#   3. Apply 30-day retention to $BACKUP_DIR per ADR-031 §7.
 #   4. On any failure, send a Telegram message to the operator via the router bot.
 #
 # Exit codes:
@@ -27,11 +36,22 @@
 set -u  # treat unset variables as errors
 
 # ── Paths ────────────────────────────────────────────────────────────
-# Per Entry #013 troubleshooting: launchd-spawned scripts cannot write
-# directly to ~/Library/Mobile Documents/ (macOS TCC restriction). Instead
-# we write to ~/Documents/ which is iCloud-synced via "Desktop & Documents
-# Folders" sync. Same iCloud destination, no TCC permission grant required.
-ICLOUD_ROOT="$HOME/Documents/Mac-Mini-Backups-Interim"
+# This is the ADR-040 §1 sanctioned destination — the ONLY path this project
+# is permitted to write outside ~/openclaw. Do not change it without amending
+# ADR-040 §1 via the DATA_BOUNDARIES.md §3 procedure.
+#
+# TCC REQUIREMENT — read before editing or debugging a failure here.
+# Entry #013 originally moved this to ~/Documents because launchd-spawned
+# scripts cannot write to ~/Library/Mobile Documents/ without a TCC grant.
+# That workaround crossed a §2 boundary and was reverted by ADR-046 F1.
+# The grant is now the supported path: the process launchd spawns to run this
+# script needs Full Disk Access.
+#
+# Consequence worth knowing: TCC is evaluated per calling process. Running
+# this script by hand from Terminal tests *Terminal's* grant, not launchd's —
+# a manual run can succeed while the 04:00 scheduled run still fails with
+# exit 3. Verify against a real scheduled run, not an interactive one.
+ICLOUD_ROOT="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups"
 BACKUP_DIR="$ICLOUD_ROOT/dumps"
 LOG_DIR="$ICLOUD_ROOT/logs"
 

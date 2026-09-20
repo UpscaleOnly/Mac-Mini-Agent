@@ -2346,3 +2346,72 @@ CA-2 (Control Assessments — F2 is an assessment-validity finding), CM-8, CM-3,
 | **Extend the audit to application code, scripts and launchd config** — F1 was found in a script, not an ADR | Soon |
 | Implement ADR-045 §8.2 and §8.3 (allowlist narrowing, traversal-verb hook) | Carried from #031 |
 | Review-only `generate_brief_review.py` run | Carried — still the top production task |
+
+---
+
+## Entry #033 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Remediation — ADR-046 F1 decided and code change applied (operator actions outstanding)
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **F1 decided: Option A — revert to the sanctioned path.** The operator directed that the May 17 interim deviation be reversed rather than ratified, granting the TCC permission instead of amending ADR-040 §1. `scripts/backup.sh` line 34 changed from `$HOME/Documents/Mac-Mini-Backups-Interim` to `$HOME/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups`. Syntax verified; no prohibited path remains in executable code.
+
+2. **The original workaround was a real failure, not a convenience.** Entry #013's comment records that launchd-spawned scripts *cannot* write to `~/Library/Mobile Documents/` without a TCC grant — the move to `~/Documents` exploited "Desktop & Documents Folders" sync to reach iCloud by another route. Reverting therefore requires the grant that was originally avoided; it is not a one-line path swap.
+
+3. **A trap is now documented in the script itself: TCC is evaluated per calling process.** Running `backup.sh` by hand from Terminal tests *Terminal's* grant, not launchd's. A manual run can succeed while the 04:00 scheduled run still fails with exit 3. The comment block at the path definition says so explicitly, because this is exactly the shape of failure that produced the original workaround.
+
+4. **F6 resolved as a side effect.** The header comments previously described the sanctioned path while the code used the prohibited one. Comments now reference `$BACKUP_DIR` / `$LOG_DIR` rather than restating a literal path, so they cannot drift from the variables again.
+
+5. **The other two ADR-019 interim deviations are NOT reverted, and are now recorded as permanent.** The backup runs as `sheldonwheeler` rather than the ADR-020 `dev` account, and under launchd rather than cron. Both were scoped to revert on "Mac Studio setup day"; ADR-043 established that day never arrives, and the `dev` account does not exist on this host (ADR-046 F5). Only the destination was reversible. The script header now states this rather than leaving it implied.
+
+6. **ADR-046 annotated** — status records F1 as decided with remediation partially applied. The ADR remains OPEN; F2 still needs a decision and F3–F5 are unremediated.
+
+### Outstanding — operator actions, not completable from a session
+
+| Action | Why it is yours |
+|--------|-----------------|
+| Grant Full Disk Access to the process launchd spawns for this script | Modifying system/security settings. Requires System Settings → Privacy & Security → Full Disk Access. |
+| Confirm which LaunchAgent schedules the backup | The plist is in `~/Library/LaunchAgents`, a DATA_BOUNDARIES §2 prohibited path — not inspected. |
+| Migrate existing dumps out of `~/Documents/Mac-Mini-Backups-Interim` | Reading or moving files in `~/Documents` is §2 prohibited. Until migrated, backup history is split across two locations and the old one stays populated. |
+| Verify against a real 04:00 scheduled run | Per item 3 — an interactive test does not prove the scheduled context works. |
+
+**Until the TCC grant is in place, the nightly backup will fail with exit 3 and send a Telegram alert.** That is a loud failure rather than a silent one, but it is a live gap: the change was applied before the grant, so tonight's run is at risk if the grant is not completed first.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/scripts/backup.sh` | Destination reverted to ADR-040 §1 sanctioned path; header comments corrected (F6); permanent deviations documented |
+| `~/openclaw/ADR_046.docx` | Status annotated with the F1 decision |
+| `~/openclaw/CURRENT_STATE.md` | F1 moved from "needs decision" to "decided, operator actions outstanding" |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-040 | **Breach remediated in code.** §1 unchanged — the policy was correct; the code was wrong. |
+| ADR-046 | F1 decided; F2–F5 still open. |
+| ADR-019 | Two of three interim deviations confirmed permanent; the third reverted. |
+
+### Risk Assessment
+
+**The change is reversible** — `scripts/backup.sh.bak.pre-adr046-f1` holds the working interim version. If the TCC grant proves impractical, reverting the file restores a functioning backup, and F1 would then be resolved by the Option B route instead (amend ADR-040 §1).
+
+**Sequencing risk, accepted and stated:** the code change landed before the TCC grant. The window between now and the grant is one failed backup, alerted via Telegram.
+
+**Not yet closed:** old dumps remain in the prohibited path. The §2 violation is ended for *new* writes; existing data still sits in `~/Documents` until migrated.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Grant Full Disk Access; verify a scheduled run writes to the sanctioned path | **Before tonight's 04:00 run** |
+| Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` | Soon — closes the §2 exposure completely |
+| Decide ADR-046 F2 — NIST re-assessment scope | Next session |
+| ADR-046 F3–F5 remediation | Per ADR-046 §10 |

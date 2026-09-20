@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 20, 2026 (Entry #032 — dedicated-host assumption audit, ADR-046; live backup-path breach found)
+**Last updated:** September 20, 2026 (Entry #033 — ADR-046 F1 decided; backup reverted to the sanctioned path, TCC grant outstanding)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -55,6 +55,7 @@ Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH)
 - `ADR_036.docx.bak.pre-supersede-2026-09-20` — before the SUPERSEDED marking.
 - `ADR_040.docx.bak.pre-amendment-2026-09-20` — before the ADR-045 amendment annotation.
 - `DATA_BOUNDARIES.md.bak.pre-adr045` — v1, before the v2.0 rewrite.
+- `scripts/backup.sh.bak.pre-adr046-f1` — the working interim version (writes to `~/Documents`). Restores a functioning backup if the TCC grant proves impractical.
 - `CURRENT_STATE.md.bak.pre-entry030` (this file's previous version), `CURRENT_STATE.md.bak.aug20`.
 - `changelog.md.bak.pre-entry030`, `changelog.md.bak.session21`, `changelog.md.bak.pre-entry020`.
 - **All `.bak*` files are gitignored** — they exist on disk only. Anything tracked is recoverable from Git instead: `git show <commit>:path/to/file`.
@@ -110,7 +111,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 ## Active task (in order)
 
 1. **[Next]** Run `generate_brief_review.py` with **no flags** — review-only, side-effect-free — to assess output quality against current content after four weeks of drift, before considering a live send.
-2. **[Next]** **Decide ADR-046 F1** — the backup destination. Running code is in breach of DECIDED policy; this is the only finding with live exposure.
+2. **[Next]** **Grant Full Disk Access and verify a scheduled backup run** — ADR-046 F1 code change is applied but the grant is not; tonight's run fails without it.
 3. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline.
 4. **[Then]** Implement **ADR-045 §8.2 and §8.3** — remove the home-wide `Read` grant; build the traversal-verb hook.
 5. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
@@ -122,7 +123,11 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Top open items
 
-- ⚠️ **BACKUP WRITES TO A PROHIBITED PATH — live since May 17, needs a decision (ADR-046 F1, HIGH).** `scripts/backup.sh` line 34 sets `ICLOUD_ROOT="$HOME/Documents/Mac-Mini-Backups-Interim"`. `~/Documents` is DATA_BOUNDARIES §2 prohibited; ADR-040 §1 sanctions only the iCloud `Mac-Mini-Backups/` path. The script also runs `mkdir -p` and `find … -delete` there. **The header comments at lines 10–12 still describe the compliant path — only line 34 is operative**, which is how it went unseen for four months. It was deliberate (line 33: Desktop/Documents sync avoids a TCC grant). This is the project's own automation, not a transient agent read. **Decide: move to the sanctioned path and grant TCC, or amend ADR-040 §1 to sanction the interim path.** Doing nothing leaves running code in breach of DECIDED policy. *(This also identifies the `Mac-Mini-Backups-Interim` folder carried unresolved since Entry #029 — it is the only backup destination in use.)*
+- ⚠️ **BACKUP PATH — decided and applied in code, TWO OPERATOR ACTIONS OUTSTANDING (ADR-046 F1).** The May 17 interim deviation was **reversed**, not ratified: `scripts/backup.sh` now writes to the ADR-040 §1 sanctioned path `~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups`. **The code change landed before the TCC grant, so tonight's 04:00 run will fail with exit 3 (Telegram alert) unless the grant is completed first.**
+  **You must:** (1) grant **Full Disk Access** to the process launchd spawns for this script — `~/Library/LaunchAgents` is §2-prohibited so the plist was not inspected, you'll need to identify it; (2) migrate and remove the old dumps in `~/Documents/Mac-Mini-Backups-Interim` — §2-prohibited, so not touchable from a session. Until then the §2 exposure is ended for *new* writes only.
+  **Trap, now documented in the script:** TCC is per calling process. A manual Terminal run tests Terminal's grant, not launchd's — it can succeed while the scheduled run still fails. Verify against a real 04:00 run.
+  **Rollback:** `scripts/backup.sh.bak.pre-adr046-f1`. If the grant proves impractical, reverting restores a working backup and F1 resolves via Option B (amend ADR-040 §1) instead.
+  *Two other ADR-019 interim deviations are now permanent and documented as such: runs as `sheldonwheeler` not the ADR-020 `dev` account, and under launchd not cron. Only the destination was reversible.*
 
 - **ADR-032 NIST mapping asserts controls against the absent architecture (ADR-046 F2, HIGH).** AC-11 dismissed as "not meaningful for headless daemon operation" on a laptop with a screen; AC-18 assessed expecting WiFi disabled; SA-2 MET citing 32 GB against 16 GB; AC-6 MET citing an `openclaw` account that does not exist. **AC-11 and AC-18 err toward understating obligation.** Decide whether to re-assess the four named controls or the full Moderate baseline — they were found by targeted search, not review, so others are likely.
 
@@ -181,6 +186,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #033 (Sep 20):** ADR-046 **F1 decided — Option A**. Backup destination reverted from `~/Documents` to the ADR-040 §1 sanctioned iCloud path; F6 resolved with it. Two other ADR-019 deviations confirmed permanent. **TCC grant and old-dump migration are outstanding operator actions.**
 - **Entry #032 (Sep 20):** Dedicated-host assumption audit (**ADR-046**, OPEN). ADR-036 was not a one-off — **11 documents affected across 4 failure modes**. Found a live breach: `scripts/backup.sh` has written to `~/Documents`, a §2-prohibited path, nightly since May 17, with its own header comments still describing the compliant path. Also: ADR-032's NIST mapping asserts controls against the absent architecture, and ADR-033's memory alerts cannot fire on 16 GB. No remediation performed — F1 and F2 need operator decisions.
 - **Entry #031 (Sep 20):** Governance. **ADR-036 SUPERSEDED by ADR-044** — VRAM policy for hardware never acquired; `sysctl iogpu.wired_limit_mb` verified 0, so it was never implemented and no remediation was needed. **ADR-040 AMENDED by ADR-045** — enforcement model, scope language, and a control reclassification: AC-3 downgraded from IMPROVED to NOT MET, with disclosure named as the real compensating control. `DATA_BOUNDARIES.md` → v2.0. Both source ADRs marked in place.
 - **Entry #030 (Sep 20):** Four-week re-entry. Both scraper fixes proven across four weeks of unattended operation — reliability closed. 37 GB reclaimed (Docker images; 11 GB of abandoned git temp packs). **ADR-043 created** — production host platform decided: retain the MacBook Air, no hardware purchase, split the workloads instead. Found **ADR-036 unimplementable**. Git identity corrected from placeholder. **Third DATA_BOUNDARIES §2 breach disclosed.** Commit `7200b8e`.
