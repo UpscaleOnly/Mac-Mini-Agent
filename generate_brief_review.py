@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, v6
+generate_brief_review.py - federal_policy_brief, v7
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -192,6 +192,45 @@ CHANGES FROM v5 (2026-09-20, Entry #037)
      guarantee they never will. If the model tallies anyway, --send stays
      gated -- and that is the correct outcome, not a bug to engineer around.
      A count in the output is a fabrication risk, as 15-vs-18 demonstrated.
+
+
+CHANGES FROM v6 (2026-09-20, Entry #038)
+ 18. Counts are now verified against GROUND TRUTH recomputed from the source
+     rows, which is the deterministic backstop v6's prompt change could not
+     provide. This is the third approach tried in one day; the first two are
+     recorded above and below because the reasoning is the durable part.
+
+     Why a backstop was still needed: v6 forbade tallying in SYSTEM_PROMPT
+     and that worked partially -- SNAP began naming all eighteen states
+     instead of counting them, which is better output, and warnings fell from
+     three to one. But the model still wrote "issued three notices" despite a
+     near-verbatim prohibition. Prompting has now failed three times in this
+     file (markdown v1, arithmetic v2, tallying v6) and the answer every time
+     was a deterministic check, not a firmer instruction.
+
+     How it works: ground_truth_counts() recomputes, from the rows the model
+     was actually given, what the section contains -- documents, notices,
+     rules, agencies, and distinct US states named in titles and abstracts.
+     verify_counts() then has three outcomes per count:
+       (a) ground truth exists and matches   -> VERIFIED, cleared silently.
+           This is the only legitimate way a derived count can pass.
+       (b) ground truth exists and disagrees -> WARNING naming the real
+           figure ("'15 state(s)' is WRONG -- the sources contain 18").
+       (c) no ground truth for that unit     -> WARNING, unverifiable, as
+           before. Durations ("7 days") land here and stay surfaced.
+
+     Nothing is loosened. Pass no truth mapping and every count warns exactly
+     as in v4-v6. A unit whose true count is zero is dropped from the mapping
+     rather than reported as "wrong, 0", so a section that simply has no
+     states says "unverifiable" instead of accusing the model.
+
+     State matching is longest-first with word boundaries, so "West Virginia"
+     does not also match "Virginia" and "Arkansas" does not contain "Kansas".
+     Both cases are unit-tested; both occur in real SNAP titles.
+
+     This is the only approach of the three that catches the 15-vs-18 error,
+     because catching it requires knowing the answer is 18. Tolerance
+     heuristics cannot, and prompts do not reliably prevent it.
 
 """
 
@@ -755,36 +794,128 @@ def _extract_counts(text):
     return counts
 
 
-def verify_counts(label, generated, source_text):
-    """Flag counted quantities in generated prose absent from the source.
+# ----- Ground truth for counts (v7, Entry #038) -----
+#
+# Longest-first so "West Virginia" wins over "Virginia". Word boundaries in
+# the regex keep "Kansas" from matching inside "Arkansas".
+_US_STATES = (
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+    "Connecticut", "Delaware", "District of Columbia", "Florida", "Georgia",
+    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky",
+    "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan",
+    "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
+    "New Hampshire", "New Jersey", "New Mexico", "New York", "North Carolina",
+    "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania",
+    "Puerto Rico", "Rhode Island", "South Carolina", "South Dakota",
+    "Tennessee", "Texas", "Utah", "Vermont", "Virgin Islands", "Virginia",
+    "Washington", "West Virginia", "Wisconsin", "Wyoming",
+)
+_STATE_RE = re.compile(
+    r"\b(" + "|".join(re.escape(s) for s in
+                      sorted(_US_STATES, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
 
-    Returns a list of warning strings. See FALSE POSITIVE NOTE above --
-    small-count flags (e.g. "the three proposed rules") are often the model
-    legitimately counting its inputs, not fabricating.
+_STATE_CANON = {s.lower(): s for s in _US_STATES}
+
+
+def _states_in(text):
+    """Distinct US state / territory names appearing in text."""
+    return {_STATE_CANON[m.group(1).lower()]
+            for m in _STATE_RE.finditer(text or "")}
+
+
+def ground_truth_counts(rows):
+    """Compute what the source documents ACTUALLY contain, per unit.
+
+    This is the deterministic backstop for counts. Unlike currency or dates,
+    an aggregate count cannot be verified by looking it up -- it is derived,
+    so it appears in no single source. It CAN be recomputed from the rows the
+    model was given, which is what this does.
+
+    Returns {unit: actual_count} for units we can establish with confidence.
+    A unit absent from the dict has no ground truth and stays unverifiable.
     """
+    instruments = [r.get("_instrument") or "" for r in rows]
+    titles = " \n".join(
+        f"{r.get('document_title') or ''} {r.get('raw_content') or ''}"
+        for r in rows
+    )
+    truth = {
+        "document": len(rows),
+        "item": len(rows),
+        # Instrument labels are assigned by instrument_type(); every notice
+        # subtype ends in "notice", every rule in "rule".
+        "notice": sum(1 for i in instruments if i.endswith("notice")),
+        "rule": sum(1 for i in instruments if i.endswith("rule")),
+        "agency": len({(r.get("publishing_agency") or "").strip()
+                       for r in rows if (r.get("publishing_agency") or "").strip()}),
+        "state": len(_states_in(titles)),
+    }
+    # A zero here means "the sources mention none", which is a real finding if
+    # the model claims some -- but for units that simply do not apply to this
+    # section, drop them so we report "unverifiable" rather than "wrong, 0".
+    for unit in ("state", "notice", "rule"):
+        if truth[unit] == 0:
+            del truth[unit]
+    return truth
+
+
+def verify_counts(label, generated, source_text, truth=None):
+    """Flag counted quantities in generated prose against ground truth.
+
+    Returns a list of warning strings.
+
+    Three outcomes per count, in order of preference:
+      1. truth has the unit and the number matches -> VERIFIED, no warning.
+         This is the only way a derived count can legitimately clear.
+      2. truth has the unit and the number does NOT match -> WARNING naming
+         the correct figure. This is the case that matters: on 2026-09-20 the
+         model wrote "15 states" where the sources named 18, and no
+         lookup-based or magnitude-based check could catch it (see the
+         FALSE POSITIVE NOTE above for the approach that failed).
+      3. truth has no entry for the unit -> WARNING as before, unverifiable.
+         Durations ("7 days") land here; they are not entity counts and have
+         no ground truth, so they are still surfaced for the operator.
+    """
+    truth = truth or {}
     source_counts = _extract_counts(source_text)
     warnings = []
     for num, unit in sorted(_extract_counts(generated) - source_counts):
-        warnings.append(
-            f"[count] {label}: '{num} {unit}(s)' appears in the generated "
-            f"text but in no source document for this section"
-        )
+        actual = truth.get(unit)
+        if actual is not None:
+            if num == actual:
+                continue  # verified against the documents themselves
+            warnings.append(
+                f"[count] {label}: '{num} {unit}(s)' is WRONG -- the source "
+                f"documents for this section contain {actual}"
+            )
+        else:
+            warnings.append(
+                f"[count] {label}: '{num} {unit}(s)' appears in the generated "
+                f"text but in no source document for this section, and there "
+                f"is no ground truth for '{unit}' -- check it by hand"
+            )
     return warnings
 
 
 # ----- Unified verification entry point -----
 
-def verify_claims(label, generated, source_text):
+def verify_claims(label, generated, source_text, truth=None):
     """Run all four claim verifiers and return collected warnings.
 
     Each warning is a string prefixed with its type ([currency], [date],
     [FR citation], [count]) for easy filtering in review output.
+
+    truth is the ground_truth_counts() mapping for the rows this text was
+    generated from. Omit it and counts revert to unverifiable-and-warned,
+    exactly as v4 through v6 behaved -- the check never silently weakens.
     """
     warnings = []
     warnings.extend(verify_figures(label, generated, source_text))
     warnings.extend(verify_dates(label, generated, source_text))
     warnings.extend(verify_fr_citations(label, generated, source_text))
-    warnings.extend(verify_counts(label, generated, source_text))
+    warnings.extend(verify_counts(label, generated, source_text, truth))
     return warnings
 
 
@@ -1265,7 +1396,8 @@ def main():
               f"({len(area_rows)} doc(s)) via {MODEL}", file=sys.stderr)
         text = synthesize_section(area, area_rows)
         claim_warnings.extend(
-            verify_claims(AREA_HEADING[area], text, docs_block(area_rows))
+            verify_claims(AREA_HEADING[area], text, docs_block(area_rows),
+                          ground_truth_counts(area_rows))
         )
         section_texts.append((area, text))
 
@@ -1273,9 +1405,11 @@ def main():
     print(f"... synthesizing executive summary via {MODEL}", file=sys.stderr)
     exec_summary = synthesize_exec_summary(date_range, section_texts,
                                            rows_by_area)
+    # The summary draws on every document in the window, so its ground truth
+    # is the full row set rather than any one section's.
     claim_warnings.extend(
         verify_claims("EXECUTIVE SUMMARY", exec_summary,
-                       docs_block(rows))
+                       docs_block(rows), ground_truth_counts(rows))
     )
 
     if claim_warnings:
