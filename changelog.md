@@ -2555,3 +2555,89 @@ Each was written by someone competent, read many times, and false. None was caug
 | Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` — now tidiness, not preservation | Operator action |
 | Confirm tonight's 04:00 run writes to `~/openclaw/backups/dumps/` | Tomorrow |
 | Decide ADR-046 F2 — NIST re-assessment scope | Next session |
+
+---
+
+## Entry #036 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Production — first review-only generator run in four weeks. Defect found in `verify_claims()`: correct arithmetic flagged as unverified, blocking the send path.
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **Active Task #1 executed.** `generate_brief_review.py` run with no flags — review-only, no email, no `is_new` flips, no `brief_runs` row. Exit 0. Output committed as `federal_policy_brief_review_2026-09-20.txt`, consistent with the established practice of keeping generator output as version evidence (`20d4951` for v0, `b0000ce` for v4).
+
+2. **Verification came back NOT clean — three warnings, and all three are false positives.**
+
+   ```
+   ! [count] CMS: '1 notice(s)'            — in generated text, in no source document
+   ! [count] CMS: '2 notice(s)'            — in generated text, in no source document
+   ! [count] EXECUTIVE SUMMARY: '18 state(s)' — in generated text, in no source document
+   ```
+
+   Each was checked against the source set and each is arithmetically correct: 18 distinct states are named in the SNAP section and 18 SNAP notices appear in the source attribution addendum; CMS has exactly one notice dated 2026-09-17 and exactly two dated 2026-09-16. **The model counted accurately and `verify_claims()` flagged it as unsourced.**
+
+3. **The defect is structural, not a tuning problem.** `verify_claims()` validates a number by searching for it in source text. That is sound for currency figures, dates, and Federal Register citations, which are *quoted* from documents. It cannot work for **aggregate counts**, which are *derived* from the document set and by construction appear in no single source.
+
+   Consequences, in order of importance:
+
+   - **`--send` is gated on zero warnings, so a live send would be refused today** — correctly by the rule, wrongly on the facts.
+   - The failure recurs **whenever the model counts anything**, which is desirable behaviour in a policy brief, not an aberration.
+   - **It explains why only one brief has ever been sent.** The August 22 content happened to produce no aggregate count; an 18-state SNAP week does. This was not bad luck, it was latent from the moment counts were added to `verify_claims()` in Entry #021.
+   - **`HARD_FAIL_ON_UNVERIFIED` must NOT be flipped to `True` until this is fixed.** Doing so would convert a false positive into a hard abort, and the carried-forward task list said to flip it "after a few more clean runs" — runs that cannot happen while this stands.
+
+4. **Proposed fix, not implemented — approve before building.** The generator already knows the document count for each section, since it passes that count to the synthesis step (`... synthesizing SNAP (18 doc(s))`). A number matching its own section's document count is verifiable arithmetic rather than an unsourced assertion, and can be whitelisted on that basis. This clears the class without weakening the check that caught the fabricated $105M total in Entry #019 — that figure matched no document *and* no section count.
+
+5. **What held up, verified rather than assumed:**
+
+   - **No truncation.** Four sections plus an executive summary completed with an 18-document SNAP section. `NUM_CTX = 8192` is holding; the Entry #018 context-ceiling failure did not recur.
+   - **No fabrication.** Every figure in the output traces to a source or to correct arithmetic.
+   - **Cross-Program filtering works** — 42 routine documents dropped, 27 retained, dropped list printed for review as designed.
+   - **Content quality is good.** The TANF section carries OMB numbers, the 3-year extension, and the 32.71% burden reduction.
+
+6. **Both carried output-polish items confirmed still present.** ISO dates appear in reader-facing prose ("issued a notice on 2026-09-17"), and the executive summary is a single unbroken ~180-word paragraph spanning five agencies.
+
+### Correction recorded — review files are tracked deliberately
+
+An initial reading of `git status` treated the untracked `federal_policy_brief_review_2026-09-20.txt` as a gitignore gap, by analogy with the backup dumps handled in Entry #034. That was wrong. Four earlier review files are already tracked, each committed alongside the generator version that produced it. They are the evidence record for generator behaviour over time, they are small (9.5–23 KB), and gitignoring them would have destroyed a deliberate practice. The new file is committed, not ignored.
+
+**Fourth instance today of a plausible conclusion inverted by checking the mechanism** — after ADR-036's VRAM policy, ADR-033's memory thresholds, and `backup.sh` line 33's iCloud claim. In this case the check was `git ls-files`, and it took ten seconds.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/federal_policy_brief_review_2026-09-20.txt` | **Created** — v5 output, first run in four weeks; evidence for the finding above |
+| `~/openclaw/CURRENT_STATE.md` | Generator section and active tasks updated |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+**No code changed.** The `verify_claims()` fix is proposed and awaiting approval.
+
+### ADRs Affected
+
+| ADR | Relationship |
+|-----|-------------|
+| ADR-039 H4 | The send path it closed is functional but currently gated shut by this defect. Not a reopening — the wiring works; the gate is mis-firing. |
+| ADR-031 | Change management — required log entry. |
+
+### Risk Assessment
+
+**No operational risk from the run itself.** Review-only mode is side-effect-free and was verified as such: nothing emailed, no rows marked processed, no `brief_runs` row written.
+
+**The risk is in what the defect conceals.** A verification gate that produces false positives trains its reader to discount it. Three warnings that are all wrong, in the first run examined after four weeks, is precisely how a genuine fabrication warning gets waved through later. The Entry #019 fabricated total is the reason this check exists.
+
+**Live exposure: none.** The gate fails closed — it blocks sends rather than allowing bad ones. The cost is a pipeline that cannot deliver, not one that delivers wrongly.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| **Fix the `verify_claims()` count check** — whitelist counts matching the section's own document count | Next session; blocks everything below |
+| Re-run review-only and confirm a clean verification | With the above |
+| Then a second `--send` run, building toward the `HARD_FAIL_ON_UNVERIFIED` flip | After two or three clean runs |
+| **Do NOT flip `HARD_FAIL_ON_UNVERIFIED` before the fix** | Standing |
+| Output polish: ISO dates in prose; executive summary length | Opportunistic, both confirmed present |
+| Off-device backup — still the top infrastructure item | Unchanged from Entry #035 |

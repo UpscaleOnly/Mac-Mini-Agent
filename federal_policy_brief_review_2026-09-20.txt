@@ -1,0 +1,81 @@
+FEDERAL POLICY BRIEF
+Coverage: 2026-09-13 to 2026-09-20
+================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+The Health and Human Services Department, Centers for Medicare & Medicaid Services, issued a notice on 2026-09-17 acknowledging DNV Healthcare USA Inc.'s continued recognition, and also published a notice on 2026-09-16 announcing the annual adjustment of the Medicare Appeals AIC threshold amounts to $200 for ALJ hearings and $2,000 for judicial review, effective January 1, 2027. The Agriculture Department, Food and Nutrition Administration, published multiple notices on 2026-09-15 inviting public comment on 18 state demonstration projects under SNAP. For TANF, the Office of Community Services published an information collection request on 2026-09-17 regarding revisions to the Beneficiary Survey, while the Office of Child Support Enforcement published an information collection request on 2026-09-15 seeking a 3-year extension for the MSFIDM. Other significant actions include the Food and Drug Administration's final rule on 2026-09-17 regarding medical device exemptions, and the Social Security Administration's final rule on 2026-09-16 concerning revised medical criteria for cardiovascular disorders, alongside other final rules and notices from multiple federal agencies.
+
+CMS (MEDICAID/CHIP/MEDICARE)
+----------------------------
+A notice issued by the Health and Human Services Department, Centers for Medicare & Medicaid Services, published 2026-09-17, acknowledges the approval of an application from DNV Healthcare USA Inc. (DNV) for continued CMS recognition as a national accrediting organization for hospitals that wish to participate in the Medicare or Medicaid programs.
+
+Two notices were published on 2026-09-16. One notice, concerning the Medicare Program, announces the second biannual Healthcare Common Procedure Coding System (HCPCS) Level II public meeting of 2026. This meeting will discuss CMS preliminary coding, Medicare benefit category, and Medicare payment determinations, if applicable, for new revisions to the HCPCS Level II code set for non-drug and non-biological items and services.
+
+Additionally, a notice regarding Medicare Appeals announces the annual adjustment to the amount in controversy (AIC) threshold amounts for Administrative Law Judge (ALJ) hearings and judicial review under the Medicare appeals process. This adjustment will be effective for requests filed on or after January 1, 2027. The calendar year 2027 AIC threshold amounts are $200 for ALJ hearings and $2,000 for judicial review.
+
+SNAP
+----
+Multiple notices were published on 2026-09-15 from the Agriculture Department, Food and Nutrition Administration. These notices concern various state demonstration projects under the Supplemental Nutrition Assistance Program.
+
+Specifically, the Food and Nutrition Administration issued a notice for each of the following states: North Dakota, Virginia, Nevada, Wyoming, Missouri, Texas, Arkansas, Florida, Hawaii, Idaho, Kansas, Oklahoma, Montana, Utah, Indiana, Louisiana, South Carolina, and Ohio.
+
+Each notice is an invitation to the public to comment on a state's demonstration project. These projects are authorized under section 17(b) of the Food and Nutrition Act of 2008, 7 U.S.C. 2026(b). The notices state that the Food and Nutrition Administration will take appropriate action as necessary in response to public comments.
+
+TANF
+----
+Two information collection requests were published by the Health and Human Services Department, Children and Families Administration.
+
+Regarding data collection, the Office of Community Services (OCS), Administration for Children and Families (ACF), published an information collection request on 2026-09-17 concerning the Diaper Distribution Demonstration and Research Pilot (DDDRP). This collection, identified by OMB #: 0970-0642, proposes continuing data collection to understand diaper need and outcomes. While no changes are proposed to the Beneficiary Report, OCS is proposing revisions to the Beneficiary Survey and adding a new Organizational Survey.
+
+Separately, the Office of Child Support Enforcement (OCSE), Administration for Children and Families (ACF), published an information collection request on 2026-09-15 seeking a 3-year extension for the Multistate Financial Institution Data Match (MSFIDM) with Federally Assisted State Transmitted (FAST) Levy. This extension covers OMB #: 0970-0196, which expires January 31, 2027. OCSE revised the MSFIDM handbook and the FAST Levy record specifications, and burden estimates were reduced by 32.71 percent.
+
+CROSS-PROGRAM
+-------------
+The Food and Drug Administration published a final rule on 2026-09-17 concerning medical devices, setting forth its final determination regarding a partial exemption from premarket notification requirements for radiology computer-aided detection and/or diagnosis devices and computer-aided triage and notification devices. This order follows the FDA's denial, issued on April 1, 2026, of a petition that sought exemption for specific generic device types, including medical image analyzers and radiological computer-assisted diagnostic software for lesions suspicious of cancer.
+
+The Social Security Administration issued a final rule on 2026-09-16 regarding revised medical criteria for evaluating cardiovascular disorders. Separately, the Treasury Department published a notice of public hearing on a proposed rule on 2026-09-16. This proposed rule, which updates existing regulations, would state that a private school is not exempt from Federal income tax if it discriminates on the basis of race, color, or national or ethnic origin in administration of its educational, admissions, scholarship, athletic, or other policies.
+
+Other recent actions include a final rule published by the Agriculture Department's Agricultural Marketing Service on 2026-09-18. This rule amends the pricing provisions in the 11 Federal Milk Marketing Orders (FMMOs), specifically correcting the Class I differential in Morgan County, Ohio, and removing Shannon County, South Dakota, from the Class I Differential table.
+
+SOURCE ATTRIBUTION ADDENDUM
+===========================
+
+CMS (Medicaid/CHIP/Medicare)
+----------------------------
+  - (notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicare and Medicaid Programs; Application From DNV Healthcare USA Inc. (DNV) for Continued CMS-Approval of its Hospital Accreditation Program (2026-09-17)
+  - (notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicare Program; Public Meeting for New Revisions to the Healthcare Common Procedure Coding System (HCPCS) Level II Coding (2026-09-16)
+  - (notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicare Program; Medicare Appeals; Adjustment to the Amount in Controversy Threshold Amounts for Calendar Year 2027 (2026-09-16)
+
+SNAP
+----
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of North Dakota SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Virginia SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Nevada SNAP Demonstration Project Request (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Wyoming SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Missouri SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Texas SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Arkansas SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Florida SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Hawaii SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Idaho SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Kansas SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Oklahoma SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Montana SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Utah SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Indiana SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Louisiana SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of South Carolina SNAP Demonstration Project (2026-09-15)
+  - (notice) Agriculture Department, Food and Nutrition Administration - Supplemental Nutrition Assistance Program: State of Ohio SNAP Demonstration Project (2026-09-15)
+
+TANF
+----
+  - (information collection request) Health and Human Services Department, Children and Families Administration - Proposed Information Collection Activity; Diaper Distribution Demonstration and Research Pilot Beneficiary and Organizational Survey and Beneficiary Report (2026-09-17)
+  - (information collection request) Health and Human Services Department, Children and Families Administration - Proposed Information Collection Activity; Multistate Financial Institution Data Match With Federally Assisted State Transmitted Levy (2026-09-15)
+
+Cross-Program
+-------------
+  - (final rule) Agriculture Department, Agricultural Marketing Service - Milk in the Northeast and Other Marketing Areas; Uniform Pricing Formula Provisions (2026-09-18)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Medical Devices; Exemption From Premarket Notification: Radiology Computer-Aided Detection and/or Diagnosis Devices and Computer-Aided Triage and Notification Devices (2026-09-17)
+  - (final rule) Social Security Administration - Revised Medical Criteria for Evaluating Cardiovascular Disorders (2026-09-16)
+  - (proposed rule) Treasury Department, Internal Revenue Service - Racial Nondiscrimination in Private Schools; Hearing (2026-09-16)

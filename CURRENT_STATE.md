@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 20, 2026 (Entry #035 — correction: no off-device backup has existed since May 17)
+**Last updated:** September 20, 2026 (Entry #036 — review-only run: verify_claims count check produces false positives, blocking the send path)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -104,13 +104,20 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 - **Gated on `verify_claims()` returning zero warnings.** An unverified claim blocks the email entirely — independent of the `HARD_FAIL_ON_UNVERIFIED` switch, which governs only review-mode print-vs-abort.
 - `is_new` flips **only after a successful send**, so a failed send leaves rows eligible for retry rather than silently dropping them.
 
-`HARD_FAIL_ON_UNVERIFIED` is still **`False`** (line ~195).
+`HARD_FAIL_ON_UNVERIFIED` is still **`False`** (line ~195). 🔴 **DO NOT flip it to `True` until the count defect below is fixed** — it would convert a false positive into a hard abort.
 
-⚠️ **The pipeline has delivered exactly one brief, ever** — the August 22 verification send (24 documents, verification `clean`, one `brief_runs` row). Four weeks of content has accumulated behind it. This also blocks the `HARD_FAIL_ON_UNVERIFIED` flip, which is gated on "a few more clean `--send` runs" that have not happened.
+🔴 **`verify_claims()` count check is defective — it blocks the send path (Entry #036).** The September 20 run produced three warnings and **all three were arithmetically correct**: "18 state(s)" (18 states named, 18 SNAP source notices), and CMS "1 notice"/"2 notices" (one dated 09-17, two dated 09-16). The check validates a number by searching for it in source text — sound for currency, dates and FR citations, which are *quoted*, but impossible for **aggregate counts**, which are *derived* and appear in no single source.
+**This is why only one brief has ever been sent.** August 22's content happened to produce no aggregate count; an 18-state SNAP week does. Latent since counts were added in Entry #021.
+**Proposed fix (approve before building):** the generator already computes each section's document count — it prints it (`synthesizing SNAP (18 doc(s))`). A number matching its own section count is verifiable arithmetic and can be whitelisted on that basis. This does not weaken the check that caught the fabricated $105M in Entry #019, which matched neither a document nor a section count.
+**The gate fails closed** — it blocks sends rather than allowing bad ones. The cost is a pipeline that cannot deliver, not one that delivers wrongly.
+
+⚠️ **The pipeline has delivered exactly one brief, ever** — the August 22 verification send (24 documents, verification `clean`, one `brief_runs` row). The reason is now understood and it is not neglect: the count defect above makes clean verification unlikely on any week where the model counts something. Fix that first.
+
+**Run evidence is version-controlled.** `federal_policy_brief_review_*.txt` files are tracked deliberately, each committed alongside the generator version that produced it (`20d4951` v0, `b0000ce` v4, and now the v5 run). Do **not** gitignore them — they are the behavioural record.
 
 ## Active task (in order)
 
-1. **[Next]** Run `generate_brief_review.py` with **no flags** — review-only, side-effect-free — to assess output quality against current content after four weeks of drift, before considering a live send.
+1. **[Next]** 🔴 **Fix the `verify_claims()` count check** — see the generator section. It blocks the send path and blocks the `HARD_FAIL_ON_UNVERIFIED` flip. Proposed fix is written up; approve before building. *(The review-only run that found this is DONE — Entry #036.)*
 2. **[Next]** 🔴 **Establish an off-device backup** — none has existed since May 17; this is a four-month gap, not a new one.
 3. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline.
 4. **[Then]** Implement **ADR-045 §8.2 and §8.3** — remove the home-wide `Read` grant; build the traversal-verb hook.
@@ -187,6 +194,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #036 (Sep 20):** First review-only run in four weeks (exit 0, no truncation at `NUM_CTX=8192` with an 18-doc section, no fabrication). **Found `verify_claims()` flags correct arithmetic as unverified** — all three warnings were right; aggregate counts are derived, not quoted, so the check cannot validate them. This is why only one brief has ever sent. Fix proposed, not built. Also corrected a wrong call of mine: review `.txt` files are tracked deliberately, not a gitignore gap.
 - **Entry #035 (Sep 20):** **Correction.** Entry #034 called the loss of off-device backup a regression from Option C. It was not — "Desktop & Documents" sync is off, so `~/Documents` was never an iCloud destination and **no off-device backup has existed since May 17**. `backup.sh` line 33 was false from the day it was written. Third instance today of *documented, plausible, and wrong*.
 - **Entry #034 (Sep 20):** ADR-046 **F1 RESOLVED — Option C**: backups moved to `~/openclaw/backups`, sanctioned by ADR-040 §1, no TCC grant needed. **Reverses Entry #033's Option A** — granting FDA to `/bin/bash` would have exposed every §2-prohibited path to every shell script. Caught that `.gitignore` had no backup pattern before dumps could reach GitHub. Verified by live run. Accepted weakness: no off-device copy.
 - **Entry #033 (Sep 20):** ADR-046 **F1 decided — Option A**. Backup destination reverted from `~/Documents` to the ADR-040 §1 sanctioned iCloud path; F6 resolved with it. Two other ADR-019 deviations confirmed permanent. **TCC grant and old-dump migration are outstanding operator actions.**
