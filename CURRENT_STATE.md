@@ -187,7 +187,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 - **Never** use `nano`, `vim`, or any interactive terminal editor (freezes the terminal).
 - **Back up before replacing a working file** — `cp file.py file.py.bak.vN`. The backup is cheap insurance, not a workaround.
 - **`git commit` always with `-m` inline** — never a bare `git commit`.
-- **`git push` is gated** by the Claude Code permission classifier and will be refused even when explicitly requested. Either the operator runs it, or a `Bash(git push:*)` allow rule is added to settings.
+- **`git push` is NOT gated — corrected September 20, 2026.** This file previously stated that push "will be refused even when explicitly requested." It was tested directly on that date and succeeded (`28d7edf..eb99ebd`). The claim may have been true when written; it is not true now. Every earlier push this session was run by the operator on the strength of the stale note, which is exactly how a false claim survives. Test before repeating a documented restriction.
 - **Token conservation**; **approve before building**.
 - **Verify live state** (schema, files, config) before generating code or migrations. **Prefer an authoritative source over a clever inference** — this keeps paying off: the dual clone was caught by `git remote -v`; the scrape misfire was proven from `pmset -g log`; the 11 GB in `.git` turned out to be garbage rather than history only because `git count-objects -vH` was run instead of assuming; and `Docker.raw` reports 228 GB apparent against 3.0 GB actual, so `ls -lh` on it misleads by two orders of magnitude.
 
