@@ -2705,3 +2705,77 @@ Same enforce-twice pattern the file already uses for `to_plain_text()` (markdown
 | Re-run and confirm clean verification before any `--send` | After the above |
 | **Do NOT flip `HARD_FAIL_ON_UNVERIFIED`** until verification runs clean twice | Standing |
 | Off-device backup — unchanged top infrastructure item | Unchanged |
+
+---
+
+## Entry #038 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Generator v7 — ground-truth count verification. First clean verification since August 22; `--send` is no longer gated.
+
+**Commits:** `6e3f1ca`, `39b0987`; this entry
+
+### Result
+
+**Verification came back clean.** No `UNVERIFIED CLAIMS` block. This is the first clean run since the August 22 send, and it means `--send` is ungated for the first time in a month.
+
+The absence of warnings was not taken at face value — the output was audited independently. The entire brief contains exactly **one** counted quantity: "issued three notices" about CMS, which holds exactly three. Correct, and genuinely verified rather than merely unflagged. Everything else avoids counting: SNAP enumerates all eighteen states by name, the remainder reads "multiple notices" with no figure.
+
+### Three approaches in one day, two of them wrong
+
+The reasoning is the durable part, so all three are recorded.
+
+| Approach | Outcome |
+|---|---|
+| **Tolerance** — treat a count ≤ the section's document count as a non-blocking note | **Reverted within the hour.** On its first run the model wrote "15 states" where sources named 18, and the rule demoted that fabrication to a note. Passed a real error while still blocking on "seven days", a duration. Strictly worse than v5. |
+| **Prompt prohibition** — forbid tallying in `SYSTEM_PROMPT` | **Kept.** Warnings 3 → 1, and better output: SNAP names all eighteen states instead of counting them, which tells the reader more. Did not fully hold — the model still wrote "issued three notices" against a near-verbatim prohibition. |
+| **Ground truth** — recompute counts from the source rows | **Current.** The only approach that catches 15-vs-18, because catching it requires knowing the answer is 18. |
+
+`ground_truth_counts()` recomputes documents, notices, rules, agencies and distinct US states from the rows the model was handed. `verify_counts()` then verifies a match, warns with the real figure on a mismatch, or warns as unverifiable when no ground truth exists — which is where durations still land.
+
+### The first v7 run failed, and the unit tests had passed
+
+v7 was committed (`6e3f1ca`) flagged **"unit-tested only, full run in flight."** That framing was correct: the run then produced
+
+```
+! [count] EXECUTIVE SUMMARY: '3 notice(s)' is WRONG -- the source documents contain 21
+```
+
+The model was right and the checker was wrong. "CMS issued three notices" is a **section-scoped claim inside a global context**: true of CMS, false of the window, with nothing in the text saying which scope applies. Ground truth for the summary had been computed over all 27 rows.
+
+The unit tests passed because they tested the wrong shape — always one section's truth, never the summary's ambiguity.
+
+`acceptable_counts()` fixes it for the summary only: a count is acceptable if true of the whole window **or** of any single section (here, notices ∈ {3, 18, 21}). Deliberately wider than a per-section check, since the summary cannot be attributed to one section without parsing it — but a number matching nothing is still caught. Per-section checks remain exact. Committed `39b0987`.
+
+### Coverage gap found while auditing the clean run
+
+The summary also says "published **two** information collection requests." TANF has exactly two, so it is correct — **but nothing checked it.** `_UNIT_PAIRS` has no `request` entry, so ICR counts are invisible to `verify_counts()`. It passed by not being examined, not by being verified.
+
+Recorded rather than fixed, because the fix needs its own verification run. This is the same failure shape as everything else today: a number that looks checked and isn't.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/generate_brief_review.py` | v6 → **v7**: `ground_truth_counts()`, `acceptable_counts()`, `verify_counts()` accepts int or set |
+| `~/openclaw/federal_policy_brief_review_2026-09-20.txt` | Clean v7 run output |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `~/openclaw/CURRENT_STATE.md` | Send path unblocked; coverage gap recorded |
+
+### Risk Assessment
+
+**Nothing was loosened to reach clean.** Pass no truth mapping and every count warns exactly as v4–v6. A unit whose true count is zero is dropped from the mapping rather than reported as "wrong, 0". `verify_figures()`, `verify_dates()` and the FR-citation check are untouched.
+
+**The widened summary check is the one real trade.** Accepting any section's count means a number that is true of the wrong section passes — "three notices" would verify even if the model had meant SNAP. Accepted because the alternative is the false positive that blocked the send path, and a number true of no section is still caught.
+
+**`--send` is now ungated but has not been exercised.** The next live send will be only the second ever. `HARD_FAIL_ON_UNVERIFIED` should stay `False` until at least two more clean runs.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Add `request` to `_UNIT_PAIRS` with ground truth from instrument labels — closes the ICR gap | Soon |
+| A second `--send` run, building toward the `HARD_FAIL_ON_UNVERIFIED` flip | When convenient |
+| **Do NOT flip `HARD_FAIL_ON_UNVERIFIED`** until two further clean runs | Standing |
+| Off-device backup — unchanged top infrastructure item | Unchanged |
