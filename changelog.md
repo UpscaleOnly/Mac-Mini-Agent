@@ -2641,3 +2641,67 @@ An initial reading of `git status` treated the untracked `federal_policy_brief_r
 | **Do NOT flip `HARD_FAIL_ON_UNVERIFIED` before the fix** | Standing |
 | Output polish: ISO dates in prose; executive summary length | Opportunistic, both confirmed present |
 | Off-device backup — still the top infrastructure item | Unchanged from Entry #035 |
+
+---
+
+## Entry #037 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Generator v6 — derived counts forbidden at the prompt. One fix implemented, one implemented-and-reverted the same hour.
+
+**Commits:** this entry
+
+### The defect
+
+`verify_claims()` validates a number by finding it in source text. Sound for currency, dates and FR citations, which are **quoted**. Impossible for aggregate counts, which are **derived** from the document set and appear in no single source. v4 knew and chose to flag them, correctly, when a warning cost a glance. v5 then hard-gated `--send` on zero warnings, silently converting known noise into a blocker — which is why only one brief has ever been sent.
+
+### The fix that was tried and reverted
+
+Treat a count at or below the section's document count as a non-blocking note, on the theory that the model cannot count more items than it was handed. Implemented, run, reverted within the hour.
+
+**On its first run the model wrote "SNAP demonstration projects in 15 states" where the sources named 18** — and the new rule demoted that fabrication from a blocking warning to an informational note, because 15 fell below the document count. It also still warned on "within the last seven days", a duration rather than an entity count. **Net: it passed a real error and still blocked on a non-error. Strictly worse than v5.**
+
+What that proved is the valuable part. **Two runs over identical input produced 18 (right) and 15 (wrong).** The model genuinely fabricates counts; the strict check was catching a live failure mode, not noise. And no magnitude heuristic can separate 15 from 18 — only ground truth can, and the verifier has none. The v4 author's instinct was sounder than it looked.
+
+### The fix applied
+
+Remove the counts at the source. `SYSTEM_PROMPT` — shared by section synthesis and the executive summary through `ollama_chat()` — now forbids tallying inputs at all: name the items, or describe them with no number. It cites the 15-vs-18 failure directly, and separately forbids restating the coverage window as a duration. `verify_counts()` is left strict and untouched.
+
+Same enforce-twice pattern the file already uses for `to_plain_text()` (markdown) and `verify_figures()` (currency): prompt against it, detect it anyway.
+
+### Result — improvement, not resolution
+
+**Count warnings went 3 → 1, and output quality improved.** SNAP now reads *"demonstration projects for North Dakota, Virginia, Nevada… and Ohio"* — all eighteen named. That is strictly better than "18 states": the reader learns which states, and there is no derived number to be wrong.
+
+**The surviving warning: `[count] EXECUTIVE SUMMARY: '3 notice(s)'`** — from "issued three notices". CMS has exactly three notices, so it is **correct**, but it is still a tally, and the prompt forbade that in near-verbatim terms ("three notices were published" was the worked example). The model complied where enumeration was natural and ignored the rule where it wasn't.
+
+**`--send` therefore remains gated.** That is reported as a result, not a defect: the gate is doing its job, and the run is one correct-but-forbidden tally away from clean.
+
+**Prompting has now failed three times in this file's history** — markdown in v1, arithmetic in v2, tallying in v6. The established answer each time was a deterministic backstop, not a stronger prompt. For counts, that backstop is ground truth: compute the distinct entity count from the section's source titles and check the model's number against it. That is the next step, and it is the only approach that catches 15-vs-18.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/generate_brief_review.py` | v5 → **v6**. `SYSTEM_PROMPT` forbids tallying and coverage-window durations. Verifier untouched. Docstring records both the rejected and applied fixes. |
+| `~/openclaw/federal_policy_brief_review_2026-09-20.txt` | v6 run output (replaces the v5 output, recoverable at `28d7edf`) |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `~/openclaw/CURRENT_STATE.md` | Generator status and active tasks updated |
+
+### Risk Assessment
+
+**No loosening of any check.** `verify_counts()`, `verify_figures()`, `verify_dates()` and the FR-citation check are byte-identical to v5. The only behavioural change is what the model is told not to write.
+
+**The reverted approach would have been a real safety regression**, and it was caught only because the very first run after it happened to produce a wrong count. That is luck, not process. Worth noting: the change carried an accurate comment describing exactly the risk that then materialised — writing the risk down did not prevent shipping it. Running it did.
+
+**Rollback:** `generate_brief_review.py.bak.v5`.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| **Ground-truth count verification** — compute distinct entities from source titles, compare against the model's number. The only approach that catches a plausible-but-wrong count | Next session |
+| Re-run and confirm clean verification before any `--send` | After the above |
+| **Do NOT flip `HARD_FAIL_ON_UNVERIFIED`** until verification runs clean twice | Standing |
+| Off-device backup — unchanged top infrastructure item | Unchanged |

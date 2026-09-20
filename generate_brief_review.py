@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, v5
+generate_brief_review.py - federal_policy_brief, v6
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -149,6 +149,50 @@ UPSTREAM DEFECT RESOLVED (2026-08-20)
   fixed in app/scheduling/scrapers/federal_register.py, and the 15 banked rows
   were relabeled. The "document" entry in HIGH_SIGNAL that worked around it
   has been removed.
+
+CHANGES FROM v5 (2026-09-20, Entry #037)
+ 17. Derived counts are now forbidden in the system prompt, not tolerated in
+     the verifier. This closes a defect that had silently gated --send shut
+     since v5, and it records a rejected fix because the reasoning matters.
+
+     The defect: verify_claims() validates a number by finding it in source
+     text. That works for currency, dates and FR citations, which are QUOTED.
+     Aggregate counts are DERIVED from the document set and appear in no
+     single source, so they always flag. v4 knew and chose to flag them --
+     correct when a warning cost a glance. v5 then hard-gated --send on zero
+     warnings, turning known noise into a blocker. The Sept 20 run produced
+     three count warnings, all three arithmetically correct, and a live send
+     would have been refused. Only one brief has ever been sent; this is why.
+
+     THE FIX THAT WAS TRIED AND REVERTED: treat a count at or below the
+     section's document count as a non-blocking note, on the theory that the
+     model cannot count more items than it was handed. It was implemented,
+     run, and reverted the same hour. On its first run the model wrote "SNAP
+     demonstration projects in 15 states" where the sources named 18 -- and
+     the new rule demoted that fabrication from a blocking warning to an
+     informational note, because 15 was below the document count. It also
+     still warned on "within the last seven days", a duration rather than an
+     entity count. Net: it passed a real error and still blocked on a
+     non-error. Strictly worse than v5.
+
+     What that proved is the useful part: the model DOES fabricate counts.
+     Two runs over identical input produced 18 (right) and 15 (wrong). The
+     strict check was catching a live failure mode, not just noise, and no
+     magnitude heuristic can separate 15 from 18 -- only ground truth can,
+     and the verifier has none.
+
+     THE FIX APPLIED: remove the counts at the source. SYSTEM_PROMPT now
+     forbids tallying inputs at all -- name the items or describe them with
+     no number -- and forbids restating the coverage window as a duration.
+     verify_counts() is left strict and untouched. This is the same
+     enforce-twice pattern as to_plain_text() and verify_figures(): prompt
+     against it, and detect it if it happens anyway.
+
+     Honest expectation: this reduces how often counts appear; it does not
+     guarantee they never will. If the model tallies anyway, --send stays
+     gated -- and that is the correct outcome, not a bug to engineer around.
+     A count in the output is a fabrication risk, as 15-vs-18 demonstrated.
+
 """
 
 import argparse
@@ -400,6 +444,18 @@ SYSTEM_PROMPT = (
     "separately or not at all; do NOT report their sum. Report every number, "
     "dollar amount, date and count exactly as a single source document states "
     "it. An invented total is a factual error even when it looks plausible.\n\n"
+    "NEVER TALLY THE INPUTS. Counting the documents you were given is "
+    "arithmetic, and you get it wrong. Do not write how many states, notices, "
+    "rules, agencies, programs or documents a section contains -- not as a "
+    "digit and not as a word. Do not write 'in 15 states', 'three notices "
+    "were published', or 'several dozen items'. Name the items, or describe "
+    "them with no number at all: 'notices for North Dakota, Virginia and "
+    "Nevada, among others' is correct; 'notices for 18 states' is not. This "
+    "is not hypothetical -- on one production run you reported 15 states "
+    "where the sources named 18. If a source document itself states a count, "
+    "you may report that count exactly as that document states it. Do not "
+    "restate the brief's coverage period as a duration either ('within the "
+    "last seven days'); the coverage dates are printed above your text.\n\n"
     "INSTRUMENT FIDELITY IS MANDATORY. Every document is given to you with an "
     "explicit instrument label in parentheses. You must characterize each "
     "document by that instrument, naming the acting agency, and never soften "

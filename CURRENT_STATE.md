@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 20, 2026 (Entry #036 — review-only run: verify_claims count check produces false positives, blocking the send path)
+**Last updated:** September 20, 2026 (Entry #037 — generator v6: derived counts forbidden at the prompt; send path improved but still gated)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -94,7 +94,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## federal_policy_brief — where the generator stands
 
-`~/openclaw/generate_brief_review.py` is at **v5**. Rollbacks preserved: `.bak.v4`, `.bak.v3`, `.bak.v2`, `.bak.v0`.
+`~/openclaw/generate_brief_review.py` is at **v6**. Rollbacks preserved: `.bak.v5`, `.bak.v4`, `.bak.v3`, `.bak.v2`, `.bak.v0`.
 
 **Default mode (no flags) remains review-only and side-effect-free** — sends nothing, marks nothing processed, writes no `brief_runs` row, safe to re-run indefinitely. Verified byte-identical to v4 on that path.
 
@@ -106,10 +106,9 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 `HARD_FAIL_ON_UNVERIFIED` is still **`False`** (line ~195). 🔴 **DO NOT flip it to `True` until the count defect below is fixed** — it would convert a false positive into a hard abort.
 
-🔴 **`verify_claims()` count check is defective — it blocks the send path (Entry #036).** The September 20 run produced three warnings and **all three were arithmetically correct**: "18 state(s)" (18 states named, 18 SNAP source notices), and CMS "1 notice"/"2 notices" (one dated 09-17, two dated 09-16). The check validates a number by searching for it in source text — sound for currency, dates and FR citations, which are *quoted*, but impossible for **aggregate counts**, which are *derived* and appear in no single source.
-**This is why only one brief has ever been sent.** August 22's content happened to produce no aggregate count; an 18-state SNAP week does. Latent since counts were added in Entry #021.
-**Proposed fix (approve before building):** the generator already computes each section's document count — it prints it (`synthesizing SNAP (18 doc(s))`). A number matching its own section count is verifiable arithmetic and can be whitelisted on that basis. This does not weaken the check that caught the fabricated $105M in Entry #019, which matched neither a document nor a section count.
-**The gate fails closed** — it blocks sends rather than allowing bad ones. The cost is a pipeline that cannot deliver, not one that delivers wrongly.
+🟡 **Derived counts — improved in v6, not resolved (Entry #037).** `verify_claims()` cannot validate aggregate counts: it looks a number up in source text, and derived counts appear in no source. v6 attacks this at the prompt — `SYSTEM_PROMPT` forbids tallying inputs, so SNAP now **names all 18 states** rather than counting them, which is better output as well as safer. **Count warnings went 3 → 1.** The survivor is "issued three notices" (correct — CMS has three — but still a tally). **`--send` remains gated.**
+  ⛔ **A rejected fix is recorded because it nearly shipped a regression.** Treating counts ≤ the section's document count as non-blocking notes was implemented and reverted within the hour: on its first run the model wrote "15 states" where sources named 18, and the new rule demoted that fabrication to a note. Two runs, identical input, 18 (right) and 15 (wrong) — **the model does fabricate counts, and no magnitude heuristic separates 15 from 18.** Do not re-attempt tolerance-based approaches.
+  **Next step is ground truth:** compute distinct entities from the section's source titles and compare. That is the only approach that catches a plausible-but-wrong count. Prompting has now failed three times in this file (markdown v1, arithmetic v2, tallying v6); the answer each time was a deterministic backstop.
 
 ⚠️ **The pipeline has delivered exactly one brief, ever** — the August 22 verification send (24 documents, verification `clean`, one `brief_runs` row). The reason is now understood and it is not neglect: the count defect above makes clean verification unlikely on any week where the model counts something. Fix that first.
 
@@ -117,7 +116,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Active task (in order)
 
-1. **[Next]** 🔴 **Fix the `verify_claims()` count check** — see the generator section. It blocks the send path and blocks the `HARD_FAIL_ON_UNVERIFIED` flip. Proposed fix is written up; approve before building. *(The review-only run that found this is DONE — Entry #036.)*
+1. **[Next]** **Ground-truth count verification** — compute distinct entities from source titles and check the model's number against it. v6's prompt fix got warnings 3 → 1; this is what closes the gap. *(Do not re-attempt tolerance-based approaches — see the generator section.)*
 2. **[Next]** 🔴 **Establish an off-device backup** — none has existed since May 17; this is a four-month gap, not a new one.
 3. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline.
 4. **[Then]** Implement **ADR-045 §8.2 and §8.3** — remove the home-wide `Read` grant; build the traversal-verb hook.
@@ -194,6 +193,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #037 (Sep 20):** Generator **v6** — `SYSTEM_PROMPT` forbids tallying inputs. SNAP now names all 18 states instead of counting them; count warnings 3 → 1; `--send` still gated by one correct-but-forbidden tally. **A tolerance-based fix was implemented and reverted the same hour** after it demoted a real "15 states" fabrication (sources said 18) to a non-blocking note. Verifier untouched.
 - **Entry #036 (Sep 20):** First review-only run in four weeks (exit 0, no truncation at `NUM_CTX=8192` with an 18-doc section, no fabrication). **Found `verify_claims()` flags correct arithmetic as unverified** — all three warnings were right; aggregate counts are derived, not quoted, so the check cannot validate them. This is why only one brief has ever sent. Fix proposed, not built. Also corrected a wrong call of mine: review `.txt` files are tracked deliberately, not a gitignore gap.
 - **Entry #035 (Sep 20):** **Correction.** Entry #034 called the loss of off-device backup a regression from Option C. It was not — "Desktop & Documents" sync is off, so `~/Documents` was never an iCloud destination and **no off-device backup has existed since May 17**. `backup.sh` line 33 was false from the day it was written. Third instance today of *documented, plausible, and wrong*.
 - **Entry #034 (Sep 20):** ADR-046 **F1 RESOLVED — Option C**: backups moved to `~/openclaw/backups`, sanctioned by ADR-040 §1, no TCC grant needed. **Reverses Entry #033's Option A** — granting FDA to `/bin/bash` would have exposed every §2-prohibited path to every shell script. Caught that `.gitignore` had no backup pattern before dumps could reach GitHub. Verified by live run. Accepted weakness: no off-device copy.
