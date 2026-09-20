@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 20, 2026 (Entry #034 — ADR-046 F1 RESOLVED via Option C; backups now in ~/openclaw, no TCC grant)
+**Last updated:** September 20, 2026 (Entry #035 — correction: no off-device backup has existed since May 17)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -111,7 +111,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 ## Active task (in order)
 
 1. **[Next]** Run `generate_brief_review.py` with **no flags** — review-only, side-effect-free — to assess output quality against current content after four weeks of drift, before considering a live send.
-2. **[Next]** **Add an off-device backup copy** — backups are now same-disk only; this is the accepted weakness from ADR-046 F1 Option C.
+2. **[Next]** 🔴 **Establish an off-device backup** — none has existed since May 17; this is a four-month gap, not a new one.
 3. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline.
 4. **[Then]** Implement **ADR-045 §8.2 and §8.3** — remove the home-wide `Read` grant; build the traversal-verb hook.
 5. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
@@ -126,7 +126,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 - ✅ **BACKUP PATH — RESOLVED September 20 (ADR-046 F1, Option C).** Backups now write to `~/openclaw/backups`, already sanctioned by ADR-040 §1 — no boundary crossing, no TCC grant, no policy amendment. **Verified by live run:** 148 KB dump, `gunzip -t` clean, 39 table/data statements, invisible to git.
   **Option A (grant TCC) was chosen first and reversed.** TCC attributes access to the *executing binary*, so for a shell script the grant target is `/bin/bash` — which would give every bash script on the machine full read/write access to `~/Documents`, `~/Desktop` and the FTI-bearing iCloud root. Broader exposure than the violation it fixed. TCC also cannot be automated: `tccutil` only resets, the databases are SIP-protected, and PPPC profiles need MDM (this host is not enrolled).
   **Two follow-ups remain:**
-  1. ⚠️ **No off-device copy.** Same-disk backups survive corruption, a bad migration or a dropped table — **not disk failure or loss of the machine.** Both previous destinations were off-device, so this is a real resilience regression traded for compliance. The dump is 148 KB; a network target must clear the ADR-030 egress whitelist first. **Most important open item from this thread.**
+  1. 🔴 **NO OFF-DEVICE BACKUP — and there has not been one since May 17 (Entry #035 correction).** "Desktop & Documents Folders" sync is **OFF** on this host: `~/Documents` is a plain local directory, and the symlink in the CloudDocs container points *outward* at it, which iCloud does not follow. `scripts/backup.sh` line 33 claimed "same iCloud destination" and was false from the day it was written. **Every nightly dump for four months went to the same physical disk as the database.** Option C cost nothing — this gap pre-dates it. A disk failure or lost laptop takes the database and all its backups together. Data is public Federal Register content and re-scrapable, but `brief_runs` history and ~5 months of curation are not. **148 KB per dump — fix with `scp`/`rsync` to a remote host, a private repo (ADR-030 egress applies), or an external drive. Verify by checking the destination, not by reading a comment.**
   2. **Old dumps still in `~/Documents/Mac-Mini-Backups-Interim`** — operator action, §2-prohibited so not touchable from a session. §2 is closed for new writes only.
   **Rollback:** `scripts/backup.sh.bak.pre-adr046-f1`.
 
@@ -187,6 +187,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #035 (Sep 20):** **Correction.** Entry #034 called the loss of off-device backup a regression from Option C. It was not — "Desktop & Documents" sync is off, so `~/Documents` was never an iCloud destination and **no off-device backup has existed since May 17**. `backup.sh` line 33 was false from the day it was written. Third instance today of *documented, plausible, and wrong*.
 - **Entry #034 (Sep 20):** ADR-046 **F1 RESOLVED — Option C**: backups moved to `~/openclaw/backups`, sanctioned by ADR-040 §1, no TCC grant needed. **Reverses Entry #033's Option A** — granting FDA to `/bin/bash` would have exposed every §2-prohibited path to every shell script. Caught that `.gitignore` had no backup pattern before dumps could reach GitHub. Verified by live run. Accepted weakness: no off-device copy.
 - **Entry #033 (Sep 20):** ADR-046 **F1 decided — Option A**. Backup destination reverted from `~/Documents` to the ADR-040 §1 sanctioned iCloud path; F6 resolved with it. Two other ADR-019 deviations confirmed permanent. **TCC grant and old-dump migration are outstanding operator actions.**
 - **Entry #032 (Sep 20):** Dedicated-host assumption audit (**ADR-046**, OPEN). ADR-036 was not a one-off — **11 documents affected across 4 failure modes**. Found a live breach: `scripts/backup.sh` has written to `~/Documents`, a §2-prohibited path, nightly since May 17, with its own header comments still describing the compliant path. Also: ADR-032's NIST mapping asserts controls against the absent architecture, and ADR-033's memory alerts cannot fire on 16 GB. No remediation performed — F1 and F2 need operator decisions.

@@ -2481,3 +2481,77 @@ Entry #033 recorded Option A: revert to the ADR-040 §1 iCloud path and grant th
 | Confirm tonight's 04:00 scheduled run writes to the new path | Tomorrow |
 | Decide ADR-046 F2 — NIST re-assessment scope | Next session |
 | ADR-046 F3–F5 remediation | Per ADR-046 §10 |
+
+---
+
+## Entry #035 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Correction — Entry #034 was wrong about off-device backup. There has been none since May 17.
+
+**Commits:** this entry
+
+### The correction
+
+Entry #034 recorded, as an accepted weakness, that moving backups to `~/openclaw/backups` cost an off-device copy: *"Both previous destinations were off-device, so this is a real resilience regression."* **That is false.** The operator questioned it — "I thought my iCloud backs up everything in Documents" — and checking the mechanism showed the opposite of what everyone believed.
+
+Two commands settled it:
+
+```
+ls -ld ~/Library/Mobile Documents/com~apple~CloudDocs/Documents
+  → lrwxr-xr-x  ... Documents -> /Users/sheldonwheeler/Documents
+
+ls -ld ~/Documents
+  → drwx------  108 sheldonwheeler staff ... /Users/sheldonwheeler/Documents
+```
+
+**"Desktop & Documents Folders" sync is OFF.** When Apple's sync is genuinely enabled the link runs the other way — `~/Documents` becomes the link and real storage lives inside the CloudDocs container. Here `~/Documents` is a plain local directory, and a hand-made symlink (dated Jan 13, 2026, carrying extended attributes) points from the container outward at it. **iCloud does not follow symlinks** — it syncs the link itself, a few bytes recording a target, never the target's contents.
+
+### What follows
+
+1. **`scripts/backup.sh` line 33 was wrong on its central claim.** It read: *"we write to ~/Documents/ which is iCloud-synced via 'Desktop & Documents Folders' sync. Same iCloud destination, no TCC permission grant required."* The second half was true. The first half was not. The comment has been correct-sounding and false since it was written.
+
+2. **No off-device backup has existed since May 17, 2026 — approximately four months.** Every nightly dump in that period was written to the same physical disk as the database it protects. The system reported success throughout, because writing the file *did* succeed; only the off-device property was imaginary.
+
+3. **Entry #034's "accepted weakness" was not a weakness introduced by Option C.** It was a pre-existing condition, four months old, discovered while documenting a change that did not cause it. Option C cost nothing: identical resilience, better compliance. The trade recorded in Entry #034 did not happen.
+
+4. **Option B is void.** Amending ADR-040 §1 to sanction `~/Documents/Mac-Mini-Backups-Interim` would have bought a boundary exception in exchange for nothing, since that path was never off-device.
+
+5. **The old dumps in `~/Documents` are not an archive worth preserving off-device** — they are same-disk copies, same as the new ones. Migrating them is now a tidiness and §2-compliance task, not a data-preservation one.
+
+### Pattern worth naming
+
+This is the third instance today of *documented, plausible, and wrong*, all found the same way — by checking a mechanism rather than reading a claim:
+
+| Claim | Reality |
+|---|---|
+| ADR-036 VRAM policy, DECIDED five months | Specified hardware never acquired; `sysctl` showed it never ran |
+| ADR-033 memory alerts at 28 GB yellow / 30 GB red | Above physical RAM; could never fire |
+| `backup.sh` line 33 — "same iCloud destination" | Sync off; never left the disk |
+
+Each was written by someone competent, read many times, and false. None was caught by review — all three surfaced only when something external forced a check. **The common defect is that each asserted a property of the world rather than of the code, and nothing ever tested the assertion.**
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_046.docx` | Status corrected — off-device follow-up reframed as a four-month gap, not a new regression |
+| `~/openclaw/CURRENT_STATE.md` | Corrected; off-device backup raised to top open item |
+| `~/openclaw/changelog.md` | Updated (this entry). Entry #034 left standing — the correction is recorded, not hidden. |
+
+### Risk Assessment
+
+**Unchanged by this correction, but now correctly understood: there is no off-device backup, and there has not been one for four months.** A disk failure or a lost laptop takes the database and every dump of it together. Severity is bounded by the data being public Federal Register content and reconstructible by re-scraping — but `brief_runs` audit history and roughly five months of `scraped_content` curation are not trivially reproducible.
+
+**Nothing regressed today.** The corrected picture is that the system has been in this state since May and is now, at least, accurately documented.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| **Establish a genuine off-device backup** — none has existed since May 17. 148 KB per dump; options that need no TCC grant: `scp`/`rsync` to a remote host, a private repo (ADR-030 egress applies), or a periodically attached external drive | **Top priority** |
+| Verify the off-device copy actually lands somewhere else — by checking the destination, not by reading a comment | With the above |
+| Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` — now tidiness, not preservation | Operator action |
+| Confirm tonight's 04:00 run writes to `~/openclaw/backups/dumps/` | Tomorrow |
+| Decide ADR-046 F2 — NIST re-assessment scope | Next session |
