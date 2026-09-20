@@ -2415,3 +2415,69 @@ CA-2 (Control Assessments — F2 is an assessment-validity finding), CM-8, CM-3,
 | Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` | Soon — closes the §2 exposure completely |
 | Decide ADR-046 F2 — NIST re-assessment scope | Next session |
 | ADR-046 F3–F5 remediation | Per ADR-046 §10 |
+
+---
+
+## Entry #034 — September 20, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Remediation — ADR-046 F1 RESOLVED via Option C. Reverses the Option A decision recorded in Entry #033 earlier the same session.
+
+**Commits:** this entry
+
+### Why this reverses Entry #033
+
+Entry #033 recorded Option A: revert to the ADR-040 §1 iCloud path and grant the TCC permission. That decision was sound on its stated facts and was reversed once the facts were checked.
+
+**The operator asked whether TCC supports automation or enforces human-in-the-loop.** Investigating that question surfaced the reason Option A was the wrong trade:
+
+1. **TCC enforces HITL and cannot be scripted.** `tccutil` exposes only `reset` — there is no grant verb. The TCC databases are SIP-protected (`csrutil status: enabled`), so direct writes require disabling SIP from recovery. The one supported automation path is an MDM-delivered PPPC profile, and this host is not enrolled (`profiles status`: DEP No, MDM No). A manually installed PPPC profile has no effect.
+
+2. **The decisive point: TCC attributes access to the executing binary, not the script.** The backup is a shell script, so the grant target is `/bin/bash`. Granting Full Disk Access to `/bin/bash` gives **every bash script on this machine** read and write access to everything — `~/Documents`, `~/Desktop`, and the FTI-bearing iCloud root that DATA_BOUNDARIES §2 exists to protect.
+
+**That is a materially broader exposure than the narrow, write-only violation it would have fixed**, and it directly undercuts AC-6 least privilege — already flagged PARTIAL in ADR-046 F2. It would also have rendered this session's own `du` breach unremarkable. Recording the reversal rather than quietly amending Entry #033, because the reasoning is the useful part.
+
+### Changes Made
+
+1. **Option C applied: `BACKUP_ROOT="$HOME/openclaw/backups"`.** ADR-040 §1 already sanctions `~/openclaw` read/write/execute, so this crosses no boundary, needs no TCC grant, and required no policy amendment. `ICLOUD_ROOT` renamed to `BACKUP_ROOT` since the destination is no longer iCloud.
+
+2. **Caught before it bit: `.gitignore` had no pattern covering backup output.** Line 16 handles only `.bak.*` files. Pointing dumps into `~/openclaw` without fixing that first would have put PostgreSQL dumps one `git add -A` away from GitHub — a command used repeatedly this session. Added `backups/`, `*.sql.gz`, and `backup_*.log`, each independently so a future path change cannot silently start tracking dumps. Verified with `git check-ignore`.
+
+3. **`*.sql` deliberately NOT ignored**, with a comment saying why: this repo tracks ten schema and migration files (`schema.sql`, `migration_002`–`006`, and others). Dumps are always gzipped, so `*.sql.gz` is the correct net. A broad `*.sql` rule would have been a latent trap for the next migration.
+
+4. **Verified by live run, not assumed.** `bash scripts/backup.sh` produced `openclaw_20260920_115016.sql.gz` (148 KB) plus a log line, exit clean. `gunzip -t` passes; the dump contains 39 `CREATE TABLE`/`COPY` statements. `git status` shows only the two source files — the dump is correctly invisible.
+
+5. **Accepted weakness documented in the script itself, not just here.** Backups now live on the same disk as the database they protect. This survives corruption, a bad migration, or a dropped table; it does **not** survive disk failure or loss of the machine. The previous iCloud and `~/Documents` destinations both provided off-device copies, so this is a genuine regression in resilience traded for boundary compliance and least privilege.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/scripts/backup.sh` | Destination → `~/openclaw/backups`; TCC reasoning and accepted weakness documented inline |
+| `~/openclaw/.gitignore` | `backups/`, `*.sql.gz`, `backup_*.log` added; `*.sql` explicitly excluded from the rule with rationale |
+| `~/openclaw/ADR_046.docx` | Status → F1 RESOLVED via Option C, with the Option A reversal recorded |
+| `~/openclaw/CURRENT_STATE.md` | F1 closed; two follow-ups opened |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### Risk Assessment
+
+**F1's §2 violation is ended for new writes.** No executable line in `backup.sh` references a prohibited path.
+
+**Not fully closed: the old dumps.** Existing backups remain in `~/Documents/Mac-Mini-Backups-Interim`. Migrating or deleting them is an operator action — reading that path from a session is itself §2-prohibited.
+
+**New accepted risk: no off-device copy.** Same-disk backups protect against logical failure only. The dump is 148 KB, so an off-device target is cheap to add; any network destination must clear the ADR-030 egress whitelist first. This is the most important follow-up from this entry.
+
+**No TCC grant was made**, so the machine's privacy posture is unchanged. SIP remains enabled.
+
+**Reversible:** `scripts/backup.sh.bak.pre-adr046-f1` still holds the interim version.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| **Add an off-device backup copy** — the resilience regression this entry accepts | Soon; most important follow-up |
+| Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` | Operator action; closes §2 completely |
+| Confirm tonight's 04:00 scheduled run writes to the new path | Tomorrow |
+| Decide ADR-046 F2 — NIST re-assessment scope | Next session |
+| ADR-046 F3–F5 remediation | Per ADR-046 §10 |

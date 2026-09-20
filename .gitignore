@@ -20,3 +20,14 @@ docker-compose.yml.bak
 # launchd-generated runtime logs (not version-controlled)
 scripts/*.launchd.*
 scripts/.*
+
+# PostgreSQL backup output (ADR-046 F1, Option C — backups live inside the
+# ADR-040 §1 sanctioned working directory rather than a TCC-protected path).
+# Database dumps must NEVER be committed. Belt and braces: the directory,
+# the dump extension, and the log extension are each excluded independently,
+# so a future path change cannot silently start tracking dumps.
+backups/
+*.sql.gz
+backup_*.log
+# NOTE: deliberately NOT ignoring *.sql — this repo tracks 10 schema and
+# migration files. Dumps are always gzipped, so *.sql.gz is the correct net.

@@ -3,10 +3,11 @@
 # OpenClaw nightly backup — MacBook Air (the production host, per ADR-043)
 # Per ADR-019. Runs as user 'sheldonwheeler' at 04:00 ET.
 #
-# ADR-046 F1 remediation (2026-09-20): the destination below was reverted from
-# ~/Documents/Mac-Mini-Backups-Interim back to the ADR-040 §1 sanctioned path.
-# The interim destination had been in use since 2026-05-17 and was a standing
-# DATA_BOUNDARIES.md §2 violation. See "Paths" below for the TCC consequence.
+# ADR-046 F1 remediation (2026-09-20): the destination was moved out of
+# ~/Documents/Mac-Mini-Backups-Interim, in use since 2026-05-17 and a standing
+# DATA_BOUNDARIES.md §2 violation, into ~/openclaw/backups — already sanctioned
+# by ADR-040 §1. See "Paths" below for why not iCloud, and for the off-device
+# weakness this accepts.
 #
 # NOTE: two other ADR-019 interim deviations are NOT reverted and are now
 # permanent — this runs as 'sheldonwheeler' rather than the ADR-020 'dev'
@@ -25,7 +26,7 @@
 # Exit codes:
 #   0   success
 #   2   pg_dump failed
-#   3   destination folder unreachable (iCloud not synced or path missing)
+#   3   destination folder unreachable (path missing or not creatable)
 #   4   docker not running or postgres container not up
 #
 # Telegram alert: the script reads the router bot token and operator chat id
@@ -36,24 +37,32 @@
 set -u  # treat unset variables as errors
 
 # ── Paths ────────────────────────────────────────────────────────────
-# This is the ADR-040 §1 sanctioned destination — the ONLY path this project
-# is permitted to write outside ~/openclaw. Do not change it without amending
-# ADR-040 §1 via the DATA_BOUNDARIES.md §3 procedure.
+# ADR-046 F1, Option C (2026-09-20). Backups are written inside ~/openclaw,
+# which ADR-040 §1 already sanctions read/write/execute. No boundary crossing
+# and no TCC grant required.
 #
-# TCC REQUIREMENT — read before editing or debugging a failure here.
-# Entry #013 originally moved this to ~/Documents because launchd-spawned
-# scripts cannot write to ~/Library/Mobile Documents/ without a TCC grant.
-# That workaround crossed a §2 boundary and was reverted by ADR-046 F1.
-# The grant is now the supported path: the process launchd spawns to run this
-# script needs Full Disk Access.
+# Why not iCloud. The original ADR-019 destination was
+# ~/Library/Mobile Documents/.../Mac-Mini-Backups. launchd-spawned scripts
+# cannot write there without a TCC grant (Entry #013). TCC attributes access
+# to the *executing binary*, which for a shell script is /bin/bash — so the
+# grant would hand full disk access to every bash script on the machine,
+# including the §2-prohibited paths DATA_BOUNDARIES exists to protect. That
+# is a broader exposure than the narrow violation it would have fixed.
+# TCC cannot be granted programmatically (tccutil only resets; the TCC
+# databases are SIP-protected; PPPC profiles require MDM, and this host is
+# not enrolled), so there is no scoped automated alternative.
 #
-# Consequence worth knowing: TCC is evaluated per calling process. Running
-# this script by hand from Terminal tests *Terminal's* grant, not launchd's —
-# a manual run can succeed while the 04:00 scheduled run still fails with
-# exit 3. Verify against a real scheduled run, not an interactive one.
-ICLOUD_ROOT="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups"
-BACKUP_DIR="$ICLOUD_ROOT/dumps"
-LOG_DIR="$ICLOUD_ROOT/logs"
+# ⚠️ ACCEPTED WEAKNESS: backups now live on the same disk as the database
+# they protect. This survives database corruption, a bad migration, or a
+# dropped table — it does NOT survive disk failure or loss of the machine.
+# An off-device copy is an open item (ADR-046 F1 follow-up). The dump is
+# small (~1-2 MB gzipped from a 10 MB database), so this is cheap to add;
+# any network destination must first clear the ADR-030 egress whitelist.
+#
+# Dumps are gitignored (backups/, *.sql.gz). Never commit them.
+BACKUP_ROOT="$HOME/openclaw/backups"
+BACKUP_DIR="$BACKUP_ROOT/dumps"
+LOG_DIR="$BACKUP_ROOT/logs"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 DATESTAMP="$(date +%Y%m%d)"
