@@ -2838,3 +2838,68 @@ A file written into iCloud Drive uploads asynchronously via `bird(8)`. **`OFFSIT
 | Confirm in Finder that the dumps show as uploaded, not just present | Tomorrow |
 | Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` | Operator action |
 | A second `--send` run (path ungated since Entry #038) | When convenient |
+
+---
+
+## Entry #040 — September 27, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Pipeline — generator v8; **second brief ever delivered**. Infrastructure — off-device backup confirmed. Governance — auto mode used by operator decision.
+
+**Commits:** `4f9dd80` (generator v8), this entry
+
+### Changes Made
+
+1. **Off-device backup CONFIRMED — closes Entry #039.** All seven scheduled 04:00 runs since September 20 logged `OFFSITE_OK` with matching sizes (eight dumps in `offsite/` including the Sept 20 live test). Upload verified *off this machine*: the operator saw all eight files in the iPhone Files app under `offsite/`. Entry #013's TCC claim is now definitively false for the scheduled context, not just for a `launchctl submit` probe.
+
+   Finder's status icons were not treated as proof. "archive" in list view is the Kind column; a plain cloud icon is ambiguous across macOS versions. The second-device check tests the property that matters.
+
+   **Boundary note:** reading upload state from inside `offsite/` was *not* done from the session — ADR-040 §1 grants that path **write only**, and §2.2 prohibits listing. The operator checked instead. If routine upload confirmation is wanted, amend §1 to grant read on `offsite/` only, rather than making one-off exceptions.
+
+2. **Generator v8 — the Sept 20 diagnosis of the ICR gap was wrong (eighth documented-but-false claim).** Entry #038 recorded that "two information collection requests" went unchecked because `_UNIT_PAIRS` lacked `request`, and prescribed adding it. Tested before building: adding `request` alone catches nothing. The count regexes required the number to *touch* the unit, so the phrase was invisible either way. The same gap hid "3 new SNAP rules" and "15 participating states" — the exact shape of the 15-vs-18 fabrication v7 exists to catch.
+
+   Fix (operator chose the general option over a phrase-specific one): up to two modifier words may sit between number and unit. Gap words may not be function words, units, or number words; the gap is lazy so the nearest unit wins; digits preceded by `-`, `/`, `.`, `,` or `$` are excluded so date and currency tails are not read as counts. `request` added as a unit, with ground truth from both request instruments (information collection request, request for information).
+
+3. **Enumeration rule — accepted by operator as structural, not a tolerance.** The first v8 review run produced one warning: "One information collection request, titled …" flagged WRONG against a true count of 2. The text was correct — the model was enumerating a correctly stated "two". v8 accepts "one <unit>" **only** when the same text states a total above one for that unit that matches ground truth. A standalone "one notice" against 18 is still caught; a "one" following a *wrong* total is still caught. Accepting 1 whenever ≥1 exist was rejected as the banned tolerance approach in miniature.
+
+4. **Tests now tracked.** `test_count_verification.py` — 22 tests, pure functions, no database/Ollama/network, runs in under a second (`python3 test_count_verification.py`). v7's tests were ad hoc and not in the repository. Sentences are real output or shaped like it; the enumeration test uses the exact SNAP text from the first v8 run.
+
+5. **Second brief delivered — `brief_runs` #3, `clean / sent`, 0 warnings, 18 documents.** Window 2026-09-20 → 09-27. Three clean verifications today (two review-only, one send). 18 rows flipped `is_new = FALSE`; the 42 routine Cross-Program items dropped by the filter remain `is_new`, as designed.
+
+6. **First send attempt failed safely — `brief_runs` #2, `clean / failed`, SMTP 535.** The iCloud app-specific password stored in Keychain (created Aug 22) was rejected. Gate behaved exactly as designed: no email, no `is_new` flip, audit row written. Operator generated a new app-specific password and stored it. First attempt stored the text of the `security` command itself (clipboard held the command; **Control+V does not paste in macOS Terminal — Command+V does**); caught by checking length and shape without revealing the value (71 chars vs the expected 16/19). Re-keyed by hand, **without dashes** — accepted by iCloud. SMTP login tested alone (235) before spending another 8-minute generation on `--send`.
+
+   Cause of the Aug 22 password's revocation is unconfirmed.
+
+7. **Future-dated rows observed.** 8 rows with `publication_date` 2026-09-28 were scraped 2026-09-26 — the Federal Register API returns documents already scheduled for the next issue. Early data, not bad data; they appear in this brief (mostly dropped as routine). Recorded so a future `max(publication_date)` in the future is not mistaken for a defect.
+
+8. **Auto mode used — operator decision, not a breach.** This session ran in Claude Code auto mode. `CURRENT_STATE.md` and ADR-014 state "Auto mode is never used." The operator confirmed it was turned on **deliberately**. All actions stayed within `~/openclaw` except the SMTP connection the generator is designed to make and a read of the project's own Keychain items (value never displayed). The document now disagrees with practice; **ADR-014 needs an amendment** to record when auto mode is permitted.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/generate_brief_review.py` | v7 → v8 (modifier-word counts, `request` unit, enumeration rule) |
+| `~/openclaw/test_count_verification.py` | New — 22 tests, tracked |
+| `~/openclaw/federal_policy_brief_review_2026-09-27.txt` | Run evidence — the sent brief |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `~/openclaw/CURRENT_STATE.md` | Backup confirmed; v8; second send; auto mode |
+| Keychain `openclaw` / `ICLOUD_SMTP_PASSWORD` | Replaced by operator (new app-specific password) |
+
+### Risk Assessment
+
+**The modifier-word gap cuts both ways.** v8 examines more text, so it can raise new false positives, and any warning blocks `--send`. One appeared on the first run and was resolved structurally. Watch the next several runs; if a new false-positive shape appears, resolve it structurally or narrow the gap — never with a magnitude tolerance.
+
+**`HARD_FAIL_ON_UNVERIFIED` stays `False`.** Entry #038 set the bar at two further clean runs. Today gives three clean verifications on one window of content; the bar should be read as two clean *sends on different weeks*.
+
+**Rollback:** `generate_brief_review.py.bak.v7`.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Next weekly `--send` — the second clean send on a new window | Next weekend |
+| Amend ADR-014 to record permitted auto-mode use | When convenient |
+| ADR-046 F2 — NIST re-assessment scope | Operator decision |
+| Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` | Operator action |
+| Revoke any unused app-specific passwords from today at account.apple.com | Operator action |

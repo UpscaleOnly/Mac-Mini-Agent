@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 20, 2026 (Entry #039 — off-device backup restored to iCloud, first since May 17; pending 04:00 confirmation)
+**Last updated:** September 27, 2026 (Entry #040 — generator v8; second brief ever delivered; off-device backup confirmed on a second device)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -48,6 +48,7 @@ Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH)
 
 ## Rollbacks available
 
+- `generate_brief_review.py.bak.v7` — v7 (pre-modifier-word counts, no `request` unit, no enumeration rule).
 - `generate_brief_review.py.bak.v4` — working v4 (pre-v5: review-only, no `--send`, no SMTP, no `brief_runs`). Also `.bak.v3`, `.bak.v2`, `.bak.v0`; each file's header comment says what it lacks.
 - `app/scheduling/scheduler.py.bak.pre-misfire-fix` — pre-August-23 scheduler (10-minute misfire grace).
 - `ADR_033.docx.bak.plaintext-format` … `ADR_037.docx.bak.plaintext-format` — the original plain-text-as-`.docx` files, pre-conversion.
@@ -94,7 +95,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## federal_policy_brief — where the generator stands
 
-`~/openclaw/generate_brief_review.py` is at **v7**. Rollbacks preserved: `.bak.v6`, `.bak.v5`, `.bak.v4`, `.bak.v3`, `.bak.v2`, `.bak.v0`.
+`~/openclaw/generate_brief_review.py` is at **v8**. Rollbacks preserved: `.bak.v7`, `.bak.v6`, `.bak.v5`, `.bak.v4`, `.bak.v3`, `.bak.v2`, `.bak.v0`.
 
 **Default mode (no flags) remains review-only and side-effect-free** — sends nothing, marks nothing processed, writes no `brief_runs` row, safe to re-run indefinitely. Verified byte-identical to v4 on that path.
 
@@ -109,16 +110,16 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 ✅ **Counts verified against ground truth — send path UNGATED (v7, Entry #038).** `ground_truth_counts()` recomputes documents, notices, rules, agencies and distinct US states from the rows the model was given; `verify_counts()` verifies a match, warns with the real figure on a mismatch, or warns as unverifiable where no ground truth exists (durations land there). **The Sept 20 run verified clean — the first since Aug 22.**
   **Scope subtlety, learned the hard way:** the executive summary makes section-scoped claims in a global context ("CMS issued three notices" — true of CMS, false of the window). `acceptable_counts()` therefore accepts any single section's count or the whole for the summary only; per-section checks stay exact. v7's first run failed on precisely this and the unit tests had passed, because they tested the wrong shape.
   ⛔ **Do not re-attempt tolerance-based approaches.** Treating counts ≤ the document count as non-blocking was tried and reverted the same hour after it demoted a real "15 states" fabrication (sources said 18) to a note. Two runs, identical input, 18 (right) and 15 (wrong) — **the model does fabricate counts, and no magnitude heuristic separates them.**
-  ⚠️ **Known coverage gap:** `_UNIT_PAIRS` has no `request` entry, so "two information collection requests" is **not checked at all**. It was correct in the clean run, but it passed by not being examined. Add `request` with ground truth from instrument labels.
+  ✅ **v8 (Entry #040): counts with modifier words are now examined.** The v7 audit's diagnosis ("add `request` to `_UNIT_PAIRS`") was wrong — the regex required the number to touch the unit, so "two information collection requests", "3 new SNAP rules" and "15 participating states" were all invisible. Up to two modifier words are now allowed; `request` is a unit with ground truth. **Enumeration rule:** "one <unit>" is accepted only when the same text states a correct total >1 for that unit — structural, not a tolerance. **Tests:** `python3 test_count_verification.py` (22, tracked, no DB needed) — run after any verifier edit.
 
-⚠️ **The pipeline has delivered exactly one brief, ever** — the August 22 verification send. The blocker is now removed: verification runs clean as of Sept 20, so `--send` would proceed. The next live send will be only the second ever. **Keep `HARD_FAIL_ON_UNVERIFIED` at `False` until at least two further clean runs.**
+✅ **The pipeline has delivered two briefs** — August 22 and **September 27** (`brief_runs` #3, clean, 0 warnings, 18 docs). The first Sept 27 attempt (#2) failed on SMTP 535 — a revoked app-specific password — and the gate held: no email, no `is_new` flip. Password replaced; stored **without dashes**, which iCloud accepts. **Keep `HARD_FAIL_ON_UNVERIFIED` at `False` until one more clean send on a new week's content.**
 
 **Run evidence is version-controlled.** `federal_policy_brief_review_*.txt` files are tracked deliberately, each committed alongside the generator version that produced it (`20d4951` v0, `b0000ce` v4, and now the v5 run). Do **not** gitignore them — they are the behavioural record.
 
 ## Active task (in order)
 
-1. **[Next]** **A second `--send` run** — the path is ungated for the first time since Aug 22. Builds toward the `HARD_FAIL_ON_UNVERIFIED` flip, which still needs two more clean runs. *(Ground-truth verification is DONE — Entry #038.)*
-2. **[Next]** 🔴 **Establish an off-device backup** — none has existed since May 17; this is a four-month gap, not a new one.
+1. **[Next]** **Weekly `--send`** — the third send, and the second clean send on a new window. Watch v8 for new false-positive shapes. *(Second send DONE Sept 27; off-device backup DONE and confirmed — Entry #040.)*
+2. **[Next]** **Amend ADR-014** to record when auto mode is permitted — the operator uses it deliberately (Entry #040); the document still says never.
 3. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline.
 4. **[Then]** Implement **ADR-045 §8.2 and §8.3** — remove the home-wide `Read` grant; build the traversal-verb hook.
 5. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
@@ -133,7 +134,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 - ✅ **BACKUP PATH — RESOLVED September 20 (ADR-046 F1, Option C).** Backups now write to `~/openclaw/backups`, already sanctioned by ADR-040 §1 — no boundary crossing, no TCC grant, no policy amendment. **Verified by live run:** 148 KB dump, `gunzip -t` clean, 39 table/data statements, invisible to git.
   **Option A (grant TCC) was chosen first and reversed.** TCC attributes access to the *executing binary*, so for a shell script the grant target is `/bin/bash` — which would give every bash script on the machine full read/write access to `~/Documents`, `~/Desktop` and the FTI-bearing iCloud root. Broader exposure than the violation it fixed. TCC also cannot be automated: `tccutil` only resets, the databases are SIP-protected, and PPPC profiles need MDM (this host is not enrolled).
   **Two follow-ups remain:**
-  1. 🟡 **Off-device backup RESTORED — confirm at tomorrow's 04:00 run (Entry #039).** `scripts/backup.sh` now copies each dump to the ADR-040 §1 sanctioned path `~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/offsite/`. Size-verified, 30-day retention, **non-fatal** — a failure logs `OFFSITE_COPY_FAILED` and alerts but never takes down a local backup that succeeded. Live-tested: 151,242 B local and remote, `gunzip -t` clean.
+  1. ✅ **Off-device backup CONFIRMED September 27 (Entry #040)** — seven scheduled runs logged `OFFSITE_OK`; all eight dumps visible on the operator's iPhone under `offsite/`. Upload state is checked by the operator on a second device, not from a session: §1 grants `offsite/` write only. *History below.* **Restored (Entry #039).** `scripts/backup.sh` now copies each dump to the ADR-040 §1 sanctioned path `~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/offsite/`. Size-verified, 30-day retention, **non-fatal** — a failure logs `OFFSITE_COPY_FAILED` and alerts but never takes down a local backup that succeeded. Live-tested: 151,242 B local and remote, `gunzip -t` clean.
      **Entry #013's TCC claim was tested and is false here** — a `launchctl submit` probe wrote to the iCloud path successfully, so no Full Disk Access grant was needed (ADR-046's Option A stays rejected: FDA on `/bin/bash` would expose every §2 path to every shell script). **Caveat: a submitted job may inherit the submitter's TCC, so the definitive test is the real 04:00 run — check the log for `OFFSITE_OK`.**
      **Second caveat, in the script:** iCloud uploads asynchronously via `bird(8)`. `OFFSITE_OK` means written into the synced folder, *not* uploaded. Until `bird` finishes, that copy is still on the same disk.
   2. **Old dumps still in `~/Documents/Mac-Mini-Backups-Interim`** — operator action, §2-prohibited so not touchable from a session. §2 is closed for new writes only.
@@ -183,6 +184,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ⚠️ **ADR-014 changed on August 22 — the old "no shell, ever" rule is no longer accurate for Claude Code.**
 
+- **Auto mode — operator decision September 27 (Entry #040).** The operator turned it on deliberately; the "never" below is pending an ADR-014 amendment. Scope to `~/openclaw` and approve-before-building still apply.
 - **Claude Code in Manual permission mode MAY** run shell commands, edit files directly, and commit to Git — **scoped to `~/openclaw`**, with per-action operator approval. **Auto mode is never used. Cowork is never used.** (ADR-014, RESOLVED; reconstructed document at `~/openclaw/ADR_014.docx`, provenance in its Section 6.)
 - **Read `DATA_BOUNDARIES.md` §2 before any command touching paths outside `~/openclaw`.** A glob is a directory read. A `du` is a directory read. The policy binds interactive shell commands, not only application code. Three breaches to date.
 - **A plain Claude Desktop chat session still follows the pre-ADR-014 rules:** MCP filesystem read-only, no shell, `.py` files delivered as `.txt` for manual copy, operator runs all git commands.
@@ -196,6 +198,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #040 (Sep 27):** **Second brief ever delivered** (`brief_runs` #3). Generator **v8** — the Sept 20 ICR diagnosis was wrong (eighth documented-but-false claim): counts with modifier words were never examined. Enumeration rule added; 22 tracked tests. First send failed safely on a revoked SMTP password. **Off-device backup confirmed** on a second device. Auto mode used by operator decision; ADR-014 amendment pending. Future-dated FR rows observed (scheduled next-issue documents — not a defect).
 - **Entry #038 (Sep 20):** Generator **v7** — counts verified against ground truth recomputed from source rows. **First clean verification since Aug 22; `--send` ungated.** v7's first run failed on a scope bug (a correct CMS-scoped "three notices" measured against the window's 21) that the unit tests missed by testing the wrong shape; `acceptable_counts()` fixes it. Audit of the clean run found `request` is not a tracked unit, so ICR counts are unchecked.
 - **Entry #037 (Sep 20):** Generator **v6** — `SYSTEM_PROMPT` forbids tallying inputs. SNAP now names all 18 states instead of counting them; count warnings 3 → 1; `--send` still gated by one correct-but-forbidden tally. **A tolerance-based fix was implemented and reverted the same hour** after it demoted a real "15 states" fabrication (sources said 18) to a non-blocking note. Verifier untouched.
 - **Entry #036 (Sep 20):** First review-only run in four weeks (exit 0, no truncation at `NUM_CTX=8192` with an 18-doc section, no fabrication). **Found `verify_claims()` flags correct arithmetic as unverified** — all three warnings were right; aggregate counts are derived, not quoted, so the check cannot validate them. This is why only one brief has ever sent. Fix proposed, not built. Also corrected a wrong call of mine: review `.txt` files are tracked deliberately, not a gitignore gap.
