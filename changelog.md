@@ -2869,7 +2869,7 @@ A file written into iCloud Drive uploads asynchronously via `bird(8)`. **`OFFSIT
 
 6. **First send attempt failed safely — `brief_runs` #2, `clean / failed`, SMTP 535.** The iCloud app-specific password stored in Keychain (created Aug 22) was rejected. Gate behaved exactly as designed: no email, no `is_new` flip, audit row written. Operator generated a new app-specific password and stored it. First attempt stored the text of the `security` command itself (clipboard held the command; **Control+V does not paste in macOS Terminal — Command+V does**); caught by checking length and shape without revealing the value (71 chars vs the expected 16/19). Re-keyed by hand, **without dashes** — accepted by iCloud. SMTP login tested alone (235) before spending another 8-minute generation on `--send`.
 
-   Cause of the Aug 22 password's revocation is unconfirmed.
+   **Cause confirmed by operator:** the Apple ID password was changed after Aug 22, and Apple revokes all app-specific passwords when that happens. One app-specific password now exists, named `OpenClaw SMTP`; no orphans.
 
 7. **Future-dated rows observed.** 8 rows with `publication_date` 2026-09-28 were scraped 2026-09-26 — the Federal Register API returns documents already scheduled for the next issue. Early data, not bad data; they appear in this brief (mostly dropped as routine). Recorded so a future `max(publication_date)` in the future is not mistaken for a defect.
 
@@ -2902,4 +2902,3 @@ A file written into iCloud Drive uploads asynchronously via `bird(8)`. **`OFFSIT
 | Amend ADR-014 to record permitted auto-mode use | When convenient |
 | ADR-046 F2 — NIST re-assessment scope | Operator decision |
 | Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` | Operator action |
-| Revoke any unused app-specific passwords from today at account.apple.com | Operator action |
