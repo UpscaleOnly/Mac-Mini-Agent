@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, v7
+generate_brief_review.py - federal_policy_brief, v8
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -193,6 +193,24 @@ CHANGES FROM v5 (2026-09-20, Entry #037)
      gated -- and that is the correct outcome, not a bug to engineer around.
      A count in the output is a fabrication risk, as 15-vs-18 demonstrated.
 
+
+CHANGES FROM v7 (2026-09-27, Entry #040)
+ 19. Counts with modifier words are now examined. The v7 audit recorded that
+     "two information collection requests" went unchecked and proposed adding
+     "request" to _UNIT_PAIRS. That diagnosis was wrong: the count regexes
+     required the number to touch the unit, so the phrase was invisible with
+     or without the unit. The same gap hid "3 new SNAP rules" and "15
+     participating states" -- the exact shape of the 15-vs-18 fabrication.
+     Now up to two modifier words may sit between number and unit (function
+     words, units and number words excluded; lazy, so the nearest unit wins;
+     date and currency tails excluded). "request" is a unit, with ground truth
+     from both request instruments.
+     First live run then flagged "One information collection request,
+     titled ..." -- correct text enumerating a correctly stated "two". v8
+     accepts "one <unit>" only when the same text states a total above one
+     for that unit that matches ground truth. Structural, not a tolerance:
+     a standalone "one notice" against 18 is still caught.
+     Tests: test_count_verification.py.
 
 CHANGES FROM v6 (2026-09-20, Entry #038)
  18. Counts are now verified against GROUND TRUTH recomputed from the source
@@ -750,6 +768,7 @@ _UNIT_PAIRS = [
     ("hospital", "hospitals"),
     ("plan", "plans"),
     ("option", "options"),
+    ("request", "requests"),
     ("criterion", "criteria"),
     ("year", "years"),
     ("day", "days"),
@@ -768,14 +787,33 @@ _WORD_NUM_PATTERN = "|".join(
     sorted(_WORD_NUMBERS.keys(), key=len, reverse=True)
 )
 
-# "15 states", "3 agencies" -- digit followed by a unit word.
-_DIGIT_COUNT_RE = re.compile(
-    rf"\b(\d{{1,6}})\s+({_UNIT_PATTERN})\b", re.I
+# Up to two modifier words may sit between the number and the unit (v8,
+# Entry #040). Before v8 the number had to touch the unit, so "two information
+# collection requests" and "3 new SNAP rules" were never examined at all -- they
+# passed by not being seen. A gap word may not be a function word (which ends
+# the noun phrase: "7 days of comments" is not a count of comments), a unit
+# (so "3 notices issued rules" stays a count of notices), or a number word.
+# The gap is lazy, so the nearest unit wins.
+_GAP_STOPWORDS = (
+    "the|a|an|of|and|or|for|to|in|on|by|from|with|at|as|is|are|was|were|"
+    "that|which|this|these|those|its|their|each|other"
+)
+_GAP_WORD = (
+    rf"(?:(?!(?:{_GAP_STOPWORDS}|{_UNIT_PATTERN}|{_WORD_NUM_PATTERN})\b)"
+    rf"[a-z][a-z'\-]*\s+)"
 )
 
-# "three agencies", "fifteen states" -- word-form number followed by a unit.
+# "15 states", "3 new SNAP rules" -- digit, optional modifiers, unit word.
+# The lookbehind keeps the tail of a date or figure ("2026-09-17 the proposed
+# rules", "$1,250 grants") from being read as a count.
+_DIGIT_COUNT_RE = re.compile(
+    rf"(?<![\d\-/.,$])\b(\d{{1,6}})\s+{_GAP_WORD}{{0,2}}?({_UNIT_PATTERN})\b",
+    re.I,
+)
+
+# "three agencies", "two information collection requests".
 _WORD_COUNT_RE = re.compile(
-    rf"\b({_WORD_NUM_PATTERN})\s+({_UNIT_PATTERN})\b", re.I
+    rf"\b({_WORD_NUM_PATTERN})\s+{_GAP_WORD}{{0,2}}?({_UNIT_PATTERN})\b", re.I
 )
 
 
@@ -848,6 +886,9 @@ def ground_truth_counts(rows):
         # subtype ends in "notice", every rule in "rule".
         "notice": sum(1 for i in instruments if i.endswith("notice")),
         "rule": sum(1 for i in instruments if i.endswith("rule")),
+        # Both request instruments: "information collection request" and
+        # "request for information" (v8).
+        "request": sum(1 for i in instruments if "request" in i),
         "agency": len({(r.get("publishing_agency") or "").strip()
                        for r in rows if (r.get("publishing_agency") or "").strip()}),
         "state": len(_states_in(titles)),
@@ -855,7 +896,7 @@ def ground_truth_counts(rows):
     # A zero here means "the sources mention none", which is a real finding if
     # the model claims some -- but for units that simply do not apply to this
     # section, drop them so we report "unverifiable" rather than "wrong, 0".
-    for unit in ("state", "notice", "rule"):
+    for unit in ("state", "notice", "rule", "request"):
         if truth[unit] == 0:
             del truth[unit]
     return truth
@@ -903,16 +944,37 @@ def verify_counts(label, generated, source_text, truth=None):
     """
     truth = truth or {}
     source_counts = _extract_counts(source_text)
+    generated_counts = _extract_counts(generated)
+
+    def _ok(unit):
+        # A truth value may be a single int (one section) or a set of
+        # acceptable ints (the executive summary, which legitimately makes
+        # section-scoped claims -- see acceptable_counts()).
+        actual = truth.get(unit)
+        if actual is None:
+            return None
+        return {actual} if isinstance(actual, int) else set(actual)
+
+    # Enumeration (v8, Entry #040). "Two information collection requests ...
+    # One information collection request, titled X ... The second ..." -- the
+    # "one" there names a member of a set whose total the text has already
+    # stated correctly; it is not a tally. Accept "one <unit>" ONLY when this
+    # same text states a total above one for that unit that matches ground
+    # truth. A standalone "SNAP issued one notice" against 18 real notices is
+    # still caught. This is a structural test, not a magnitude tolerance --
+    # see the FALSE POSITIVE NOTE for why tolerances are ruled out.
+    enumerated = {u for n, u in generated_counts
+                  if n > 1 and n in (_ok(u) or set())}
+
     warnings = []
-    for num, unit in sorted(_extract_counts(generated) - source_counts):
+    for num, unit in sorted(generated_counts - source_counts):
         actual = truth.get(unit)
         if actual is not None:
-            # A truth value may be a single int (one section) or a set of
-            # acceptable ints (the executive summary, which legitimately makes
-            # section-scoped claims -- see acceptable_counts()).
-            ok = {actual} if isinstance(actual, int) else set(actual)
+            ok = _ok(unit)
             if num in ok:
                 continue  # verified against the documents themselves
+            if num == 1 and unit in enumerated:
+                continue  # a member of a correctly stated total
             expected = (str(actual) if isinstance(actual, int)
                         else " or ".join(str(v) for v in sorted(ok)))
             warnings.append(

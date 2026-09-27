@@ -1,0 +1,68 @@
+FEDERAL POLICY BRIEF
+Coverage: 2026-09-20 to 2026-09-27
+================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+Health and Human Services Department, Centers for Medicare & Medicaid Services, issued a Privacy Act matching program notice announcing the re-establishment of a matching program with the U.S. Department of the Treasury, Bureau of Fiscal Service, alongside an information collection request for Medicaid and CHIP generic information collection activities and a proposed rule soliciting input for Medicare Part D standards. The Health and Human Services Department, Children and Families Administration, issued a Privacy Act system of records notice modifying ORR records, while the USDA's Food and Nutrition Administration published two information collection requests concerning summer meals and quick response surveys. Key regulatory actions include a final rule from the Health and Human Services Department establishing a temporary moratorium on agent and broker registration for Federally-facilitated Exchanges, and an FDA final rule amending food additive regulations to permit the use of vitamin D2 inactive bakers yeast. Other significant updates include a proposed rule from the FDA regarding color additives and a proposed rule from the Animal and Plant Health Inspection Service concerning highly pathogenic avian influenza import requirements, alongside various other rules and notices from multiple agencies.
+
+CMS (MEDICAID/CHIP/MEDICARE)
+----------------------------
+A Privacy Act matching program notice issued by Health and Human Services Department, Centers for Medicare & Medicaid Services, announces the re-establishment of a matching program. This program is between CMS and the Do Not Pay Working System, which is administered by the U.S. Department of the Treasury, Bureau of Fiscal Service.
+
+CMS also published an information collection request regarding Medicaid and Children's Health Insurance Program (CHIP) generic information collection activities. This notice seeks public comment on the collection of information that falls within an existing umbrella scope, which covers Medicaid and CHIP State plan amendments, waivers, demonstrations, and reporting. Interested parties are invited to submit comments concerning the necessity and utility of the proposed information collection, the accuracy of burden estimates, and ways to enhance the quality of the information collected.
+
+Finally, a proposed rule issued by Health and Human Services Department, Centers for Medicare & Medicaid Services, is a Request for Information (RFI) concerning Medicare Part D. This RFI solicits input for establishing standards for reasonable and relevant pharmacy contract terms and conditions under the Medicare prescription drug benefit. The request is prompted by Section 6223(a) of the Consolidated Appropriations Act, 2026, which requires that standard contract terms and conditions offered by Part D plan sponsors must be reasonable and relevant according to standards established by the Secretary of the Department of Health and Human Services for plan years beginning January 1, 2029.
+
+SNAP
+----
+On September 24, 2026, the Agriculture Department, Food and Nutrition Administration, published two information collection requests. The first, titled Agency Information Collection Activities: Turnip the Beet High Quality Summer Meals Program, invites comment on a proposed revision to an existing collection. This collection relates to recognizing program sponsors' nutrition efforts within the Summer Food Service Program (SFSP) or the National School Lunch Program (NSLP) Seamless Summer Option (SSO).
+
+The second information collection request, titled Agency Information Collection Activities: Proposed Collection; Comment Request-Generic Clearance for FNA Quick Response Surveys (FNA QRS), also seeks public comment on a revision to a currently approved collection. This collection is designed to conduct short, quick-turnaround surveys of state and local agencies providing food, education, and other services. The scope of the survey covers SNAP, Child Nutrition Programs, and Supplemental Nutrition and Safety Programs, including programs such as WIC, NSLP, SBP, and CACFP.
+
+TANF
+----
+A Privacy Act system of records notice issued by the Health and Human Services Department, Children and Families Administration, on 2026-09-28, details a modification to an existing system of records maintained by the Office of Refugee Resettlement. This system, covering records about unaccompanied children, their intended sponsors, and household members, is changing its name to "ORR Unaccompanied Alien Children Bureau (UACB) Administrative Program Records." The modification aims to streamline routine uses to enhance information sharing for child protection purposes while maintaining core privacy protections.
+
+Separately, a notice issued by the Health and Human Services Department, Children and Families Administration, on 2026-09-24, announces the intent to award a single-source cooperative agreement. The ACF, ORR, Refugee Program Bureau plans to award up to $20,000,000 to the International Rescue Committee in New York, New York. This agreement, titled the National Virtual Program for Professional Advancement, is scheduled for the period of September 30, 2026, through September 29, 2027. The program will provide professional advancement services to up to 1,334 eligible refugees who arrived in the United States between September 1, 2026, and September 30, 2026.
+
+CROSS-PROGRAM
+-------------
+A final rule issued by the Health and Human Services Department regarding the Patient Protection and Affordable Care Act establishes a temporary moratorium on the registration of agents and brokers who do not have a current Plan Year registration with the Federally-facilitated Exchanges. This moratorium, which is immediately effective, pauses registration for those seeking to enter into Exchange agreements with the Centers for Medicare & Medicaid Services for Plan Year 2027. The rule specifies that agents and brokers without Plan Year 2026 Exchange agreements will not be able to complete registration with the Federally-facilitated Exchanges until the moratorium ends on February 1, 2027.
+
+In the area of food and drug safety, the Food and Drug Administration (FDA) issued a final rule amending food additive regulations to permit the safe use of vitamin D2 inactive bakers yeast as a source of vitamin D2 in specific food categories. The FDA also issued a direct final rule substituting references to "animal" tests or studies with "nonclinical" tests or studies, and adding definitions for "nonclinical test" and "nonclinical study." This final rule aligns with recent amendments to the Federal Food, Drug, and Cosmetic Act and the Public Health Service Act, and adds no new requirements. Separately, the FDA published a proposed rule announcing a color additive petition filed by Doehler GmbH, proposing to amend color additive regulations to provide for the safe use of calcium sulfate in various foods.
+
+Other regulatory updates include a proposed rule from the Animal and Plant Health Inspection Service concerning amendments to import requirements for highly pathogenic avian influenza. This proposal seeks to reduce the timeframe for live birds and other avian commodities to be sourced from premises quarantined for HPAI before export to the United States, from 90 days to 28 days. Additionally, the FDA published a proposed rule substituting references to "animal" tests or studies with "nonclinical" tests or studies, defining "nonclinical test" and "nonclinical study," and making other comparable amendments.
+
+SOURCE ATTRIBUTION ADDENDUM
+===========================
+
+CMS (Medicaid/CHIP/Medicare)
+----------------------------
+  - (Privacy Act matching program notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Privacy Act of 1974; Matching Program (2026-09-25)
+  - (information collection request) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicaid and Children's Health Insurance Program (CHIP) Generic Information Collection Activities: Proposed Collection; Comment Request (2026-09-25)
+  - (proposed rule) Health and Human Services Department, Centers for Medicare & Medicaid Services - Request for Information; Medicare Part D Reasonable and Relevant Pharmacy Contracting Standards (2026-09-24)
+
+SNAP
+----
+  - (information collection request) Agriculture Department, Food and Nutrition Administration - Agency Information Collection Activities: Turnip the Beet High Quality Summer Meals Program (2026-09-24)
+  - (information collection request) Agriculture Department, Food and Nutrition Administration - Agency Information Collection Activities: Proposed Collection; Comment Request-Generic Clearance for FNA Quick Response Surveys (FNA QRS) (2026-09-24)
+
+TANF
+----
+  - (Privacy Act system of records notice) Health and Human Services Department, Children and Families Administration - Privacy Act of 1974; System of Records (2026-09-28)
+  - (notice) Health and Human Services Department, Children and Families Administration - Announcement of the Intent To Award a Single-Source Cooperative Agreement to International Rescue Committee in New York, New York (2026-09-24)
+
+Cross-Program
+-------------
+  - (proposed rule) Treasury Department, Internal Revenue Service - Information Reporting Regarding Qualified Opportunity Zones and Updated Qualified Opportunity Fund Certification and Decertification Procedures (2026-09-28)
+  - (final rule) Treasury Department, Internal Revenue Service - Estate Tax Closing Letter User Fee Update (2026-09-25)
+  - (final rule) Agriculture Department, Farm Service Agency - Driving Efficiency in Farm Loan Delivery; Correction (2026-09-25)
+  - (proposed rule) Agriculture Department, Office of the Secretary - Modernization of Regulations Under 9 CFR Parts 101-118 and 123-124; Extension of Comment Period (2026-09-25)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Food Additives Permitted for Direct Addition to Food for Human Consumption; Vitamin D2 Inactive Bakers Yeast (2026-09-25)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Filing of Color Additive Petition From Doehler GmbH; Request To Amend the Color Additive Regulations To Provide for the Safe Use of Calcium Sulfate in Various Foods at Levels Consistent With Good Manufacturing Practice (2026-09-25)
+  - (proposed rule) Agriculture Department, Animal and Plant Health Inspection Service - Amendments To Import Requirements for Highly Pathogenic Avian Influenza (2026-09-24)
+  - (final rule) Health and Human Services Department - Patient Protection and Affordable Care Act; Temporary Moratoria on Certain Agent and Broker Registration To Participate in the Exchanges (2026-09-23)
+  - (final rule) Agriculture Department, Agricultural Marketing Service - Softwood Lumber Board Assessment Rate Clarification and Changes to Membership (2026-09-22)
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Nonclinical Testing Terminology (2026-09-22)
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Nonclinical Testing Terminology (2026-09-22)
