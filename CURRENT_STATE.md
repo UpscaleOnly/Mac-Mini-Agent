@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 29, 2026 (Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
+**Last updated:** September 29, 2026 (Entry #042 — §8.3 traversal hook built, live test pending; Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -29,6 +29,8 @@ pwd && git remote -v
 Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH). Note the second clone's remote differed only in **letter case** — a case difference is exactly what a reader confirms at a glance and gets wrong.
 
 ## Start here — session startup commands
+
+0. **One-time, next session (Entry #042):** live-verify the traversal hook. Run `ls /nonexistent-openclaw-hook-test` — it **must prompt** (answer No). Run `du -sh ~/openclaw` — it must **not** prompt. Test in auto mode. Never test against a real outside path; §2 prohibits everything not in §1, `/tmp` included. Record the result, then delete this step.
 
 1. **Working directory** — the check above.
 2. **Containers** — `docker ps`; expect four up. If the daemon is down, launch Docker Desktop and wait for the whale to stop animating.
@@ -123,7 +125,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 1. **[Next]** **Weekly `--send`** — the third send, and the second clean send on a new window. Watch v8 for new false-positive shapes. *(Second send DONE Sept 27; off-device backup DONE and confirmed — Entry #040.)*
 2. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline. *(ADR-014 auto-mode amendment DONE — Entry #041.)*
-3. **[Then]** Implement **ADR-045 §8.3** — build the traversal-verb hook. *(§8.2 DONE — Entry #041.)* *(Stale §2-path allow rules pruned — Entry #041.)*
+3. **[Next session, first]** **Live-verify the ADR-045 §8.3 hook** (built Entry #042) — see startup step 0 below; then mark §8.3 implemented in `ADR_045.docx`. *(§8.2 and allowlist prune DONE — Entry #041.)*
 4. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
 5. **[Then]** Backfill the August 4–16 content gap (explicit `days_back`, or a targeted Federal Register API pull).
 6. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
@@ -152,7 +154,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
   **Structural finding:** Claude Code matches Bash rules against *command strings*, not the paths they reach — `Bash(du:*)` permits `du` anywhere. **Shell is unbounded by construction**, so every path-scoped `Read(...)` rule is irrelevant when the same data is reachable through a shell command.
   **Still to implement:** ADR-045 §8.2 and §8.3 below.
 
-- **ADR-045 §8.3 — traversal-verb hook, not yet built.** A PreToolUse hook gating `du`, `find`, `ls -R`, `grep -r`, `tree`, `mdfind`, `locate` when not explicitly scoped to `~/openclaw`. It must match on **commands, not path literals** — a path blacklist would not have caught `cd ~ && du -sh */`, which contains no prohibited path. Verify hook mechanics against the live settings schema before building. **It is a speed bump, not a boundary** — document it as such.
+- **ADR-045 §8.3 — traversal-verb hook BUILT (Entry #042), live verification PENDING.** `scripts/hooks/traversal_guard.py`, registered in the **tracked** `.claude/settings.json`. Prompts (`ask`) when a listing/traversal verb or any wildcard reaches outside `~/openclaw`; follows `cd` within a command, so `cd ~ && du -sh */` is caught. `ls` is gated even without `-R` — the Entry #029 breach was a plain `ls -d` glob, which the original design would have missed. **Tests:** `python3 scripts/hooks/test_traversal_guard.py` (52, all three recorded breaches verbatim) — run after any guard edit. Did not fire live in the session that created it (hooks load at session start). **Speed bump, not a boundary:** interpreters, obfuscation and non-Claude-Code execution pass; AC-3 stays NOT MET.
 
 - ✅ **ADR-045 §8.2 DONE September 29 (Entry #041)** — `Read(//Users/sheldonwheeler/**)` removed from `.claude/settings.local.json`; only `Read(//Users/sheldonwheeler/openclaw/**)` remains. Backup: `.claude/settings.local.json.bak.pre-adr045-8.2`. The file is a **governed artifact** under DATA_BOUNDARIES §7 but gitignored, so changes never appear in a diff — inspect manually at each review. **Stale-rule prune also DONE (Entry #041 addendum):** 18 rules naming OneDrive, the iCloud root, `~/Downloads` or `~/Library/Application Support` removed, including the wildcard `Bash(brctl download *)`. The broad inline-Python rules `Bash(python3 -)` and `Bash(python3 -c ' *)` were also removed — inline Python now prompts every time — as was `Bash(npm install *)` (supply-chain exposure). `Bash(docker exec *)`, `Bash(cp .claude/settings.local.json *)` and `Bash(sudo -n true)` removed too — **every `docker exec` (including the startup coverage query) now prompts**, by operator decision. `docker system *`, `docker image *` and `ollama rm *` also removed (data-destroying); `docker compose *` kept for the closing ritual. Backup: `.claude/settings.local.json.bak.pre-stale-prune`.
   ⚠️ **Gotcha — choosing "always allow" on a prompt makes the app rewrite this file from its cached rule list**, silently reverting any edit made to it on disk during that session. It happened here once. When editing this file, approve surrounding commands with **"Yes" (once)**, then re-read the file to confirm the edit held.
@@ -201,6 +203,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #042 (Sep 29):** ADR-045 §8.3 traversal hook **built** — 52 tests pass, including the three recorded breaches verbatim; tests caught a design gap (plain `ls` globs) before shipping. Registered in tracked `.claude/settings.json`. **Live test pending** — hooks load at session start.
 - **Entry #041 (Sep 29):** **ADR-014 amended (§7)** — auto mode permitted under conditions, closing the Entry #040 contradiction. **ADR-045 §8.2 done** — home-wide `Read` grant removed. The auto-mode classifier refused the amendment as self-expanding permissions; the session switched to Manual mode to finish, and that is now a §7 condition.
 
 - **Entry #040 (Sep 27):** **Second brief ever delivered** (`brief_runs` #3). Generator **v8** — the Sept 20 ICR diagnosis was wrong (eighth documented-but-false claim): counts with modifier words were never examined. Enumeration rule added; 22 tracked tests. First send failed safely on a revoked SMTP password. **Off-device backup confirmed** on a second device. Auto mode used by operator decision; ADR-014 amendment pending. Future-dated FR rows observed (scheduled next-issue documents — not a defect).

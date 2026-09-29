@@ -2956,3 +2956,51 @@ Operator approved removing the stale rules flagged above. **18 rules removed** f
 **Gotcha found:** the first prune was silently reverted. Approving a command with "always allow" makes the app rewrite `settings.local.json` from its in-memory rule list plus the new rule, overwriting on-disk edits. Detected by re-reading the file; redone by exact-text match; confirmed held via the Read tool (no prompt, so no rewrite). Recorded in `CURRENT_STATE.md`.
 
 Broad rules noticed: `Bash(python3 -)`, `Bash(python3 -c ' *)`, `Bash(docker exec *)`, `Bash(cp .claude/settings.local.json *)`, `Bash(sudo -n true)`. **The two Python rules were then removed on operator instruction** — they pre-approved arbitrary inline Python (stdin and `-c`), which can reach any path, the same unbounded-shell gap §8.3 targets. Consequence: inline Python now prompts every time. **`Bash(npm install *)` also removed on operator instruction** — it pre-approved installing any public-registry package, whose install scripts run on the host (supply-chain exposure); the docx tooling it was added for is already installed. **The remaining three were then removed on operator instruction:** `Bash(docker exec *)` (every container command, including the session-start coverage query, now prompts — an accepted cost), `Bash(cp .claude/settings.local.json *)` (copy of a governed artifact to any destination), and `Bash(sudo -n true)` (privilege probe). No broad wildcard rules of this class remain in the allowlist. **Data-destroying wildcards also removed on operator instruction:** `Bash(docker system *)` (prune images/volumes), `Bash(docker image *)` (remove images), `Bash(ollama rm *)` (delete models). `Bash(docker compose *)` kept — the session-closing ritual needs `build` and `up -d` — though it also permits `down -v`, which deletes volumes.
+
+---
+
+## Entry #042 — September 29, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Security — ADR-045 §8.3 traversal-verb hook **built and unit-tested; live verification pending** (needs a fresh session).
+
+**Permission mode:** Auto (ADR-014 §7). The hook only restricts, so the Manual-mode condition does not apply.
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **`scripts/hooks/traversal_guard.py`** — Claude Code PreToolUse hook on Bash. When a command uses a listing/traversal verb (`du`, `find`, `tree`, `ls`, recursive `grep`, `rg`, `mdfind`, `locate`) or a wildcard, and the guard cannot show every path it reaches is inside `~/openclaw`, it returns `permissionDecision: "ask"` — the operator is prompted instead of the command running. Follows `cd`/`pushd` within a command (the `cd ~ && du -sh */` shape), sees through `sudo`/`xargs`/`env` prefixes and `bash -c`, treats `..`, symlinks (realpath), `~`/`$HOME`, unknown variables and command substitution conservatively. `mdfind` passes only with `-onlyin ~/openclaw`; `locate` always asks. On a parse failure it asks if a verb is present, otherwise allows.
+
+2. **Design correction found by the tests, before shipping.** The approved design gated `ls` only with `-R`. The Entry #029 breach was a plain `ls -d` with a glob into the iCloud root, so that design would have missed one of the three real breaches. Fixed: `ls` is always a listing verb, and a wildcard in **any** command is checked against the directory it must read to resolve (§2.2 — a glob is a directory read).
+
+3. **`scripts/hooks/test_traversal_guard.py`** — 52 tests, pure functions, nothing executed. The three recorded breaches verbatim (Entry #029 glob; Entry #030 `cd ~ && du -sh */`, `.[a-zA-Z]*/` and the system-wide `du`) all ask; normal project work (git, `docker exec` queries, project `grep -rn`/`find`/`du`, regexes and commit messages containing `*` or `$HOME` text) all pass silently. **All pass.**
+
+4. **`.claude/settings.json` created — tracked.** Registers the hook. Deliberately the tracked project file, not the gitignored `settings.local.json`, so the control is visible in diffs.
+
+5. **Live test — NOT yet passed.** The script's stdin/stdout protocol was verified directly (outside path → `ask` JSON; `du -sh ~/openclaw` → silent allow). But a live `ls /nonexistent-openclaw-hook-test` in this session ran without a prompt — hooks appear to be loaded at session start, so a mid-session `settings.json` is not picked up. Unconfirmed alternative: in auto mode, `ask` may be resolved by the classifier rather than the operator. **Test in a fresh session, in auto mode**, before recording §8.3 as done. The test path is deliberately nonexistent: §2 prohibits every path not in §1 by default — including `/tmp`, which the approved plan had wrongly proposed.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/scripts/hooks/traversal_guard.py` | New — the hook |
+| `~/openclaw/scripts/hooks/test_traversal_guard.py` | New — 52 tests, tracked |
+| `~/openclaw/.claude/settings.json` | New, tracked — hook registration |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `~/openclaw/CURRENT_STATE.md` | Task list, §8.3 open item |
+
+### Risk Assessment
+
+**A speed bump, not a boundary — as ADR-045 says.** Not caught: Python or other interpreters walking directories, `cat` on an explicit outside file (not a traversal), obfuscation, and anything run outside Claude Code. The AC-3 classification stays NOT MET; this adds a detective/preventive layer for the accidental shape that produced all three breaches. False positives cost a prompt, never a silent failure. A hook error cannot block work: bad input exits 0.
+
+**Rollback:** delete `.claude/settings.json` (or its `PreToolUse` block); the scripts are inert without it.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Live-verify the hook in a fresh session (auto mode): `ls /nonexistent-openclaw-hook-test` must prompt; `du -sh ~/openclaw` must not | Start of next session |
+| Mark ADR-045 §8.3 implemented in `ADR_045.docx` once verified | After live test |
+| Weekly `--send` | ~Oct 3–4 |
