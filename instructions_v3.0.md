@@ -118,12 +118,21 @@ Notable active ADRs:
 
 ## HARD RULES — EXECUTION BOUNDARY (CHANGED IN v3.0)
 
+*(Amended September 29, 2026: auto mode now permitted under ADR-014 §7 conditions — see below. Version header not bumped; pending the filename/version cleanup noted in CURRENT_STATE.md.)*
+
 **ADR-014 changed on August 22, 2026. The old blanket rule — "no agent or LLM path may invoke shell, bash, or any host command execution" — is no longer accurate for Claude Code.** The boundary now depends on which surface you are:
 
 **Claude Code, Manual permission mode:**
 - **MAY** run shell commands, edit files directly, and commit to Git.
 - **Scoped to `~/openclaw`.** Per-action operator approval for each command.
-- **Auto mode is never used. Cowork is never used.** Both remain prohibited.
+- **Cowork is never used.**
+
+**Claude Code, auto mode — permitted under conditions (ADR-014 §7, amended September 29, 2026):**
+- Operator-initiated and operator-present only — never scheduled, unattended, or agent-initiated.
+- Same scope (`~/openclaw`, DATA_BOUNDARIES §2) and **approve-before-building still applies** — auto mode removes the per-command prompt, not the per-decision approval.
+- Outbound limited to designed pipeline behavior (generator SMTP, Federal Register API).
+- Each changelog entry records the permission mode used.
+- **Edits that change Claude Code's own permissions** (ADR-014, these execution-boundary rules, settings that widen access) **are made in Manual mode.**
 - Verify the working directory first — see the dual-clone check at the top.
 - **`git push` is gated by the Claude Code permission classifier** and may be refused even when explicitly requested. Either the operator runs it, or a `Bash(git push:*)` allow rule is added to settings.
 

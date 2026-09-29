@@ -2902,3 +2902,50 @@ A file written into iCloud Drive uploads asynchronously via `bird(8)`. **`OFFSIT
 | Amend ADR-014 to record permitted auto-mode use | When convenient |
 | ADR-046 F2 — NIST re-assessment scope | Operator decision |
 | Migrate and remove `~/Documents/Mac-Mini-Backups-Interim` | Operator action |
+
+---
+
+## Entry #041 — September 29, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — ADR-014 amended (§7, auto mode permitted under conditions). Security — ADR-045 §8.2 implemented (home-wide `Read` grant removed).
+
+**Permission mode:** Started in **auto mode**; switched to **Manual** mid-session (see item 3) and finished in Manual.
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **ADR-045 §8.2 implemented.** `Read(//Users/sheldonwheeler/**)` removed from `.claude/settings.local.json`; the only home-directory read rule left is `Read(//Users/sheldonwheeler/openclaw/**)`. JSON validated after the edit. Backup `.claude/settings.local.json.bak.pre-adr045-8.2`. The file is gitignored, so this change is recorded here and nowhere in Git. Made in auto mode — it narrows access, so it is outside the §7 Manual-mode condition below.
+
+2. **ADR-014 amended — new §7, "Claude Code Auto Mode".** Closes the contradiction recorded in Entry #040. Auto mode is permitted when: operator-initiated and present (never scheduled/unattended/agent-initiated); the core autonomous-execution boundary is unchanged; scope is `~/openclaw` with DATA_BOUNDARIES §2 in full; approve-before-building still applies; outbound is limited to generator SMTP and the Federal Register API; Cowork stays prohibited; each changelog entry records the mode; **edits that change Claude Code's own permissions are made in Manual mode.** The §7 text names the §8.2 removal as the compensating technical control and leaves the NIST mapping blank per §6. The §3 verbatim quotation "Auto mode must never be used" is kept as source text, with a dated supersession notice beneath it. Header status and Status cell updated. Patched in OOXML, validated with the docx skill's validator (54 → 68 paragraphs, all checks passed). Original preserved as `ADR_014.docx.bak.pre-amendment-2026-09-29`. Not rendered visually — LibreOffice/Poppler are not installed; text placement was verified by extraction.
+
+3. **The auto-mode classifier refused the amendment — and was right to.** Writing the ADR that permits auto mode, from inside an auto-mode session, into files later sessions load as instructions was blocked as "Instruction Poisoning" (self-expanding permissions). The session was switched to Manual mode, and each remaining command was operator-approved. The eighth §7 condition (permission-changing edits in Manual mode) was added by Claude from this event and flagged to the operator before the command that wrote it.
+
+4. **Instructions and CURRENT_STATE updated in step.** `instructions_v3.0.md` Hard Rules: "Auto mode is never used" replaced with the §7 conditions (version header deliberately not bumped — the filename/version mismatch is a separate open item). `CURRENT_STATE.md`: hard rules, task list (ADR-014 amendment and §8.2 marked done; renumbered), §8.2 open item closed, rollbacks, history.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_014.docx` | Amended — §7 added; status line, Status cell, §3 notice |
+| `~/openclaw/instructions_v3.0.md` | Hard Rules — auto-mode conditions |
+| `~/openclaw/CURRENT_STATE.md` | Updated for Entry #041 |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `~/openclaw/.claude/settings.local.json` | Home-wide `Read` rule removed (gitignored) |
+
+### Risk Assessment
+
+Documentation plus one permission narrowing. No code, schema, egress, or credential change; no container rebuild needed. §8.2 narrows the `Read` tool only — **shell remains unbounded by construction**, so the §8.3 traversal-verb hook is still the open technical control. Stale exact-match `Bash(...)` rules naming §2 paths (OneDrive, iCloud root, `~/Downloads`) remain in the allowlist; low risk, pruning is an open operator decision.
+
+**Rollback:** `ADR_014.docx.bak.pre-amendment-2026-09-29`; `.claude/settings.local.json.bak.pre-adr045-8.2`; `git show HEAD~1:instructions_v3.0.md` / `CURRENT_STATE.md`.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Weekly `--send` — third send, second clean send on a new window | ~Oct 3–4 |
+| ADR-046 F2 — NIST re-assessment scope | Operator decision |
+| ADR-045 §8.3 traversal-verb hook | Next build session |
+| Prune stale §2-path `Bash(...)` allow rules | Operator decision |

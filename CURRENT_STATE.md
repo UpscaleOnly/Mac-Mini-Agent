@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 27, 2026 (Entry #040 — generator v8; second brief ever delivered; off-device backup confirmed on a second device)
+**Last updated:** September 29, 2026 (Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -53,6 +53,8 @@ Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH)
 - `app/scheduling/scheduler.py.bak.pre-misfire-fix` — pre-August-23 scheduler (10-minute misfire grace).
 - `ADR_033.docx.bak.plaintext-format` … `ADR_037.docx.bak.plaintext-format` — the original plain-text-as-`.docx` files, pre-conversion.
 - `ADR_042.docx.bak.pre-amendment-2026-08-23` — pre-"Mac Mini" correction.
+- `ADR_014.docx.bak.pre-amendment-2026-09-29` — before the §7 auto-mode amendment.
+- `.claude/settings.local.json.bak.pre-adr045-8.2` — before removal of the home-wide `Read` grant.
 - `ADR_036.docx.bak.pre-supersede-2026-09-20` — before the SUPERSEDED marking.
 - `ADR_040.docx.bak.pre-amendment-2026-09-20` — before the ADR-045 amendment annotation.
 - `DATA_BOUNDARIES.md.bak.pre-adr045` — v1, before the v2.0 rewrite.
@@ -120,15 +122,14 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 ## Active task (in order)
 
 1. **[Next]** **Weekly `--send`** — the third send, and the second clean send on a new window. Watch v8 for new false-positive shapes. *(Second send DONE Sept 27; off-device backup DONE and confirmed — Entry #040.)*
-2. **[Next]** **Amend ADR-014** to record when auto mode is permitted — the operator uses it deliberately (Entry #040); the document still says never.
-3. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline.
-4. **[Then]** Implement **ADR-045 §8.2 and §8.3** — remove the home-wide `Read` grant; build the traversal-verb hook.
-5. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
-6. **[Then]** Backfill the August 4–16 content gap (explicit `days_back`, or a targeted Federal Register API pull).
-7. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
-8. **[Then]** Refresh the local model — `gemma4:e4b` is five months old; a current model in the same size class is likely the highest-value zero-cost improvement available.
-9. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
-10. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
+2. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline. *(ADR-014 auto-mode amendment DONE — Entry #041.)*
+3. **[Then]** Implement **ADR-045 §8.3** — build the traversal-verb hook. *(§8.2 DONE — Entry #041.)* Also decide whether to prune stale one-off `Bash(...)` allow rules that name §2 paths (OneDrive, iCloud root, `~/Downloads`).
+4. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
+5. **[Then]** Backfill the August 4–16 content gap (explicit `days_back`, or a targeted Federal Register API pull).
+6. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
+7. **[Then]** Refresh the local model — `gemma4:e4b` is five months old; a current model in the same size class is likely the highest-value zero-cost improvement available.
+8. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
+9. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
 
 ## Top open items
 
@@ -153,7 +154,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 - **ADR-045 §8.3 — traversal-verb hook, not yet built.** A PreToolUse hook gating `du`, `find`, `ls -R`, `grep -r`, `tree`, `mdfind`, `locate` when not explicitly scoped to `~/openclaw`. It must match on **commands, not path literals** — a path blacklist would not have caught `cd ~ && du -sh */`, which contains no prohibited path. Verify hook mechanics against the live settings schema before building. **It is a speed bump, not a boundary** — document it as such.
 
-- **`Read(//Users/sheldonwheeler/**)` remains in the Claude Code allowlist** — carried from Entry #029, now formally pending removal under **ADR-045 §8.2**. It pre-authorises reads across the entire home directory including all three §2-prohibited paths; the narrow `Read(//Users/sheldonwheeler/openclaw/**)` replacement already exists alongside it. `.claude/settings.local.json` is now a **governed artifact** under DATA_BOUNDARIES §7 — but it is gitignored, so the contradiction never appears in a diff and must be inspected manually at each review.
+- ✅ **ADR-045 §8.2 DONE September 29 (Entry #041)** — `Read(//Users/sheldonwheeler/**)` removed from `.claude/settings.local.json`; only `Read(//Users/sheldonwheeler/openclaw/**)` remains. Backup: `.claude/settings.local.json.bak.pre-adr045-8.2`. The file is a **governed artifact** under DATA_BOUNDARIES §7 but gitignored, so changes never appear in a diff — inspect manually at each review. Still present: several exact-match one-off `Bash(...)` rules naming §2 paths (low risk; pruning is an open decision).
 
 - **`~/Documents/Mac-Mini-Backups-Interim`** — carried from Entry #029, unexamined, inside a §2-prohibited path. Either it predates ADR-040 and needs migrating, or it is an undocumented second backup destination.
 
@@ -185,8 +186,8 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ⚠️ **ADR-014 changed on August 22 — the old "no shell, ever" rule is no longer accurate for Claude Code.**
 
-- **Auto mode — operator decision September 27 (Entry #040).** The operator turned it on deliberately; the "never" below is pending an ADR-014 amendment. Scope to `~/openclaw` and approve-before-building still apply.
-- **Claude Code in Manual permission mode MAY** run shell commands, edit files directly, and commit to Git — **scoped to `~/openclaw`**, with per-action operator approval. **Auto mode is never used. Cowork is never used.** (ADR-014, RESOLVED; reconstructed document at `~/openclaw/ADR_014.docx`, provenance in its Section 6.)
+- **Claude Code in Manual permission mode MAY** run shell commands, edit files directly, and commit to Git — **scoped to `~/openclaw`**, with per-action operator approval. **Cowork is never used.** (ADR-014, RESOLVED; reconstructed document at `~/openclaw/ADR_014.docx`, provenance in its Section 6.)
+- **Auto mode is permitted under ADR-014 §7 (amended September 29, Entry #041):** operator-initiated and present only; same scope; approve-before-building still applies; outbound limited to the generator's SMTP and the Federal Register API; changelog records the mode. **Edits to Claude Code's own permissions are made in Manual mode** — the auto-mode classifier refused the §7 amendment itself, correctly.
 - **Read `DATA_BOUNDARIES.md` §2 before any command touching paths outside `~/openclaw`.** A glob is a directory read. A `du` is a directory read. The policy binds interactive shell commands, not only application code. Three breaches to date.
 - **A plain Claude Desktop chat session still follows the pre-ADR-014 rules:** MCP filesystem read-only, no shell, `.py` files delivered as `.txt` for manual copy, operator runs all git commands.
 - **A code block in chat means "run this"** (Claude Code) or "here is what ran" (Desktop chat, retrospectively). Don't mix the two conventions mid-session.
@@ -198,6 +199,8 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 - **Verify live state** (schema, files, config) before generating code or migrations. **Prefer an authoritative source over a clever inference** — this keeps paying off: the dual clone was caught by `git remote -v`; the scrape misfire was proven from `pmset -g log`; the 11 GB in `.git` turned out to be garbage rather than history only because `git count-objects -vH` was run instead of assuming; and `Docker.raw` reports 228 GB apparent against 3.0 GB actual, so `ls -lh` on it misleads by two orders of magnitude.
 
 ## Recent history (most recent first)
+
+- **Entry #041 (Sep 29):** **ADR-014 amended (§7)** — auto mode permitted under conditions, closing the Entry #040 contradiction. **ADR-045 §8.2 done** — home-wide `Read` grant removed. The auto-mode classifier refused the amendment as self-expanding permissions; the session switched to Manual mode to finish, and that is now a §7 condition.
 
 - **Entry #040 (Sep 27):** **Second brief ever delivered** (`brief_runs` #3). Generator **v8** — the Sept 20 ICR diagnosis was wrong (eighth documented-but-false claim): counts with modifier words were never examined. Enumeration rule added; 22 tracked tests. First send failed safely on a revoked SMTP password. **Off-device backup confirmed** on a second device. Auto mode used by operator decision; ADR-014 amendment pending. Future-dated FR rows observed (scheduled next-issue documents — not a defect).
 - **Entry #038 (Sep 20):** Generator **v7** — counts verified against ground truth recomputed from source rows. **First clean verification since Aug 22; `--send` ungated.** v7's first run failed on a scope bug (a correct CMS-scoped "three notices" measured against the window's 21) that the unit tests missed by testing the wrong shape; `acceptable_counts()` fixes it. Audit of the clean run found `request` is not a tracked unit, so ICR counts are unchecked.
