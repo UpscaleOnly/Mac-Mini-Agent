@@ -123,7 +123,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 1. **[Next]** **Weekly `--send`** — the third send, and the second clean send on a new window. Watch v8 for new false-positive shapes. *(Second send DONE Sept 27; off-device backup DONE and confirmed — Entry #040.)*
 2. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline. *(ADR-014 auto-mode amendment DONE — Entry #041.)*
-3. **[Then]** Implement **ADR-045 §8.3** — build the traversal-verb hook. *(§8.2 DONE — Entry #041.)* Also decide whether to prune stale one-off `Bash(...)` allow rules that name §2 paths (OneDrive, iCloud root, `~/Downloads`).
+3. **[Then]** Implement **ADR-045 §8.3** — build the traversal-verb hook. *(§8.2 DONE — Entry #041.)* *(Stale §2-path allow rules pruned — Entry #041.)*
 4. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
 5. **[Then]** Backfill the August 4–16 content gap (explicit `days_back`, or a targeted Federal Register API pull).
 6. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
@@ -154,7 +154,8 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 - **ADR-045 §8.3 — traversal-verb hook, not yet built.** A PreToolUse hook gating `du`, `find`, `ls -R`, `grep -r`, `tree`, `mdfind`, `locate` when not explicitly scoped to `~/openclaw`. It must match on **commands, not path literals** — a path blacklist would not have caught `cd ~ && du -sh */`, which contains no prohibited path. Verify hook mechanics against the live settings schema before building. **It is a speed bump, not a boundary** — document it as such.
 
-- ✅ **ADR-045 §8.2 DONE September 29 (Entry #041)** — `Read(//Users/sheldonwheeler/**)` removed from `.claude/settings.local.json`; only `Read(//Users/sheldonwheeler/openclaw/**)` remains. Backup: `.claude/settings.local.json.bak.pre-adr045-8.2`. The file is a **governed artifact** under DATA_BOUNDARIES §7 but gitignored, so changes never appear in a diff — inspect manually at each review. Still present: several exact-match one-off `Bash(...)` rules naming §2 paths (low risk; pruning is an open decision).
+- ✅ **ADR-045 §8.2 DONE September 29 (Entry #041)** — `Read(//Users/sheldonwheeler/**)` removed from `.claude/settings.local.json`; only `Read(//Users/sheldonwheeler/openclaw/**)` remains. Backup: `.claude/settings.local.json.bak.pre-adr045-8.2`. The file is a **governed artifact** under DATA_BOUNDARIES §7 but gitignored, so changes never appear in a diff — inspect manually at each review. **Stale-rule prune also DONE (Entry #041 addendum):** 18 rules naming OneDrive, the iCloud root, `~/Downloads` or `~/Library/Application Support` removed, including the wildcard `Bash(brctl download *)`. Backup: `.claude/settings.local.json.bak.pre-stale-prune`.
+  ⚠️ **Gotcha — choosing "always allow" on a prompt makes the app rewrite this file from its cached rule list**, silently reverting any edit made to it on disk during that session. It happened here once. When editing this file, approve surrounding commands with **"Yes" (once)**, then re-read the file to confirm the edit held.
 
 - **`~/Documents/Mac-Mini-Backups-Interim`** — carried from Entry #029, unexamined, inside a §2-prohibited path. Either it predates ADR-040 and needs migrating, or it is an undocumented second backup destination.
 

@@ -2948,4 +2948,11 @@ Documentation plus one permission narrowing. No code, schema, egress, or credent
 | Weekly `--send` — third send, second clean send on a new window | ~Oct 3–4 |
 | ADR-046 F2 — NIST re-assessment scope | Operator decision |
 | ADR-045 §8.3 traversal-verb hook | Next build session |
-| Prune stale §2-path `Bash(...)` allow rules | Operator decision |
+
+### Addendum — stale allow rules pruned (same session, Manual mode)
+
+Operator approved removing the stale rules flagged above. **18 rules removed** from `.claude/settings.local.json`: OneDrive (`xattr`, `brctl download`, `FILE=` one-offs), the iCloud Drive root (`unzip` of `ADR 035.docx`), `rm` of probe files in the offsite backup folder, every `~/Downloads` one-off (including a `cp` *into* Downloads and an `rm` there, both beyond §1's read-only grant), the docx skill's LibreOffice script under `~/Library/Application Support`, and the wildcard **`Bash(brctl download *)`**, which could fetch any iCloud/OneDrive path. Also removed: three junk rules from this session's own checks. Kept: two `grep` rules that only search `scripts/backup.sh` (paths appear as pattern text, not targets). 188 → 167 rules. Backup `.claude/settings.local.json.bak.pre-stale-prune`. Correction to item 1's wording: §1 **does** grant `~/Downloads` read access, so the read-only Downloads rules were stale, not violations.
+
+**Gotcha found:** the first prune was silently reverted. Approving a command with "always allow" makes the app rewrite `settings.local.json` from its in-memory rule list plus the new rule, overwriting on-disk edits. Detected by re-reading the file; redone by exact-text match; confirmed held via the Read tool (no prompt, so no rewrite). Recorded in `CURRENT_STATE.md`.
+
+Broad rules noticed but **not** changed (not §2-path-specific; operator review candidates): `Bash(python3 -)`, `Bash(python3 -c ' *)`, `Bash(docker exec *)`, `Bash(cp .claude/settings.local.json *)`, `Bash(sudo -n true)`.
