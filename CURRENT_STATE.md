@@ -31,6 +31,7 @@ Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH)
 ## Start here — session startup commands
 
 0. **One-time, next session (Entry #042):** live-verify the traversal hook. Run `ls /nonexistent-openclaw-hook-test` — it **must prompt** (answer No). Run `du -sh ~/openclaw` — it must **not** prompt. Test in auto mode. Never test against a real outside path; §2 prohibits everything not in §1, `/tmp` included. Record the result, then delete this step.
+   Also confirm the first nightly on the paginated scraper (Entry #043): `docker exec openclaw_postgres psql -U openclaw -d openclaw -c "SELECT started_at, status, docs_fetched, docs_inserted, error_message FROM scraper_runs WHERE scraper_name='federal_register' ORDER BY started_at DESC LIMIT 2;"` — expect `success`.
 
 1. **Working directory** — the check above.
 2. **Containers** — `docker ps`; expect four up. If the daemon is down, launch Docker Desktop and wait for the whale to stop animating.
