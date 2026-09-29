@@ -26,7 +26,7 @@ The project specification (Version 1.0, April 11, 2026) is finalized and in the 
 | ADR-037 HealthMonitor | DESIGNED | Not yet implemented |
 | Automate persona Docker sandbox | NOT DEPLOYED | Required before scraping begins |
 | Prototype persona Docker sandbox | NOT DEPLOYED | Required before brief generation begins |
-| Ollama 14B model (Tier 2) | NOT PULLED | Required for brief generation |
+| Ollama local model (Tier 2) | `gemma4:e4b` — installed and in use (corrected Sep 29, 2026, ADR-047) | Required for brief generation |
 | Telegram bots (per persona) | NOT CREATED | Required for operator notifications |
 
 ---

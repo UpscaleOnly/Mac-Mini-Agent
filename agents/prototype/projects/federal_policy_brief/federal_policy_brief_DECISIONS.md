@@ -38,7 +38,7 @@ Daily: 2–6 pages, designed for under 10-minute read. Weekly digest: 4–10 pag
 Automate persona owns nightly data collection (scraping, parsing, deduplication, chunking, embedding). Prototype persona owns brief generation and delivery (query ChromaDB, generate content, build PDF, send email, log delivery). This separation enforces least privilege — Automate has egress to source domains, Prototype has egress to email infrastructure.
 
 ### D-011 · Inference Routing
-Brief generation uses local Tier 2 inference (14B model) by default. This is a cost elimination decision — the brief runs daily and must not accumulate cloud API costs. Escalation to Tier 3 (32B local) permitted if quality validation fails. Cloud escalation (OpenRouter) is not used for routine brief generation.
+Brief generation uses local Tier 2 inference (the single deployed local model — `gemma4:e4b` as of September 29, 2026; ADR-047) by default. This is a cost elimination decision — the brief runs daily and must not accumulate cloud API costs. Escalation to Tier 3 (32B local) permitted if quality validation fails. Cloud escalation (OpenRouter) is not used for routine brief generation.
 
 ### D-012 · Source Domain Allowlist
 16 curated domains. No open crawl. No dynamically discovered sources. Adding a new domain requires operator approval, ADR-030 network policy update, ADR-024 Little Snitch allowlist entry, and ADR-031 change management log entry. The allowlist is a product differentiator.

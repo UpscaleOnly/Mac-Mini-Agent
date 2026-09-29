@@ -36,8 +36,8 @@ class TrustTier(IntEnum):
 
 
 class Routing(str, Enum):
-    LOCAL_TIER1 = "local_tier1"     # 7B
-    LOCAL_TIER2 = "local_tier2"     # 14B / 32B
+    LOCAL_TIER1 = "local_tier1"     # local, reserved -- unassigned (ADR-047 §8)
+    LOCAL_TIER2 = "local_tier2"     # local, the single deployed model (ADR-047 §8)
     CLOUD_TIER3 = "cloud_tier3"     # Sonnet via OpenRouter
     CLOUD_TIER4 = "cloud_tier4"     # Opus — hard blocked Phase 1
 

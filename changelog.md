@@ -3263,3 +3263,82 @@ ADR-014 §7 (auto mode under conditions); allowlist narrowed to `~/openclaw` and
 | Project-knowledge refresh (list in `CURRENT_STATE.md`) | Operator |
 | Startup step 0; then the 16 GB inference-architecture conversation | Next session |
 | F10 maintenance job | On approval |
+
+---
+
+## Entry #048 — September 29, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Findings — 16 GB inference-architecture baseline (recorded without prior approval under the findings rule). Startup step 0 — partial. **ADR-047 drafted, PROPOSED, not yet on disk as an ADR.**
+
+**Permission mode:** as run by the operator this session (to be confirmed at close).
+
+### Startup step 0
+
+- **Paginated scraper nightly — NOT YET TESTABLE.** The latest run (2026-09-29 05:44 UTC, `success`, 13 fetched / 0 inserted) ran before the Entry #043 deploy (~10:30 ET). The first paginated nightly is the 2026-09-30 run. Carried forward.
+- **Traversal hook** — the guard returns `ask` for `ls /nonexistent-openclaw-hook-test` and nothing for `du -sh ~/openclaw` when fed directly. In the live session, the `ls` command executed; whether a prompt appeared is pending operator confirmation.
+
+### Findings (verified on the live host)
+
+1. **F11 — MEDIUM — cloud escalation path cannot work.** `app/llm.py` `call_openrouter()` posts `json=headers` instead of `json=payload`, so the request body is the auth headers. Dormant only because `OPENROUTER_API_KEY` is empty and `determine_routing()` always returns local Tier 2. Never exercised.
+2. **F12 — LOW — cloud model setting ignored.** `.env` sets `OPENROUTER_DEFAULT_MODEL`; `app/config.py` reads `openrouter_model` (env `OPENROUTER_MODEL`). The code default `anthropic/claude-sonnet-4-20250514` would apply, and that model ID is itself stale.
+3. **`llama3.2` is not installed.** `ollama list` shows only `gemma4:e4b`. Instructions, CURRENT_STATE, ADR-043 §3 and ADR-046 F3 all call it the fallback. No fallback exists.
+4. **Ollama server is 0.34.0**, not 0.32.15 as documented.
+5. **`ollama ps` understates real memory cost.** `gemma4:e4b` (8.0B, Q4_K_M, 9.6 GB file) at `num_ctx 8192` reports 3.2 GB, but system free memory fell 59% → 24% (~5.6 GB) and swap grew ~1.6 GB — ≈ 7 GB real. Swap stayed at 3.3 GB after unload: each load pushes ~1.7 GB of interactive-app memory to swap persistently. Throughput 97 tok/s prompt, 17 tok/s generation; cold load 6.8 s.
+6. **ADR-033 F3 fails in both directions**, not one: 28/30 GB thresholds can never fire, and "any swap > 0 = alert" fires permanently (swap 1.5–3.3 GB at rest).
+7. **Docker Desktop VM cap is 11.67 GiB** (resident ~1.2 GB; containers ~210 MB). Uncapped relative to the model's needs.
+8. **ADR-043 §7 wording is inaccurate:** "fee-for-service API under the existing Claude Pro subscription" — the Pro subscription does not include API usage.
+9. **Nothing in the code uses ChromaDB or embeddings** — no second model to budget.
+
+### Operator decisions
+
+1. **No VPS exists** — the pipeline and containers stay on the Air; ADR-043 §7's VPS migration is not being pursued (ADR-043 amendment owed).
+2. **ADR-046 F2 — Option B:** full NIST SP 800-53 Rev. 5 Moderate baseline re-assessment of ADR-032, as its own work product after ADR-047's implementation settles.
+3. **Ollama server settings — amend DATA_BOUNDARIES** to cover them rather than treat them as an out-of-boundary operator action.
+4. The ADR-047 draft, with these folded in, is approved.
+
+### Changes Made
+
+1. **`ADR_047.docx` created — DECIDED** (Inference Architecture for the 16 GB Host). 13 sections: measured baseline; memory budget (7 GB Ollama envelope, Docker cap 3 GB); bake-off (≤3 candidates × 3 review-only runs, verifier warnings primary); context (8192 default; fail-closed truncation guard; 16K conditional); scheduling (Postgres advisory lock, pre-flight pressure gate, `keep_alive: 0`, F10 nightly maintenance 01:30); local-vs-Claude split by data class (API path disabled; direct Anthropic API when rebuilt; ADR-021 confidence thresholds retired); F9 relabel (integers unchanged); F3 thresholds on `kern.memorystatus_vm_pressure_level`; §9 boundary amendment (one LaunchAgent plist write, `~/.ollama/logs/server.log` read, `~/.ollama/models` no direct access); F2 Option B; 8-step implementation sequence. Built with a stdlib-only generator (`python-docx`, `pandoc` and the `docx` npm package are not installed; `textutil` HTML→docx silently drops tables and was rejected). Validated: XML parses, 9 tables / 166 cells, reads back via `textutil`.
+
+2. **`DATA_BOUNDARIES.md` → v2.1 (ADR-047 §9)** — made in **Manual mode** (ADR-014 §7; operator confirmed). §1 adds: write to `~/Library/LaunchAgents/com.openclaw.backup.plist` (live since May 17, never listed — **operator decision: list it so the policy matches what runs**) and `com.openclaw.ollama-env.plist`, one file each; read-only `~/.ollama/logs/server.log`; `~/.ollama/models` no direct access (CLI/API only); `launchctl` env limited to `OLLAMA_*`; nothing else in `~/Library/LaunchAgents` may be listed or read. §2 `~/Library` exception updated; §5 references ADR-047. **§7 status line corrected** — it still said the home-wide `Read` grant was "pending removal"; removed in Entry #041. Backup: `DATA_BOUNDARIES.md.bak.pre-adr047`.
+3. **`ADR_040.docx` marked in place** — status cell and footer cite ADR-047 §9. Text XML-escaped (the ADR-046 raw-`&` lesson); XML validated. Backup: `ADR_040.docx.bak.pre-adr047`.
+4. **`ADR_047.docx` §9 / §12** updated with the backup-plist row and decision; regenerated and re-validated.
+
+### Finding — traversal hook, live test
+
+- **First test (earlier this session, mode not recorded — most likely auto):** `ls /nonexistent-openclaw-hook-test` **executed and the operator saw no prompt.** The guard returns `ask` for that command when invoked directly, so either the hook is not loading in this app, or auto mode resolves a hook `ask` without surfacing it to the operator. **Consequence either way: in the mode used, §8.3 provided no operator-visible gate.**
+- **Second test (Manual mode):** executed after the operator approved a prompt the operator recalls as **generic**, not the guard's (recollection, not certain). **Most likely explanation: the project hook is not loading in the Claude desktop app.** Not proven — the guard does not log.
+- **CORRECTION — the hook IS loading.** After a run log was added (below), the live hook logged its own invocations: `2026-09-29T12:43:21 mode=acceptEdits verb=ls ask` for the retest command, which then executed. The "not loading" explanation recorded above was wrong. **What is established:** the hook runs in the desktop app and returns `ask`. **What is not:** whether the app showed that `ask` to the operator (the operator recalls only a generic prompt, and was asked to decline but the command ran). **Resolved:** the operator saw a prompt offering "Deny" / "Allow once" and chose Allow once — the hook's `ask` surfaced as a real prompt. **ADR-045 §8.3 is live-verified** (in `acceptEdits` mode). The prompt does not visibly carry the guard's reason text, which is why it read as generic. The first, unlogged test is inconclusive (probably also prompted and approved).
+- **Finding — session mode reported to hooks is `acceptEdits`, not `default`**, while the operator understood the session to be in Manual mode. In `acceptEdits`, Write/Edit tool changes are auto-accepted; Bash still prompts. This session's DATA_BOUNDARIES v2.1 and ADR-040 edits were made through Bash (prompted), not the Edit tool. ADR-014 §7's "Manual mode" condition should say which app setting satisfies it.
+
+### Proposal A — guard run log (operator-approved)
+
+`scripts/hooks/traversal_guard.py` `log_run()`: one line per invocation to `scripts/hooks/traversal_guard.log` — time, `permission_mode`, the command's first word, verdict; never the full command; never raises. Log gitignored. 52 guard tests pass. Backup: `traversal_guard.py.bak.pre-log`.
+
+### ADR-047 §11 step 1 (operator-approved) — DONE
+
+1. `app/llm.py` — `call_openrouter()` returns `cloud path disabled (ADR-047 §7)` before any network code (F11/F12 code retained, unreachable, documented). Docstring carries the ADR-047 §8 tier labels.
+2. `app/models.py`, `schema.sql` — tier comments relabelled (schema.sql's `1=7B, 2=14B, 3=32B, 4=Opus` also contradicted the code, where 3 is cloud). No DB change.
+3. federal_policy_brief project docs — `DECISIONS.md` "14B" → `gemma4:e4b`; `CURRENT_STATE.md` "14B NOT PULLED" corrected; `CODE_REFERENCE.md` 14B labels and the nonexistent `openclaw_ollama` container corrected (Ollama is native on the host).
+4. **Tests:** new `test_cloud_disabled.py` (network client replaced with one that fails if constructed; key present) passes in the container; `test_audit_spool.py` 9/9 still pass. `fastapi` rebuilt: schema 8 OK, 3 jobs registered.
+Backups: `app/llm.py.bak.pre-adr047`, `app/models.py.bak.pre-adr047`, `schema.sql.bak.pre-adr047`.
+
+### ADR-047 §11 step 2 (operator-approved) — DONE: generator v9 + `/agent` lock
+
+1. **`generate_brief_review.py` v8 → v9** (backup `.bak.v8`; changes 19–23 in its header): `--model` (evaluation only — refused with `--send`; review file named `<date>_<model>_<time>.txt`); fail-closed **truncation guard** (prompt+output ≥ `NUM_CTX − 256`, or `done_reason == "length"` → `TRUNCATION` warning joins `claim_warnings`, so it blocks `--send`); **advisory lock** 470047 on its own autocommit connection (no transaction, no table — a narrow exception to the "no DB connection during synthesis" comment, now documented there), 15-min wait then exit 4; **pre-flight gate** (pressure level 1 and free ≥ 40%, 15-min retry then exit 3); **memory report** before/after with ADR-047 §8 state; **model unloaded** (`keep_alive 0`) in a `finally`, success or failure. Synthesis moved unchanged into `synthesize_all()`.
+2. **`app/llm.py`** — `call_ollama_locked()`: same lock key; waits 60 s then returns "local model busy (ADR-047 §6)" without loading; if the lock is unreachable (DB down), proceeds unlocked with one warning — AU-5 posture. Backup `app/llm.py.bak.pre-adr047-lock`.
+3. **Tests:** `test_inference_guards.py` (22, host, offline) and `test_agent_lock.py` (6, container, fake pool) pass; `test_count_verification.py`, `test_cloud_disabled.py`, `test_audit_spool.py` still pass. `fastapi` rebuilt: schema 8 OK, 3 jobs.
+4. **Live run.** The production 7-day window was empty (all consumed by the Sep 27 send — correct; exit 0, guards not reached). A scratch copy with `WINDOW_DAYS = 14`, run from the session scratchpad so no tracked file was written: exit 0, 388 s, 27 docs, 5 calls, **no truncation**, lock acquired, gate passed (free 70%), **model unloaded on exit** (`ollama ps` empty). Memory: free 70% → 35%, swap +908 MB, **pressure level 2 at end** — reported GREEN.
+
+### Findings from the live run
+
+- **F13 — MEDIUM — verifier false positives (v8), all three warnings on correct text.** (a) **In-section subset counts:** CMS text "A notice … Two notices … One notice …" is exactly right for 3 notices; `'2 notice(s)'` and `'1 notice(s)'` flagged WRONG against the section total. (b) **Enumeration rule missed its own shape:** TANF "Two recent information collection requests … One request …" — correct total stated, yet `'1 request(s)'` flagged. **Consequences:** the Oct 3–4 `--send` can be blocked by correct output; and ADR-047's bake-off ranks models by verifier warnings, so false positives would penalise models that write correct partial counts. Not fixed — needs approval.
+- **ADR-047 §8 gap:** kernel pressure level **2 (warn)** is not mapped — the run ended at level 2 and reported GREEN. Proposed: level 2 → YELLOW (needs approval; ADR §8 table amendment).
+
+### Pending
+
+- F13 verifier fix — recommended **before** the bake-off and before Oct 3–4 `--send` (approval).
+- ADR-047 §8: level 2 → YELLOW (approval).
+- Implementation steps 3–8 (ADR-047 §11), each approved.

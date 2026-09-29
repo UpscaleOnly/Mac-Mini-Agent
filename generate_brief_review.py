@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, v8
+generate_brief_review.py - federal_policy_brief, v9
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -25,7 +25,8 @@ still writes the review file and a brief_runs row (send_status =
 brief, independent of the HARD_FAIL_ON_UNVERIFIED switch below, which still
 controls only the review-mode print-vs-abort behavior.
 
-No shell or bash is invoked. It reaches PostgreSQL (localhost:5432),
+No shell or bash is invoked (v9 runs sysctl and memory_pressure directly,
+without a shell, for the pre-flight memory gate). It reaches PostgreSQL (localhost:5432),
 Ollama (localhost:11434), and -- in --send mode only -- smtp.mail.me.com:587
 over the network. It must run on the host, not inside Docker: Keychain
 (used for SMTP credentials) is unavailable inside a container.
@@ -250,6 +251,31 @@ CHANGES FROM v6 (2026-09-20, Entry #038)
      because catching it requires knowing the answer is 18. Tolerance
      heuristics cannot, and prompts do not reliably prevent it.
 
+CHANGES FROM v8 (2026-09-29, Entry #048, ADR-047 §4-§6 and §8)
+ 19. --model NAME runs the brief with another local model, for the ADR-047
+     bake-off. Evaluation only: it cannot be combined with --send, and its
+     review file is named <date>_<model>_<time>.txt so a bake-off never
+     overwrites the tracked review file for the day.
+ 20. Truncation guard (fail-closed). Ollama truncates silently -- the Entry
+     #018 misdiagnosis. After every call, if prompt + output tokens reach
+     NUM_CTX - 256, or the output stopped at the length limit, the call is
+     reported as a TRUNCATION warning. It joins claim_warnings, so it blocks
+     --send exactly as an unverified claim does.
+ 21. One inference job at a time (ADR-047 §6): a PostgreSQL session advisory
+     lock (key 470047, shared with app/llm.py's /agent path). Waits up to 15
+     minutes, then exits 4. The lock is held on its own autocommit
+     connection that runs no transaction and touches no table -- a narrow,
+     deliberate exception to "synthesis holds no DB connection" below.
+ 22. Pre-flight memory gate: kernel memory pressure must be normal (1) and
+     free memory >= 40% before the model loads; retries for up to 15
+     minutes, then exits 3. Memory is reported before and after, flagged
+     YELLOW/RED per ADR-047 §8 (the replacement for ADR-033's dead 28/30 GB
+     thresholds).
+ 23. The model is unloaded when the run ends (keep_alive 0), success or
+     failure, returning ~7 GB to the operator immediately instead of after
+     Ollama's five-minute default.
+     Tests: test_inference_guards.py.
+
 """
 
 import argparse
@@ -259,6 +285,7 @@ import re
 import smtplib
 import subprocess
 import sys
+import time
 import datetime as dt
 from email.message import EmailMessage
 
@@ -275,6 +302,19 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_TIMEOUT = 300                  # seconds; local inference can be slow
 TEMPERATURE = 0.2                     # low = factual, consistent
 NUM_CTX = 8192                        # prompt+response budget; Ollama default 4096 truncated Cross-Program
+OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate"   # used only to unload the model
+
+# ----------------------- INFERENCE GUARDS (v9, ADR-047) -----------------------
+TRUNCATION_MARGIN = 256               # tokens; prompt+output this close to NUM_CTX = truncated
+INFERENCE_LOCK_KEY = 470047           # ADR-047 §6 -- same key as app/llm.py
+LOCK_WAIT_SECONDS = 900               # wait up to 15 min for another inference job
+LOCK_POLL_SECONDS = 30
+GATE_MIN_FREE_PCT = 40                # pre-flight: free memory needed before loading
+GATE_WAIT_SECONDS = 900               # retry the gate for up to 15 min
+GATE_POLL_SECONDS = 60
+YELLOW_FREE_PCT = 25                  # ADR-047 §8
+YELLOW_SWAP_GROWTH_MB = 1024
+RED_PRESSURE_LEVEL = 4                # kern.memorystatus_vm_pressure_level: 1 normal, 2 warn, 4 critical
 
 # ----------------------- SEND-TO-INBOX (v5, ADR-039 H4) -----------------------
 # Self-send only: the sole recipient is the operator's own inbox, so an
@@ -1086,7 +1126,28 @@ def area_for(agency):
     return DEFAULT_AREA
 
 
-def ollama_chat(user_prompt):
+_TRUNCATIONS = []   # filled by ollama_chat(); folded into claim_warnings by main()
+
+
+def truncation_reason(label, data, num_ctx=None):
+    """Return a warning if an Ollama response shows truncation, else None.
+
+    Ollama drops the start of an over-long prompt without an error, so the
+    only evidence is the token accounting: prompt + output reaching the
+    context size, or the output stopping at the length limit.
+    """
+    num_ctx = num_ctx or NUM_CTX
+    used = (data.get("prompt_eval_count") or 0) + (data.get("eval_count") or 0)
+    if data.get("done_reason") == "length":
+        return (f"TRUNCATION -- {label}: output stopped at the length limit "
+                f"({used} of {num_ctx} context tokens used)")
+    if used >= num_ctx - TRUNCATION_MARGIN:
+        return (f"TRUNCATION -- {label}: {used} of {num_ctx} context tokens "
+                f"used; input may have been silently cut")
+    return None
+
+
+def ollama_chat(user_prompt, label="call"):
     """Single non-streaming chat call to the local Ollama server."""
     payload = {
         "model": MODEL,
@@ -1099,7 +1160,117 @@ def ollama_chat(user_prompt):
     }
     r = httpx.post(OLLAMA_URL, json=payload, timeout=OLLAMA_TIMEOUT)
     r.raise_for_status()
-    return to_plain_text(r.json()["message"]["content"])
+    data = r.json()
+    reason = truncation_reason(label, data)
+    if reason:
+        _TRUNCATIONS.append(reason)
+    return to_plain_text(data["message"]["content"])
+
+
+def parse_free_pct(text):
+    """'System-wide memory free percentage: 59%' -> 59, or None."""
+    m = re.search(r"memory free percentage:\s*(\d+)%", text or "")
+    return int(m.group(1)) if m else None
+
+
+def parse_swap_used_mb(text):
+    """'total = 4096.00M  used = 1558.12M  free = ...' -> 1558.12, or None."""
+    m = re.search(r"used = ([\d.]+)M", text or "")
+    return float(m.group(1)) if m else None
+
+
+def _run(cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=30).stdout
+    except Exception:
+        return ""
+
+
+def memory_snapshot():
+    """Pressure level, free %, swap used (MB). Any value may be None."""
+    level = _run(["/usr/sbin/sysctl", "-n", "kern.memorystatus_vm_pressure_level"]).strip()
+    return {
+        "level": int(level) if level.isdigit() else None,
+        "free_pct": parse_free_pct(_run(["/usr/bin/memory_pressure"])),
+        "swap_mb": parse_swap_used_mb(_run(["/usr/sbin/sysctl", "-n", "vm.swapusage"])),
+    }
+
+
+def gate_ok(snap):
+    return snap["level"] == 1 and (snap["free_pct"] or 0) >= GATE_MIN_FREE_PCT
+
+
+def preflight_gate(snapshot=memory_snapshot, sleep=time.sleep,
+                   wait=None, poll=None):
+    """Wait until memory is safe to load the model; exit 3 if it never is."""
+    wait = GATE_WAIT_SECONDS if wait is None else wait
+    poll = GATE_POLL_SECONDS if poll is None else poll
+    waited = 0
+    while True:
+        snap = snapshot()
+        if gate_ok(snap):
+            return snap
+        if waited >= wait:
+            print(f"Memory gate not met after {waited}s (need pressure level 1 "
+                  f"and free >= {GATE_MIN_FREE_PCT}%; last: level "
+                  f"{snap['level']}, free {snap['free_pct']}%). Model NOT "
+                  f"loaded. Close some applications and re-run.",
+                  file=sys.stderr)
+            sys.exit(3)
+        print(f"... memory gate: level {snap['level']}, free "
+              f"{snap['free_pct']}% -- waiting {poll}s", file=sys.stderr)
+        sleep(poll)
+        waited += poll
+
+
+def memory_state(before, after):
+    """ADR-047 §8 state for the run: GREEN, YELLOW or RED, with reasons."""
+    reasons = []
+    if after["level"] is not None and after["level"] >= RED_PRESSURE_LEVEL:
+        return "RED", ["kernel memory pressure critical"]
+    if after["free_pct"] is not None and after["free_pct"] < YELLOW_FREE_PCT:
+        reasons.append(f"free {after['free_pct']}% < {YELLOW_FREE_PCT}%")
+    if before["swap_mb"] is not None and after["swap_mb"] is not None:
+        growth = after["swap_mb"] - before["swap_mb"]
+        if growth > YELLOW_SWAP_GROWTH_MB:
+            reasons.append(f"swap grew {growth:.0f} MB during the run")
+    return ("YELLOW" if reasons else "GREEN"), reasons
+
+
+def acquire_inference_lock():
+    """Hold the host-wide inference lock (ADR-047 §6); exit 4 on timeout.
+
+    Returns the connection holding the session lock. It runs no transaction
+    and touches no table; closing it releases the lock.
+    """
+    conn = psycopg2.connect(**DB)
+    conn.autocommit = True
+    waited = 0
+    with conn.cursor() as cur:
+        while True:
+            cur.execute("SELECT pg_try_advisory_lock(%s)", (INFERENCE_LOCK_KEY,))
+            if cur.fetchone()[0]:
+                return conn
+            if waited >= LOCK_WAIT_SECONDS:
+                conn.close()
+                print(f"Another inference job held the lock for {waited}s. "
+                      f"Model NOT loaded. Re-run when it finishes.",
+                      file=sys.stderr)
+                sys.exit(4)
+            print(f"... another inference job is running -- waiting "
+                  f"{LOCK_POLL_SECONDS}s", file=sys.stderr)
+            time.sleep(LOCK_POLL_SECONDS)
+            waited += LOCK_POLL_SECONDS
+
+
+def release_model():
+    """Unload the model now (keep_alive 0). Best effort -- never raises."""
+    try:
+        httpx.post(OLLAMA_GENERATE_URL,
+                   json={"model": MODEL, "keep_alive": 0}, timeout=30)
+    except Exception as e:
+        print(f"(could not unload {MODEL}: {e})", file=sys.stderr)
 
 
 def abstract_of(d):
@@ -1137,7 +1308,7 @@ def synthesize_section(area, rows):
         f"parentheses -- name that instrument when you describe it, and name "
         f"the acting agency. Documents:\n\n{docs_block(rows)}"
     )
-    return ollama_chat(prompt)
+    return ollama_chat(prompt, label=AREA_HEADING[area])
 
 
 # Instruments a commissioner needs named individually. Everything else
@@ -1214,7 +1385,7 @@ def synthesize_exec_summary(date_range, section_texts, rows_by_area):
         f"INVENTORY:\n{inventory_block(rows_by_area)}\n\n"
         f"DRAFTED SECTIONS (for context, do not restate):\n{combined}"
     )
-    return ollama_chat(prompt)
+    return ollama_chat(prompt, label="EXECUTIVE SUMMARY")
 
 
 def attribution(rows_by_area):
@@ -1248,7 +1419,9 @@ def attribution(rows_by_area):
 # connection rather than sharing main()'s -- main() closes its connection
 # immediately after fetch_rows() (unchanged from v0-v4, and correct: the
 # long-running Ollama synthesis has no business holding a DB connection
-# open), so these late-stage writes need their own.
+# open), so these late-stage writes need their own. v9 exception: the
+# inference lock (ADR-047 §6) is held on its own autocommit connection that
+# runs no transaction and touches no table -- a cross-process lock needs one.
 # =====================================================================
 
 def send_email(subject, body):
@@ -1390,6 +1563,43 @@ def handle_send(rows, claim_warnings, brief, subject, start, today):
     return True
 
 
+def synthesize_all(rows, rows_by_area, date_range):
+    """All model calls for one brief. Returns (section_texts, exec_summary,
+    claim_warnings); truncations are folded into claim_warnings so they block
+    --send exactly as an unverified claim does (v9)."""
+    _TRUNCATIONS.clear()
+    # ---- synthesize each populated area ----
+    section_texts = []
+    claim_warnings = []
+    for area in AREA_ORDER:
+        area_rows = rows_by_area.get(area)
+        if not area_rows:
+            continue
+        print(f"... synthesizing {AREA_HEADING[area]} "
+              f"({len(area_rows)} doc(s)) via {MODEL}", file=sys.stderr)
+        text = synthesize_section(area, area_rows)
+        claim_warnings.extend(
+            verify_claims(AREA_HEADING[area], text, docs_block(area_rows),
+                          ground_truth_counts(area_rows))
+        )
+        section_texts.append((area, text))
+
+    # ---- executive summary ----
+    print(f"... synthesizing executive summary via {MODEL}", file=sys.stderr)
+    exec_summary = synthesize_exec_summary(date_range, section_texts,
+                                           rows_by_area)
+    # The summary mixes whole-window and section-scoped claims, so its ground
+    # truth is the union of both -- see acceptable_counts().
+    claim_warnings.extend(
+        verify_claims("EXECUTIVE SUMMARY", exec_summary,
+                       docs_block(rows),
+                       acceptable_counts(rows_by_area, rows))
+    )
+
+    claim_warnings.extend(_TRUNCATIONS)
+    return section_texts, exec_summary, claim_warnings
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate the federal policy brief. Review-only by "
@@ -1405,7 +1615,19 @@ def main():
              "and the script exits non-zero. Default: review-only, no "
              "side effects.",
     )
+    parser.add_argument(
+        "--model", metavar="NAME",
+        help="Evaluate another local Ollama model (ADR-047 bake-off). "
+             "Cannot be combined with --send. The review file is named "
+             "with the model and time so the day's file is not overwritten.",
+    )
     args = parser.parse_args()
+    if args.model and args.send:
+        parser.error("--model is for evaluation only and cannot be combined "
+                     "with --send (ADR-047 §4)")
+    if args.model:
+        global MODEL
+        MODEL = args.model
 
     try:
         conn = psycopg2.connect(**DB)
@@ -1476,33 +1698,24 @@ def main():
     for d in rows:
         rows_by_area.setdefault(d["_area"], []).append(d)
 
-    # ---- synthesize each populated area ----
-    section_texts = []
-    claim_warnings = []
-    for area in AREA_ORDER:
-        area_rows = rows_by_area.get(area)
-        if not area_rows:
-            continue
-        print(f"... synthesizing {AREA_HEADING[area]} "
-              f"({len(area_rows)} doc(s)) via {MODEL}", file=sys.stderr)
-        text = synthesize_section(area, area_rows)
-        claim_warnings.extend(
-            verify_claims(AREA_HEADING[area], text, docs_block(area_rows),
-                          ground_truth_counts(area_rows))
-        )
-        section_texts.append((area, text))
-
-    # ---- executive summary ----
-    print(f"... synthesizing executive summary via {MODEL}", file=sys.stderr)
-    exec_summary = synthesize_exec_summary(date_range, section_texts,
-                                           rows_by_area)
-    # The summary mixes whole-window and section-scoped claims, so its ground
-    # truth is the union of both -- see acceptable_counts().
-    claim_warnings.extend(
-        verify_claims("EXECUTIVE SUMMARY", exec_summary,
-                       docs_block(rows),
-                       acceptable_counts(rows_by_area, rows))
-    )
+    # ---- synthesize: one job at a time, memory gated, model released (v9) ----
+    lock_conn = acquire_inference_lock()
+    before = None
+    try:
+        before = preflight_gate()
+        section_texts, exec_summary, claim_warnings = synthesize_all(
+            rows, rows_by_area, date_range)
+    finally:
+        release_model()
+        lock_conn.close()
+        if before is not None:
+            after = memory_snapshot()
+            state, why = memory_state(before, after)
+            print(f"... memory {state}: before level {before['level']}, "
+                  f"free {before['free_pct']}%, swap {before['swap_mb']} MB; "
+                  f"after level {after['level']}, free {after['free_pct']}%, "
+                  f"swap {after['swap_mb']} MB"
+                  + (f" -- {'; '.join(why)}" if why else ""), file=sys.stderr)
 
     if claim_warnings:
         print()
@@ -1558,6 +1771,10 @@ def main():
     print(brief)
 
     outname = f"federal_policy_brief_review_{today.isoformat()}.txt"
+    if args.model:   # bake-off run: never overwrite the day's tracked file
+        slug = re.sub(r"[^A-Za-z0-9.]+", "-", MODEL)
+        outname = (f"federal_policy_brief_review_{today.isoformat()}_{slug}_"
+                   f"{dt.datetime.now().strftime('%H%M%S')}.txt")
     with open(outname, "w", encoding="utf-8") as f:
         f.write(brief)
     print()

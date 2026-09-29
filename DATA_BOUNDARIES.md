@@ -2,6 +2,7 @@
 # OpenClaw Filesystem Boundary Policy
 # Governing ADR: ADR-040 | Established: April 19, 2026 | Status: DECIDED
 # Version 2.0 — Amended September 20, 2026 by ADR-045 (enforcement, scope, control classification)
+# Version 2.1 — Amended September 29, 2026 by ADR-047 §9 (two LaunchAgent files, Ollama server log; Section 1 now matches what runs)
 
 ---
 
@@ -12,6 +13,12 @@
 | `~/openclaw` | Read / Write / Execute | Primary working directory. All code, config, logs, and migration files live here. |
 | `~/Library/Mobile Documents/com~apple~CloudDocs/Mac-Mini-Backups/` | Write only | Sole iCloud backup destination. PostgreSQL pg_dump output only. |
 | `~/Downloads` | Read only | Staging area for files the operator intentionally moves into OpenClaw workflows. |
+| `~/Library/LaunchAgents/com.openclaw.backup.plist` | Write — this one file only | Nightly `pg_dump` LaunchAgent (live since May 17, 2026; ADR-019). Installed from the tracked template `scripts/com.openclaw.backup.plist.template`. *(Added v2.1 — the file predates this listing; the policy now matches what runs.)* |
+| `~/Library/LaunchAgents/com.openclaw.ollama-env.plist` | Write — this one file only | Sets named `OLLAMA_*` server variables at login (ADR-047 §9). Installed from the tracked template `scripts/com.openclaw.ollama-env.plist.template`. *(Added v2.1)* |
+| `~/.ollama/logs/server.log` | Read only — this one file | Verify the Ollama server's effective configuration after a restart; read for configuration lines only. *(Added v2.1, ADR-047 §9)* |
+| `~/.ollama/models` | **No direct access** | Managed by the Ollama server; reached only through the `ollama` CLI / API (`pull`, `rm`, `list`, `show`). Listed so model downloads are not mistaken for a boundary crossing. *(Added v2.1)* |
+
+**LaunchAgents directory:** only the two files named above. Listing, globbing or reading any other entry in `~/Library/LaunchAgents` remains prohibited (§2.2). **launchd environment:** `launchctl setenv` / `getenv` / `unsetenv` limited to variables named `OLLAMA_*`.
 
 ---
 
@@ -22,7 +29,7 @@
 | `~/Library/Mobile Documents/com~apple~CloudDocs/` (root) | Contains Federal Tax Information (FTI), personal financial documents, legal documents, and family records. No agent or process may read, list, or write here. |
 | `~/Documents` | Personal document store. Prohibited at current phase. |
 | `~/Desktop` | Personal workspace. Prohibited at current phase. |
-| `~/Library` (except Mac-Mini-Backups) | System and application support files. No agent traversal permitted. |
+| `~/Library` (except the Mac-Mini-Backups path and the two named LaunchAgent files in Section 1) | System and application support files. No agent traversal permitted. |
 | All other paths not listed in Section 1 | Prohibited by default. A new ADR amendment is required before any code touches them. |
 
 **Default rule: if a path is not in Section 1, it is prohibited.**
@@ -75,13 +82,13 @@ FTI is protected data under 26 U.S.C. § 6103. Its presence on this filesystem i
 
 | Field | Value |
 |-------|-------|
-| ADR | ADR-040 (amended by ADR-045) |
+| ADR | ADR-040 (amended by ADR-045 and ADR-047 §9) |
 | Title | Filesystem Boundary and Sensitive Data Separation Policy |
-| Date | April 19, 2026 — amended September 20, 2026 |
+| Date | April 19, 2026 — amended September 20 and September 29, 2026 |
 | Status | DECIDED |
 | Owner | Sheldon Wheeler |
 
-Full governance record: `ADR_040.docx`, `ADR_045.docx`
+Full governance record: `ADR_040.docx`, `ADR_045.docx`, `ADR_047.docx` (§9)
 
 ---
 
@@ -119,4 +126,4 @@ It is a parallel permission surface capable of authorising exactly what Section 
 
 Because the file is covered by the global gitignore, **it is not in version control, so a contradiction between it and this policy will never appear in a diff and cannot be caught in code review.** Its contents must be inspected manually at each review of this document.
 
-*Status: the home-wide grant is pending removal under ADR-045 §8.2.*
+*Status: the home-wide grant was removed September 29, 2026 (ADR-045 §8.2, Entry #041); only `Read(//Users/sheldonwheeler/openclaw/**)` remains. (Status line corrected in v2.1.)*

@@ -69,7 +69,7 @@ CREATE TABLE brief_runs (
     generation_start TIMESTAMP WITH TIME ZONE,
     generation_end  TIMESTAMP WITH TIME ZONE,
     tokens_used     INTEGER,
-    model_tier      INTEGER DEFAULT 2,        -- Tier 2 = 14B local
+    model_tier      INTEGER DEFAULT 2,        -- Tier 2 = local deployed model (ADR-047 §8)
     pdf_filename    VARCHAR(255),
     pdf_size_bytes  INTEGER,
     sections_count  INTEGER,
@@ -147,7 +147,7 @@ CREATE TABLE brief_runs (
 3. Hash comparison deduplicates against prior cycle
 4. New/changed content → chunk → embed into ChromaDB (`federal_policy_brief` namespace)
 5. **5:00 AM ET** — Prototype queries ChromaDB for content since last brief
-6. Local Tier 2 inference (14B) generates executive summary + detailed sections
+6. Local Tier 2 inference (`gemma4:e4b`, ADR-047) generates executive summary + detailed sections
 7. Source Attribution Addendum generated from scrape metadata
 8. PDF built and attached to email
 9. Email sent via sender domain by 6:00 AM ET
@@ -185,6 +185,6 @@ CREATE TABLE brief_runs (
 ## Container Context
 
 - **FastAPI container:** `openclaw_fastapi` — runs Prototype persona brief generation
-- **Ollama container:** `openclaw_ollama` — serves 14B model for Tier 2 inference
+- **Ollama:** native on the host (`host.docker.internal:11434`, not a container) — serves the deployed local model for Tier 2 inference (corrected Sep 29, 2026)
 - **PostgreSQL container:** `openclaw_postgres` — stores scraped content, brief runs, audit logs
 - **ChromaDB container:** `openclaw_chromadb` — vector store for embedded content chunks

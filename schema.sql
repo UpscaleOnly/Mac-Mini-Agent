@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     trust_tier              INTEGER NOT NULL DEFAULT 2,              -- ADR-035 §6: 1=read-only, 2=low-risk, 3=operator-approved, 4=manual-gate
     trust_tier_reason       TEXT,                                    -- Plain-language reason for tier assignment
     tier_elevation_requested BOOLEAN NOT NULL DEFAULT FALSE,         -- Pending operator Telegram approval
-    model_tier              INTEGER NOT NULL DEFAULT 2,              -- ADR-021: 1=7B, 2=14B, 3=32B, 4=Opus
+    model_tier              INTEGER NOT NULL DEFAULT 2,              -- ADR-047 §8: 1=local reserved, 2=local deployed model, 3=Claude API standard, 4=Claude API top
     status                  TEXT NOT NULL DEFAULT 'active',          -- active / completed / failed / timeout
     started_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ended_at                TIMESTAMPTZ,

@@ -225,12 +225,39 @@ def decide(payload):
         return f"could not parse command ({e.__class__.__name__})" if VERB_RE.search(command) else None
 
 
+LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "traversal_guard.log")
+
+
+def log_run(payload, reason):
+    """One line per invocation, so a live run is provable from disk (Entry #048).
+
+    Records time, permission mode, the command's first word and the verdict --
+    never the full command, which could carry a secret. Never raises: a log
+    failure must not change the hook's decision.
+    """
+    try:
+        import datetime
+        command = (payload.get("tool_input") or {}).get("command") or ""
+        first = command.split(None, 1)[0] if command.strip() else "-"
+        line = "%s\tmode=%s\tverb=%s\t%s\n" % (
+            datetime.datetime.now().isoformat(timespec="seconds"),
+            payload.get("permission_mode", "?"),
+            first[:40],
+            "ask" if reason else "allow",
+        )
+        with open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception:
+        pass
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
     except Exception:
         return 0
     reason = decide(payload)
+    log_run(payload, reason)
     if reason:
         print(json.dumps({
             "hookSpecificOutput": {
