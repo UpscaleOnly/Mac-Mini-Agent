@@ -3358,4 +3358,11 @@ Backups: `app/llm.py.bak.pre-adr047`, `app/models.py.bak.pre-adr047`, `schema.sq
 
 ### Pending
 
-- ADR-047 §11 steps 4–8, each approved: step 4 (Docker Desktop memory cap 3 GB — operator, Docker Desktop settings) is next; step 5 bake-off must hand-classify any subset-count warnings (F13 b) rather than score them as fabrications.
+### ADR-047 §11 step 4 — DONE (operator, Docker Desktop settings)
+
+- **Memory 11.67 GiB → 3 GB** (VM reports 2.84 GiB) and, by operator decision, **CPUs 8 → 5** (Ollama is native, so inference is unaffected). First attempt had not been applied — the live check still showed 11.67 GiB and 2-week container uptimes; applied on the second pass. **Verified:** all four containers restarted, `/health` ok, schema 8.
+- **Disk-image cap (max → 160 GB) — NOT done, on Claude's recommendation:** the image is sparse (~3.5 GB used), so a lower cap frees nothing, while shrinking it recreates the disk image — images re-pulled (`chromadb/chroma:latest` would drift versions) and the unexamined 49 MB orphan volume destroyed. Bind-mounted data (`./postgres`, `./chromadb`, `./spool`) is not at risk. Revisit only after a backup and after the orphan volume is examined.
+
+### Pending
+
+- ADR-047 §11 steps 5–8, each approved: step 5 (bake-off) is next; step 5 bake-off must hand-classify any subset-count warnings (F13 b) rather than score them as fabrications.
