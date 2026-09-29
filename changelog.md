@@ -3160,3 +3160,62 @@ Low. The migration only adds empty partitions and a version row. `write_action()
 | Weekly `--send` | ~Oct 3–4 |
 
 **Addendum (same session):** `instructions_v3.0.md` Hard Rules repaired before the operator pasted them into the claude.ai panel. (a) Entry #041's insertion of the auto-mode block had split the Manual-mode list, leaving "verify the working directory" and the `git push` line under the auto-mode heading — moved back. (b) The `git push` line still said the classifier gates push; corrected (not gated since Sept 20, per `CURRENT_STATE.md`). (c) Added the SSH-agent recovery step: this entry's own push failed with `Permission denied (publickey)` because the agent had no identities loaded — the operator runs `ssh-add --apple-use-keychain`, since `~/.ssh` is outside the §1 boundary.
+
+---
+
+## Entry #046 — September 29, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Audit — **AU-5 decided and implemented**. Governance — **ADR-034 deferred, waiting on hardware** (ADR-046 F8). Direction — **the MacBook Air M1 16 GB is the LLM host; build around it** (new workstream). Session close-out.
+
+**Permission mode:** Auto, then Manual. Auto was abandoned after the auto-mode classifier returned no verdict four times in a row (a service-side failure, not a refusal); the operator switched to Manual to finish.
+
+**Commits:** this entry
+
+### Operator decisions
+
+1. **AU-5 — an audit-write failure must not fail the request, and the operator must not have to review each failure by hand.**
+2. **ADR-034 — mark as waiting on hardware.** Resolves ADR-046 F8.
+3. **The MacBook Air M1 16 GB is the LLM host for the foreseeable future; build functionality around that limitation.** To be designed in a new conversation (Claude's advice, accepted): it is an architecture effort — model, memory budget, context, scheduling, local-vs-API split — that absorbs the model refresh and ADR-046 F2/F3/F9, and deserves an ADR and a fresh context.
+
+### Changes Made
+
+1. **`app/audit.py` — AU-5.** `write_action()` never raises. A failed insert is appended to a JSONL spool and logged once at ERROR; the next successful write replays the spool automatically; inserts now use `ON CONFLICT (action_id, created_at) DO NOTHING`, so a replay can never double-write. Only if the spool itself cannot be written is a record lost (CRITICAL). `app/main.py` comments updated.
+2. **`docker-compose.yml`** — `./spool:/app/spool` mounted on `fastapi`. Without it, a spool inside the container would die on the next rebuild — the same way the pre-Sept-29 logs were lost in Entry #043. **`spool/` gitignored** — audit records must not reach GitHub.
+3. **Tests — `test_audit_spool.py`** (9, tracked, fake pool, temporary spool): DB failure and connection failure both spool without raising; recovery replays all records and empties the spool; original `action_id` preserved; re-spooled duplicate not double-written; unwritable spool does not raise. **All pass in the rebuilt container.** Also verified live: the container can write to the host spool, and the new `ON CONFLICT` clause is accepted by the partitioned table (rolled-back insert of an existing row → `INSERT 0 0`). `fastapi` rebuilt: schema 8 OK, 3 jobs.
+4. **`ADR_034.docx` — DEFERRED, WAITING ON HARDWARE.** Header status, Status cell, and a notice before Section 1: why it is not deployed on this host (sudoers + root LaunchDaemon are real privilege grants, weighed against ADR-045), design retained for a future host, and consequences — the empty `hardware_metrics` table and `hardware_alerts` view, and ADR-032's SI-4/SI-4(5) closure claim (ADR-034 §8) not holding here. Validated; original preserved as `ADR_034.docx.bak.pre-deferral-2026-09-29`. A section reference in the notice was first written as "Section 5" without checking; verified as Section 8 and corrected before commit.
+5. **Push note.** Entry #045's push had failed with `Permission denied (publickey)`; this session's push succeeded with the agent still reporting no identities — the key is presumably read from disk directly. Cause of the earlier failure unknown.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/app/audit.py` | AU-5 spool + replay; never raises |
+| `~/openclaw/app/main.py` | Comments |
+| `~/openclaw/docker-compose.yml` | `./spool` volume on `fastapi` |
+| `~/openclaw/.gitignore` | `spool/` |
+| `~/openclaw/test_audit_spool.py` | New — 9 tests |
+| `~/openclaw/ADR_034.docx` | Deferred — waiting on hardware |
+| `~/openclaw/CURRENT_STATE.md` | AU-5, F8, handoff, task list, health checks |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### Risk Assessment
+
+AU-5 trades completeness-by-blocking for availability-with-recovery, by operator decision. Residual risk: a record is lost only if both the database and the host spool fail. Spool growth is the signal that audit writes are failing — now a startup health check, not a manual review. **ADR-029 still states the old always-raise semantics; amendment owed (approval needed).** ADR-046 still lists F8 as open; amendment owed.
+
+**Rollback:** `app/audit.py.bak.pre-au5`, `docker-compose.yml.bak.pre-au5`, rebuild `fastapi`.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Startup step 0: hook live test; first paginated nightly | Next session |
+| **16 GB inference architecture — new conversation, ADR first** | Next conversation |
+| Weekly `--send` | ~Oct 3–4 |
+| ADR-029 (AU-5) and ADR-046 (F8) amendments | On approval |
+| Refresh project knowledge in claude.ai (instructions, CURRENT_STATE, changelog, ADR-014/034/046) | Operator, when convenient |
+
+### Session summary (Entries #041–#046, September 29)
+
+ADR-014 §7 (auto mode under conditions); allowlist narrowed to `~/openclaw` and stripped of broad rules; §8.3 traversal hook built (live test pending); Aug 4–16 gap backfilled and a silent scraper truncation fixed; audit extended to code (F7–F9); F7 audit-log partition outage fixed (schema 8); AU-5 spool; ADR-034 deferred; ADR-046 amended and its malformed XML repaired; findings-recording rule revised.

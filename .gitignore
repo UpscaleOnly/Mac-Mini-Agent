@@ -31,3 +31,6 @@ backups/
 backup_*.log
 # NOTE: deliberately NOT ignoring *.sql — this repo tracks 10 schema and
 # migration files. Dumps are always gzipped, so *.sql.gz is the correct net.
+
+# AU-5 audit spool (Entry #046) — audit records, never committed
+spool/

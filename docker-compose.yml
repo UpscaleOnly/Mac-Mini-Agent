@@ -27,6 +27,9 @@ services:
     container_name: openclaw_fastapi
     restart: unless-stopped
     env_file: .env
+    volumes:
+      # AU-5 audit spool (Entry #046) — on the host so a rebuild cannot lose it
+      - ./spool:/app/spool
     ports:
       - "8080:8080"
     depends_on:

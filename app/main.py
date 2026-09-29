@@ -9,7 +9,7 @@ Request flow (ADR-027):
     → Interceptor (ADR-027 + ADR-035 budget)
     → Persona Router
     → LLM Execution (Ollama / OpenRouter)
-    → agent_actions write (ALWAYS, no exceptions)
+    → agent_actions write (ALWAYS; never fails the request — AU-5 spool, Entry #046)
     → JSON response returned to caller
 
 Channel adapters:
@@ -474,7 +474,7 @@ async def agent_endpoint(body: AgentInput, request: Request):
         cost_usd=req.cost_usd,
     )
 
-    # 9. Write audit record (ALWAYS — ADR-029)
+    # 9. Write audit record (ALWAYS — ADR-029; never raises — AU-5, Entry #046)
     record = AgentActionRecord.from_request(req)
     await write_action(record)
 

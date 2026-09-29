@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 29, 2026 (Entry #045 — F7 fixed, schema 8; ADR-046 amended; Entry #044 — F7 audit-log partition outage found; findings rule revised; Entry #043 — Aug 4–16 gap backfilled; scraper pagination fixed; Entry #042 — §8.3 traversal hook built, live test pending; Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
+**Last updated:** September 29, 2026 (Entry #046 — AU-5 spool; ADR-034 deferred; 16 GB inference architecture queued as the next conversation; Entry #045 — F7 fixed, schema 8; ADR-046 amended; Entry #044 — F7 audit-log partition outage found; findings rule revised; Entry #043 — Aug 4–16 gap backfilled; scraper pagination fixed; Entry #042 — §8.3 traversal hook built, live test pending; Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -72,7 +72,7 @@ Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH)
 
 ## Schema
 
-Live PostgreSQL schema is **version 8** (`migration_007.sql` — `agent_actions` partitions 2026-08..2027-12 plus a DEFAULT partition; ADR-046 F7). `openclaw_fastapi` rebuilt September 29 and logs `Schema version OK — live database is at version 8 (required 8)`. **Health check — should always be 0:** `SELECT count(*) FROM agent_actions_default;` Next partition horizon: **December 2027**.
+Live PostgreSQL schema is **version 8** (`migration_007.sql` — `agent_actions` partitions 2026-08..2027-12 plus a DEFAULT partition; ADR-046 F7). `openclaw_fastapi` rebuilt September 29 and logs `Schema version OK — live database is at version 8 (required 8)`. **Health checks — both should be 0:** `SELECT count(*) FROM agent_actions_default;` and `wc -l < spool/audit_spool.jsonl 2>/dev/null || echo 0` (AU-5 spool — records waiting to replay; growth means audit writes are failing). Next partition horizon: **December 2027**.
 
 ## What's running / operational
 
@@ -129,20 +129,21 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Active task (in order)
 
-1. **[Next]** **Weekly `--send`** — the third send, and the second clean send on a new window. Watch v8 for new false-positive shapes. *(Second send DONE Sept 27; off-device backup DONE and confirmed — Entry #040.)*
-2. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline. *(ADR-014 auto-mode amendment DONE — Entry #041.)*
-3. **[Next session, first]** **Live-verify the ADR-045 §8.3 hook** (built Entry #042) — see startup step 0 below; then mark §8.3 implemented in `ADR_045.docx`. *(§8.2 and allowlist prune DONE — Entry #041.)*
-4. **[Then]** **ADR-046 F8** — decide whether to deploy ADR-034 telemetry on this host (sudoers + root LaunchDaemon are real privilege grants) or mark ADR-034 pending hardware. *(F7 FIXED — Entry #045; audit extension DONE — Entry #044.)*
-5. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
-6. **[Then]** Refresh the local model — `gemma4:e4b` is five months old; a current model in the same size class is likely the highest-value zero-cost improvement available.
-7. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
-8. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
+1. **[Next session, first]** Startup step 0: **live-verify the ADR-045 §8.3 hook** and **confirm the first nightly on the paginated scraper**; then mark §8.3 implemented in `ADR_045.docx`.
+2. **[Next conversation — NEW WORKSTREAM]** **16 GB inference architecture.** Operator decision, September 29 (Entry #046): **the MacBook Air M1, 16 GB, is the LLM host for the foreseeable future (ADR-043); build functionality around that limit.** Scope: model selection (absorbs the old "refresh `gemma4:e4b`" task), memory budget across Ollama and the four containers, context limits (`NUM_CTX`), job scheduling, and the local-vs-Claude-API split. Fold in ADR-046 **F2** (NIST re-assessment — the F2 scope decision belongs here), **F3** (memory alert thresholds above physical memory) and the **F9** 7B/14B/32B tier labels. **Propose an ADR before building.** Suggested opener: *"Read instructions and CURRENT_STATE first. Then: the MacBook Air M1 16 GB is the LLM host for the foreseeable future (ADR-043). Design OpenClaw's inference architecture around that limit — model selection, memory budget across Ollama and the four containers, context limits, job scheduling, and the local-vs-Claude-API split. Fold in the model refresh, ADR-046 F2/F3, and the F9 tier labels. Propose an ADR before building anything."*
+3. **[~Oct 3–4]** **Weekly `--send`** — the third send, and the second clean send on a new window. Watch v8 for new false-positive shapes.
+4. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
+5. **[Follow-up, approval needed]** Document amendments owed: **ADR-029** (AU-5 — audit writes no longer fail the request; Entry #046) and **ADR-046** (F8 resolved by deferral; F7 fixed).
+6. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
+7. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
 
 ## Top open items
 
+- ✅ **AU-5 decided and implemented (Entry #046).** Operator decision: **an audit-write failure must not fail the request, and failures must not need manual review.** `app/audit.py` `write_action()` never raises: a failed insert goes to `~/openclaw/spool/audit_spool.jsonl` (host-mounted — survives rebuilds; gitignored) and logs one ERROR; the next successful write replays the spool automatically; `ON CONFLICT (action_id, created_at) DO NOTHING` makes duplicates impossible. Only a spool-write failure loses a record (logged CRITICAL). **Tests:** `docker exec openclaw_fastapi python test_audit_spool.py` (9). ADR-029 amendment owed.
+
 - ✅ **F7 RESOLVED September 29 (Entry #045) — `agent_actions` audit log could not accept records dated on or after August 1, 2026.** No partition existed past July 2026 and `write_action()` is unguarded, so every `/agent` request since Aug 1 failed after its LLM call. **Fixed by `migration_007.sql`** (schema 7 → 8): partitions through Dec 2027 plus a DEFAULT partition. Verified: the failing insert now succeeds (rolled back), 22 partitions, fresh-install `schema.sql` tested in a scratch DB. **Not verified end-to-end through `/agent`.** **The May 17 silence is explained:** the operator has not used Telegram in months (Sunday digests are automated and would have failed from Aug 2 — inferred, logs lost). Open decision: should `/agent` keep failing closed when an audit write fails (NIST AU-5)?
 - **ADR-046 audit extended to code, scripts and launchd config (Entry #044); ADR-046 amended with §13 (Entry #045)** — F7 (resolved), F8, F9 below.
-  - **F8 — MEDIUM — ADR-034 hardware telemetry never deployed.** `hw_collector.py`, `hw_collector_setup.py`, `hardware_metrics.sql` assume a `dev` account, a root LaunchDaemon, a sudoers entry and a Mac Studio M1 Max. No process, no system-launchd entry, `hardware_metrics` has 0 rows — the `hardware_alerts` view is sound (percentage-based) but can never fire. Same class as F3.
+  - ✅ **F8 RESOLVED by deferral (Entry #046)** — ADR-034 hardware telemetry was never deployed; **ADR-034 now marked DEFERRED — WAITING ON HARDWARE** (operator decision). Not deployed here because sudoers + a root LaunchDaemon are real privilege grants. `hardware_metrics` / `hardware_alerts` stay empty; ADR-032's SI-4/SI-4(5) claims via ADR-034 do not hold on this host (part of F2).
   - **F9 — LOW — stale host references in code and docs:** model-tier labels 7B/14B/32B (`app/models.py`, `schema.sql`) and "14B" in `federal_policy_brief_DECISIONS.md` vs the actual `gemma4:e4b`; `federal_policy_brief_CODE_REFERENCE.md` lists `scraped_content` and `brief_runs` as "OPEN — setup day" though both exist; "setup day" in `app/db.py` and `app/persona_router.py`; the backup plist template plans a "Mac Studio setup day" removal and an ADR-020 `dev`-account move.
   - **Clean:** `scripts/backup.sh` (F1/F6 fixes hold).
   - **Scope limit:** live `~/Library/LaunchAgents`, `/Library/LaunchDaemons` and `/etc` are §2-prohibited; launchd state was checked via `launchctl list` / `launchctl print system` instead.
@@ -215,6 +216,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #046 (Sep 29):** **AU-5** — audit-write failures no longer fail `/agent`; host-mounted spool with automatic replay (9 tests). **ADR-034 DEFERRED — waiting on hardware** (F8). **Operator decision: the M1 Air 16 GB is the LLM host — new workstream for the next conversation.** Session close-out.
 - **Entry #045 (Sep 29):** **F7 fixed** — `migration_007.sql`, schema **7 → 8**, audit log writable again. ADR-046 amended (§13: F7–F9). Found `ADR_046.docx` had been malformed XML since Sep 20 (raw `&`); fixed; all 29 ADRs now parse.
 - **Entry #044 (Sep 29):** Dedicated-host audit extended to code/scripts/launchd. **Found F7 (HIGH): `agent_actions` has no partition after July 2026 — every `/agent` request since Aug 1 fails**; verified by rolled-back insert. ADR-034 telemetry never deployed. Rule revised: **findings are recorded without prior approval; remediation still needs it.**
 - **Entry #043 (Sep 29):** **Aug 4–16 gap backfilled** (94 docs). Found and fixed a silent truncation: `fetch()` read only the first 100 docs per agency, so wide catch-ups lost their oldest documents. Pagination + date bounds + a separate `FederalRegisterBackfill` class; 14 tests; `fastapi` rebuilt, schema 7.
