@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.openclaw.ollama-env.plist
+  ─────────────────────────────
+  Applies OpenClaw's Ollama server settings at login (ADR-047 §6, §9) by
+  running ~/openclaw/scripts/ollama_env.sh, which sets named OLLAMA_*
+  variables in the launchd user environment and restarts Ollama.app.
+
+  Permitted location (DATA_BOUNDARIES v2.1 §1 — write, this one file only):
+    ~/Library/LaunchAgents/com.openclaw.ollama-env.plist
+
+  Installation:
+    1. cp scripts/com.openclaw.ollama-env.plist.template \
+          ~/Library/LaunchAgents/com.openclaw.ollama-env.plist
+    2. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.openclaw.ollama-env.plist
+       (RunAtLoad — this applies the settings and restarts Ollama immediately)
+    3. Verify: grep 'server config' ~/.ollama/logs/server.log | tail -1
+       must show OLLAMA_MAX_LOADED_MODELS:1 and OLLAMA_NUM_PARALLEL:1
+
+  Removal:
+    1. launchctl bootout gui/$(id -u)/com.openclaw.ollama-env
+    2. rm ~/Library/LaunchAgents/com.openclaw.ollama-env.plist
+    3. launchctl unsetenv OLLAMA_MAX_LOADED_MODELS; launchctl unsetenv OLLAMA_NUM_PARALLEL
+       then quit and reopen Ollama.app
+
+  Behavior:
+    - RunAtLoad=true  — runs once at login (and when bootstrapped)
+    - KeepAlive=false — sets the environment, restarts Ollama, exits
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.openclaw.ollama-env</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/sheldonwheeler/openclaw/scripts/ollama_env.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/sheldonwheeler/openclaw/scripts/ollama-env.launchd.out</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/sheldonwheeler/openclaw/scripts/ollama-env.launchd.err</string>
+</dict>
+</plist>

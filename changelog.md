@@ -3345,6 +3345,17 @@ Backups: `app/llm.py.bak.pre-adr047`, `app/models.py.bak.pre-adr047`, `schema.sq
 
 **Consequence for the Oct 3–4 `--send`:** the TANF shape no longer blocks; the CMS subset shape still does. If it recurs, the brief is correct but unsent — review by hand, then decide.
 
+### ADR-047 §11 step 3 (operator-approved) — DONE
+
+1. **`scripts/ollama_env.sh`** (tracked) sets `OLLAMA_MAX_LOADED_MODELS=1` and `OLLAMA_NUM_PARALLEL=1` in the launchd user environment, then restarts Ollama.app. Flash attention and q8 KV cache deliberately **not** set (ADR-047 §5 — only with the 16K measurement). **`scripts/com.openclaw.ollama-env.plist.template`** (tracked; RunAtLoad, no KeepAlive; logs to `scripts/ollama-env.launchd.*`, already gitignored).
+2. **Installed** to `~/Library/LaunchAgents/com.openclaw.ollama-env.plist` (DATA_BOUNDARIES v2.1 §1 — this one file) and bootstrapped. Installed by Claude under per-command operator approval; ADR-047 §11 said "operator installs" — recorded as a departure, not a policy change.
+3. **Baseline** (server log, started 2026-09-12): `MAX_LOADED_MODELS:0` (auto — several models could co-reside), `NUM_PARALLEL:1`. The real change is MAX_LOADED 0 → 1.
+4. **First run failed safely:** the AppleScript `quit` returned `User canceled (-128)` — from a LaunchAgent it needs a TCC Automation grant. The script then printed "(re)started" although nothing restarted (misleading line in `ollama-env.launchd.out`). **No grant taken** (ADR-046 F1 lesson: TCC grants are broader than they look). Replaced with `pkill -TERM -x Ollama` + `open -a Ollama`; re-run via `launchctl kickstart`.
+5. **Verified from the server log:** Ollama restarted 2026-09-29 13:55:01, `OLLAMA_MAX_LOADED_MODELS:1`, `OLLAMA_NUM_PARALLEL:1`.
+6. **Not yet verified: the login race.** Ollama.app also starts at login; the agent restarts it after setting the environment. Confirm after the next login/reboot: `grep 'server config' ~/.ollama/logs/server.log | tail -1` — time after the login, both values 1.
+
+**Rollback:** `launchctl bootout gui/$(id -u)/com.openclaw.ollama-env`; remove the plist; `launchctl unsetenv` both variables; quit and reopen Ollama (steps in the template header).
+
 ### Pending
 
-- ADR-047 §11 steps 3–8, each approved: step 3 (LaunchAgent template + Ollama env) is next; step 5 bake-off must hand-classify any subset-count warnings (F13 b) rather than score them as fabrications.
+- ADR-047 §11 steps 4–8, each approved: step 4 (Docker Desktop memory cap 3 GB — operator, Docker Desktop settings) is next; step 5 bake-off must hand-classify any subset-count warnings (F13 b) rather than score them as fabrications.
