@@ -283,6 +283,11 @@ CHANGES FROM v8 (2026-09-29, Entry #048, ADR-047 §4-§6 and §8)
      flagged by design: accepting a count below the true total is the
      tolerance approach ruled out after 15-vs-18. The WRONG message now says
      a subset may be correct, so the operator knows what to check.
+ 25. --think on|off (v9.2, Entry #048). The bake-off found gemma4:e4b
+     reasoning by default -- 275 tokens and 21 s for a one-sentence answer --
+     so every brief has spent time and context on hidden reasoning. The flag
+     sends Ollama's "think" setting; omitted, the request is unchanged.
+     Evaluation only, like --model.
 
 """
 
@@ -310,6 +315,7 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_TIMEOUT = 300                  # seconds; local inference can be slow
 TEMPERATURE = 0.2                     # low = factual, consistent
 NUM_CTX = 8192                        # prompt+response budget; Ollama default 4096 truncated Cross-Program
+THINK = None                          # None = model default (unchanged); --think on/off sets it (v9.2, bake-off)
 OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate"   # used only to unload the model
 
 # ----------------------- INFERENCE GUARDS (v9, ADR-047) -----------------------
@@ -1164,8 +1170,9 @@ def truncation_reason(label, data, num_ctx=None):
     return None
 
 
-def ollama_chat(user_prompt, label="call"):
-    """Single non-streaming chat call to the local Ollama server."""
+def build_payload(user_prompt):
+    """The /api/chat request body. 'think' is sent only when --think was given,
+    so a default run sends exactly what v9.1 sent."""
     payload = {
         "model": MODEL,
         "messages": [
@@ -1175,6 +1182,14 @@ def ollama_chat(user_prompt, label="call"):
         "stream": False,
         "options": {"temperature": TEMPERATURE, "num_ctx": NUM_CTX},
     }
+    if THINK is not None:
+        payload["think"] = THINK
+    return payload
+
+
+def ollama_chat(user_prompt, label="call"):
+    """Single non-streaming chat call to the local Ollama server."""
+    payload = build_payload(user_prompt)
     r = httpx.post(OLLAMA_URL, json=payload, timeout=OLLAMA_TIMEOUT)
     r.raise_for_status()
     data = r.json()
@@ -1640,7 +1655,19 @@ def main():
              "Cannot be combined with --send. The review file is named "
              "with the model and time so the day's file is not overwritten.",
     )
+    parser.add_argument(
+        "--think", choices=["on", "off"],
+        help="Turn the model's hidden reasoning on or off (ADR-047 bake-off). "
+             "Omitted: the model's default, as before. Evaluation only -- "
+             "cannot be combined with --send.",
+    )
     args = parser.parse_args()
+    if args.think and args.send:
+        parser.error("--think is for evaluation only and cannot be combined "
+                     "with --send (ADR-047 §4)")
+    if args.think:
+        global THINK
+        THINK = (args.think == "on")
     if args.model and args.send:
         parser.error("--model is for evaluation only and cannot be combined "
                      "with --send (ADR-047 §4)")
@@ -1790,8 +1817,10 @@ def main():
     print(brief)
 
     outname = f"federal_policy_brief_review_{today.isoformat()}.txt"
-    if args.model:   # bake-off run: never overwrite the day's tracked file
+    if args.model or args.think:   # bake-off run: never overwrite the day's tracked file
         slug = re.sub(r"[^A-Za-z0-9.]+", "-", MODEL)
+        if args.think:
+            slug += f"_think-{args.think}"
         outname = (f"federal_policy_brief_review_{today.isoformat()}_{slug}_"
                    f"{dt.datetime.now().strftime('%H%M%S')}.txt")
     with open(outname, "w", encoding="utf-8") as f:

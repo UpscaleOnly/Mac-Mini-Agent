@@ -77,7 +77,7 @@ Live PostgreSQL schema is **version 8** (`migration_007.sql` — `agent_actions`
 
 ## What's running / operational
 
-- **Docker:** Desktop VM capped at **3 GB memory, 5 CPUs** (ADR-047 step 4; disk-image cap deliberately left at default). Four containers — `openclaw_fastapi` (port 8080), `openclaw_postgres` (PostgreSQL 16), `openclaw_chromadb`, `openclaw_telegram`.
+- **Docker:** Desktop VM capped at **3 GB memory, 5 CPUs, 160 GB disk image** (ADR-047 step 4; disk cap is the operator's change — applying it wiped Docker and the stack was rebuilt Sep 29, Entry #048; all data is in bind mounts and survived). ⚠️ **Lowering the disk-image limit again is a destructive reset** — take a fresh backup first. Four containers — `openclaw_fastapi` (port 8080), `openclaw_postgres` (PostgreSQL 16), `openclaw_chromadb`, `openclaw_telegram`.
 - **Ollama:** native on the host (`host.docker.internal`), server **0.34.0**, model **`gemma4:e4b`** only — **`llama3.2` is NOT installed; there is no fallback** (Entry #048). `NUM_CTX = 8192`. **Server settings (ADR-047 step 3):** `OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_NUM_PARALLEL=1`, applied at login by `~/Library/LaunchAgents/com.openclaw.ollama-env.plist` (runs `scripts/ollama_env.sh`, restarts Ollama.app). Verify: `grep 'server config' ~/.ollama/logs/server.log | tail -1`. **Login race not yet verified — check after the next reboot.** Real cost at 8K ≈ **7 GB** (not the 3.2 GB `ollama ps` shows).
 - **Host platform:** MacBook Air, Apple M1, **16 GB** unified memory, fanless, ~68 GB/s memory bandwidth. This is the production host by decision, not by default — see **ADR-043**.
 - **Backup automation** (live since May 17): nightly `pg_dump` at 04:00 ET via launchd; 30-day retention; Telegram failure alerts; `pmset` repeating wake at 03:55 ET (AC only).
@@ -204,7 +204,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 - **Ctrl+C does not interrupt in Terminal** — dead for months. Low urgency.
 
-- **Disk cleanup — largely done September 20.** Reclaimed 37 GB (93% → 76% full; 15 GiB → 52 GiB free): Docker images 29.58 GB → 2.055 GB, and `.git` 11 GB → 1.1 MB after `git gc --prune=now` cleared two abandoned temp pack files. Remaining minor: `docker builder prune` (~197 MB), one unreferenced Docker volume (~49 MB — verify it is not an orphaned Postgres volume first), and `old_skeleton/` (untracked dead code that still carries the only references to ADR-011, 012, and 016 — read before deleting).
+- **Disk cleanup — largely done September 20.** Reclaimed 37 GB (93% → 76% full; 15 GiB → 52 GiB free): Docker images 29.58 GB → 2.055 GB, and `.git` 11 GB → 1.1 MB after `git gc --prune=now` cleared two abandoned temp pack files. Remaining minor: `docker builder prune` (~197 MB), ~~one unreferenced Docker volume (~49 MB)~~ destroyed unexamined by the Sep 29 disk-image reset (Entry #048), and `old_skeleton/` (untracked dead code that still carries the only references to ADR-011, 012, and 016 — read before deleting).
 
 ## Hard rules (safety quick-reference — full versions in instructions)
 

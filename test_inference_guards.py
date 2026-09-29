@@ -77,6 +77,15 @@ check("unreadable snapshot does not crash",
       g.memory_state({"level": None, "free_pct": None, "swap_mb": None},
                      {"level": None, "free_pct": None, "swap_mb": None})[0] == "GREEN")
 
+# ---- --think (v9.2): omitted means the request is unchanged ----
+g.THINK = None
+check("no --think: payload has no 'think' key", "think" not in g.build_payload("x"))
+g.THINK = False
+check("--think off: think false sent", g.build_payload("x").get("think") is False)
+g.THINK = True
+check("--think on: think true sent", g.build_payload("x").get("think") is True)
+g.THINK = None
+
 # ---- the two lock holders must agree on the key ----
 llm_src = open("app/llm.py", encoding="utf-8").read()
 check("generator and app/llm.py share lock key 470047",

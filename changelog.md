@@ -3365,4 +3365,45 @@ Backups: `app/llm.py.bak.pre-adr047`, `app/models.py.bak.pre-adr047`, `schema.sq
 
 ### Pending
 
-- ADR-047 §11 steps 5–8, each approved: step 5 (bake-off) is next; step 5 bake-off must hand-classify any subset-count warnings (F13 b) rather than score them as fabrications.
+### ADR-047 §11 step 5 — bake-off (operator-approved) — IN PROGRESS
+
+1. **Candidates confirmed from ollama.com** (not memory): `qwen3.5:9b` (6.6 GB, Q4_K_M, 9.65B) and `qwen3:8b` (5.2 GB). `qwen3.6` exists only at 27B+ (18–23 GB) — outside the envelope, excluded. Both downloaded (operator approved each pull); 52 GB free before.
+2. **F14 — MEDIUM — the production model reasons by default.** Probe: `gemma4:e4b` returned 1,017 chars of hidden `thinking`, 275 tokens and 21 s for a one-sentence answer; `qwen3.5:9b` 893 tokens / 104 s; `qwen3:8b` 244 tokens / 32 s. With `think: false`, `qwen3.5:9b` answered in 34 tokens / 10 s. Every brief so far has spent time and `NUM_CTX` budget on unrecorded reasoning. Reasoning arrives in a separate `thinking` field, so it never reached brief text.
+3. **Record correction (operator recollection vs changelog):** the operator recalled moving to gemma4 for being lighter, faster and more accurate. The changelog (line ~180) records gemma4 arriving with the move of Ollama from Docker to native macOS; the 2–3 min → 30–45 s speed-up it records came from GPU access, not the model. No accuracy comparison was ever recorded.
+4. **Generator v9.2 (change 25):** `--think on|off` (evaluation only — refused with `--send`); omitted, the request is byte-for-byte as before (`build_payload()`, tested). `test_inference_guards.py` 26 pass; `test_count_verification.py` 26 pass. Backup `.bak.v9.1`.
+5. **Design (operator-approved, 12 runs):** gemma4 think on (today's production), and gemma4 / qwen3:8b / qwen3.5:9b think off; round-robin × 3; review-only scratch copy, `WINDOW_DAYS = 14`, run from the session scratchpad; memory sampled every 10 s (min free %, max swap, max pressure level). qwen3.5 think-on excluded as impractical. Key question: does gemma4 with thinking off match its thinking-on accuracy?
+
+### Bake-off results (12 runs, 2026-09-29 14:31–15:28, all exit 0)
+
+| Config (3 runs each) | Fabrications | Verifier warnings | Truncations | Median time | Median memory drop* | Time at pressure ≥2* |
+|---|---|---|---|---|---|---|
+| gemma4:e4b think on (production today) | 0 | 0 | 0 | 429 s | ~9.4 GB | 95% |
+| gemma4:e4b think off | 0 | 0 | 0 | **154 s** | ~5.8 GB | 81% |
+| qwen3:8b think off | 0 | 0 | 0 | 224 s | **~3.4 GB** | **0%** |
+| qwen3.5:9b think off | 0 | 5 (all F13 subset shape) | 0 | 287 s | ~7.7 GB | 25% |
+
+\*Noisy: free-% drop from run start to minimum, ×0.16 GB/pt; the same config varied widely between rounds (qwen3:8b drops 48, 21, 2 pts). Indicative, not precise.
+
+- **Every warning was hand-classified: all 5 are correct subset counts** ("two separate notices from September 16" — true; CMS had three in the window), the F13 known limitation. **No fabrication in any of the 12 runs** — so on this window the verifier could not separate the models on accuracy. Caveat: one 27-document window; the 15-vs-18 shape was not provoked.
+- **Thinking costs time, not accuracy:** gemma4 with thinking off was 2.8× faster with identical verifier results.
+- **qwen3.5:9b** would have held correct briefs from `--send` in 2 of 3 runs (subset counts) and was the slowest and most variable of the think-off configs.
+- **Rule check (ADR-047 §4):** metric 1 tied (0); metric 2 tied (0); metric 3 (memory) favours qwen3:8b; metric 4 (time) favours gemma4 think-off. Prose quality is not measured by the verifier — operator to read the round-3 briefs of the two finalists.
+
+### Operator decisions and follow-ups (after the bake-off)
+
+1. **Keep both models; assign by workload** (operator). Briefs → `qwen3:8b` (operator *leaning* on output quality, not final), thinking off; chat → `gemma4:e4b`, thinking off by default with a per-message override. Not ready to delete gemma4. **ADR-047 §14 added** (bake-off table, F14, workload table; §3's one-model rule marked superseded). Backup `ADR_047.docx.bak.pre-s14`. Takes effect in code only with the per-workload configuration change (not yet approved).
+2. **`qwen3.5:9b` removed** (operator-approved). Installed: `qwen3:8b` 5.2 GB, `gemma4:e4b` 9.6 GB.
+3. **Finders' copies** of the two finalist briefs at `bakeoff_2026-09-29/` (A = gemma4 think off, B = qwen3:8b think off) for operator comparison.
+4. **Finding F15 — question-answering over a brief is unreliable for dates.** Demo: gemma4 (think off, "answer only from the brief") asked which items have a deadline, effective date or meeting date. It listed every document with its **publication date** as though it were a deadline; the HCPCS entry gave the publication date as the meeting date. Only one line was right (Medicare appeals thresholds effective 2027-01-01). 70 s; 2,603 prompt tokens. **Implication:** a chatbot over brief output needs grounding in structured source fields, not model recall of prose. Dates like comment deadlines and effective dates are not in the stored abstracts at all (`raw_content` is title + abstract).
+
+### Docker disk image recreated — operator change; system restored
+
+- **Operator decision:** Docker Desktop disk-image limit set to **160 GB** (Claude had recommended against it — recorded as the operator's decision). Applying it recreated the disk image between ~14:05 and 14:22: **all images, containers, the build cache and the unexamined 49 MB orphan volume were destroyed.** The orphan volume's contents are now permanently unknown.
+- **Detected by the bake-off,** not by monitoring: all 12 runs failed in the same second on `Connection refused` to Postgres (no model loaded, nothing else touched). The harness now stops at the first failed run.
+- **No data lost:** the Postgres data directory is a bind mount (`~/openclaw/postgres`, 67 MB, intact); `~/openclaw/chromadb` has been empty since April 6; today's 04:13 backup was present.
+- **Restored** (operator-approved) with `docker compose up -d --build`: images re-pulled and rebuilt. **Verified:** four containers up; schema 8; 3 jobs registered; `/health` ok; PostgreSQL **16.15** on the existing data; `scraped_content` **680** rows (max 2026-09-28) and `brief_runs` **3** — both match the pre-incident record; `agent_actions_default` 0; no audit spool. `chromadb/chroma:latest` is now a newer ChromaDB than before (harmless — no data).
+- **Lesson:** the Docker disk-image limit is not a free setting — changing it downward is a destructive reset. Any data that must survive it has to be a bind mount, which OpenClaw's is.
+
+### Pending
+
+- ADR-047 §11 steps 5 (finish) – 8, each approved; step 5 bake-off must hand-classify any subset-count warnings (F13 b) rather than score them as fabrications.
