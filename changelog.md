@@ -3158,3 +3158,5 @@ Low. The migration only adds empty partitions and a version row. `write_action()
 | F8 — deploy ADR-034 telemetry or mark pending hardware | Operator |
 | Hook live test + first paginated nightly check | Next session |
 | Weekly `--send` | ~Oct 3–4 |
+
+**Addendum (same session):** `instructions_v3.0.md` Hard Rules repaired before the operator pasted them into the claude.ai panel. (a) Entry #041's insertion of the auto-mode block had split the Manual-mode list, leaving "verify the working directory" and the `git push` line under the auto-mode heading — moved back. (b) The `git push` line still said the classifier gates push; corrected (not gated since Sept 20, per `CURRENT_STATE.md`). (c) Added the SSH-agent recovery step: this entry's own push failed with `Permission denied (publickey)` because the agent had no identities loaded — the operator runs `ssh-add --apple-use-keychain`, since `~/.ssh` is outside the §1 boundary.

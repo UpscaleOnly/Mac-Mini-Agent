@@ -126,6 +126,8 @@ Notable active ADRs:
 - **MAY** run shell commands, edit files directly, and commit to Git.
 - **Scoped to `~/openclaw`.** Per-action operator approval for each command.
 - **Cowork is never used.**
+- Verify the working directory first — see the dual-clone check at the top.
+- **`git push` is not gated** *(corrected September 29, 2026 — tested and working since September 20; this line previously said the classifier would refuse it)*. If push fails with `Permission denied (publickey)`, the SSH agent has lost its key — the operator runs `ssh-add --apple-use-keychain` (`~/.ssh` is outside the §1 boundary).
 
 **Claude Code, auto mode — permitted under conditions (ADR-014 §7, amended September 29, 2026):**
 - Operator-initiated and operator-present only — never scheduled, unattended, or agent-initiated.
@@ -133,8 +135,6 @@ Notable active ADRs:
 - Outbound limited to designed pipeline behavior (generator SMTP, Federal Register API).
 - Each changelog entry records the permission mode used.
 - **Edits that change Claude Code's own permissions** (ADR-014, these execution-boundary rules, settings that widen access) **are made in Manual mode.**
-- Verify the working directory first — see the dual-clone check at the top.
-- **`git push` is gated by the Claude Code permission classifier** and may be refused even when explicitly requested. Either the operator runs it, or a `Bash(git push:*)` allow rule is added to settings.
 
 **Claude Desktop chat (no Claude Code) — pre-ADR-014 rules still apply:**
 - MCP filesystem is **read-only**. No shell. No host command execution.
