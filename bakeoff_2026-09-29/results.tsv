@@ -1,0 +1,13 @@
+round	model	think	exit	seconds	min_free_pct	max_swap_mb	max_level	warnings	truncations
+1	gemma4:e4b	on	0	360	30	3125.69	2	0	0
+1	gemma4:e4b	off	0	145	31	3093.69	2	0	0
+1	qwen3:8b	off	0	224	16	4237.94	2	0	0
+1	qwen3.5:9b	off	0	273	16	5656.19	2	3	0
+2	gemma4:e4b	on	0	429	9	5853.00	2	0	0
+2	gemma4:e4b	off	0	164	9	5845.00	2	0	0
+2	qwen3:8b	off	0	220	40	5837.88	1	0	0
+2	qwen3.5:9b	off	0	479	20	5725.88	2	2	0
+3	gemma4:e4b	on	0	439	6	6627.81	2	0	0
+3	gemma4:e4b	off	0	154	10	6171.75	2	0	0
+3	qwen3:8b	off	0	238	40	6011.75	1	0	0
+3	qwen3.5:9b	off	0	287	21	5867.75	1	0	0

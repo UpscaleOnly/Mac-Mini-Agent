@@ -22,6 +22,11 @@ log = logging.getLogger(__name__)
 # ADR-047 §6 -- one inference job at a time, host-wide. Same key as
 # generate_brief_review.py, which runs on the host; PostgreSQL is the one
 # place both can see.
+# ADR-047 §14 -- per-message thinking override for chat. A plain-text prefix,
+# not "/think": the Telegram bot drops unknown slash-commands before they
+# reach /agent (telegram_bot.py: filters.TEXT & ~filters.COMMAND).
+THINK_PREFIX = "think:"
+
 INFERENCE_LOCK_KEY = 470047
 LOCK_WAIT_SECONDS = 60
 LOCK_POLL_SECONDS = 5
@@ -38,6 +43,15 @@ def determine_routing(req: AgentRequest) -> Routing:
     return Routing.LOCAL_TIER2
 
 
+def split_think(text: str, default: bool) -> tuple[bool, str]:
+    """Return (think, prompt). A leading 'think:' (any case) turns thinking on
+    for this message and is removed from the prompt; otherwise the default."""
+    stripped = (text or "").lstrip()
+    if stripped.lower().startswith(THINK_PREFIX):
+        return True, stripped[len(THINK_PREFIX):].lstrip()
+    return default, text
+
+
 async def call_ollama(req: AgentRequest) -> dict:
     """
     Call local Ollama instance for inference.
@@ -46,10 +60,12 @@ async def call_ollama(req: AgentRequest) -> dict:
     settings = get_settings()
     url = f"http://{settings.ollama_host}:{settings.ollama_port}/api/generate"
 
+    think, prompt = split_think(req.raw_text, settings.ollama_chat_think)
     payload = {
         "model": settings.ollama_default_model,
-        "prompt": req.raw_text,
+        "prompt": prompt,
         "stream": False,
+        "think": think,   # ADR-047 §14 -- off by default for chat
     }
 
     try:

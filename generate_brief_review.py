@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, v9
+generate_brief_review.py - federal_policy_brief, v9.3
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -288,6 +288,10 @@ CHANGES FROM v8 (2026-09-29, Entry #048, ADR-047 §4-§6 and §8)
      so every brief has spent time and context on hidden reasoning. The flag
      sends Ollama's "think" setting; omitted, the request is unchanged.
      Evaluation only, like --model.
+ 26. v9.3 (Entry #048, ADR-047 §14): production defaults set per workload --
+     MODEL qwen3:8b, THINK False (was gemma4:e4b with its default reasoning).
+     Bake-off: zero fabrications for both; thinking off 2.8x faster; qwen3:8b
+     lightest in memory. Revert = these two constants.
 
 """
 
@@ -310,12 +314,12 @@ log = logging.getLogger(__name__)
 # ----------------------------- CONFIG -----------------------------
 WINDOW_DAYS = 7                       # production value
 PROJECT = "federal_policy_brief"      # scoping tag in scraped_content.project
-MODEL = "gemma4:e4b"                  # local Ollama model to summarize with
+MODEL = "qwen3:8b"                    # ADR-047 §14: the BRIEF workload's model (was gemma4:e4b)
 OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_TIMEOUT = 300                  # seconds; local inference can be slow
 TEMPERATURE = 0.2                     # low = factual, consistent
 NUM_CTX = 8192                        # prompt+response budget; Ollama default 4096 truncated Cross-Program
-THINK = None                          # None = model default (unchanged); --think on/off sets it (v9.2, bake-off)
+THINK = False                         # ADR-047 §14: thinking off for briefs (v9.3); --think on/off overrides for evaluation
 OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate"   # used only to unload the model
 
 # ----------------------- INFERENCE GUARDS (v9, ADR-047) -----------------------

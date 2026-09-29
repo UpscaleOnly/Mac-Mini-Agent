@@ -77,7 +77,12 @@ check("unreadable snapshot does not crash",
       g.memory_state({"level": None, "free_pct": None, "swap_mb": None},
                      {"level": None, "free_pct": None, "swap_mb": None})[0] == "GREEN")
 
-# ---- --think (v9.2): omitted means the request is unchanged ----
+# ---- production defaults (v9.3, ADR-047 §14) ----
+check("brief workload model is qwen3:8b", g.MODEL == "qwen3:8b")
+check("brief workload thinking is off by default", g.THINK is False)
+check("default payload sends think false", g.build_payload("x").get("think") is False)
+
+# ---- --think (v9.2): None means the key is omitted ----
 g.THINK = None
 check("no --think: payload has no 'think' key", "think" not in g.build_payload("x"))
 g.THINK = False

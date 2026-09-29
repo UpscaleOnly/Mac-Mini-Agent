@@ -53,7 +53,10 @@ class Settings(BaseSettings):
     # Ollama
     ollama_host: str = "openclaw_ollama"
     ollama_port: int = 11434
-    ollama_default_model: str = "gemma4:e4b"
+    ollama_default_model: str = "gemma4:e4b"   # ADR-047 §14: the CHAT workload's model
+    # ADR-047 §14: chat runs with thinking off; a message beginning "think:"
+    # turns it on for that one reply (app/llm.py split_think).
+    ollama_chat_think: bool = False
 
     # OpenRouter (cloud escalation — Phase 1 Sonnet only)
     openrouter_api_key: str = ""
