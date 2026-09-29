@@ -3272,7 +3272,7 @@ ADR-014 §7 (auto mode under conditions); allowlist narrowed to `~/openclaw` and
 
 **Category:** Findings — 16 GB inference-architecture baseline (recorded without prior approval under the findings rule). Startup step 0 — partial. **ADR-047 drafted, PROPOSED, not yet on disk as an ADR.**
 
-**Permission mode:** as run by the operator this session (to be confirmed at close).
+**Permission mode:** the operator understood the session to be in Manual mode; the app reported `acceptEdits` to hooks throughout (traversal-guard run log). Shell commands prompted per action; ADR-014 §7 should name which app setting satisfies "Manual".
 
 ### Startup step 0
 
@@ -3414,3 +3414,7 @@ Backups: `app/llm.py.bak.pre-adr047`, `app/models.py.bak.pre-adr047`, `schema.sq
 ### Pending
 
 - ADR-047 §11 steps 5 (finish) – 8, each approved; step 5 bake-off must hand-classify any subset-count warnings (F13 b) rather than score them as fabrications.
+
+### Session close (Entry #048)
+
+Closing ritual: `fastapi` built and up (schema 8, 3 jobs); all six test files pass; commits `fb857a5`, `546650c`, `07a4cb2`, `c569ac5`, `7a2071c`, `a04110a` and this close-out pushed. Next-session checks and the remaining ADR-047 steps are in `CURRENT_STATE.md` → Active task.
