@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from app.scheduling.scrapers.base import (
@@ -104,11 +104,26 @@ class FederalRegisterScraper(BaseScraper):
 
     PER_PAGE = 100
 
+    # Pagination (added September 29, 2026 — Entry #043). Before this, fetch()
+    # read only the first page: the newest 100 documents per agency. The
+    # parent HHS query alone runs ~33 docs/week, so any window over ~3 weeks
+    # silently dropped its OLDEST documents — exactly the ones a catch-up or
+    # backfill exists to recover. fetch() now follows next_page_url. The cap
+    # is a runaway guard; hitting it is logged and reported as a failure
+    # (run status 'partial'), never silently accepted.
+    MAX_PAGES = 20
+    inter_page_sleep_seconds = 1
+
     # ------------------------------------------------------------------
     # Constructor
     # ------------------------------------------------------------------
 
-    def __init__(self, days_back: Optional[int] = None):
+    def __init__(
+        self,
+        days_back: Optional[int] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+    ):
         """
         days_back — how many days back from now to fetch.
 
@@ -120,8 +135,16 @@ class FederalRegisterScraper(BaseScraper):
 
         Pass an explicit integer to override — e.g. for a manual one-off
         run where you want a specific window regardless of run history.
+
+        date_from / date_to — explicit publication-date bounds (inclusive)
+        for a targeted historical pull. date_from overrides days_back;
+        date_to adds an upper bound (none by default). Nightly runs pass
+        neither. For a backfill, use FederalRegisterBackfill below so the
+        run does not count toward the nightly catch-up computation.
         """
         self.days_back = days_back
+        self.date_from = date_from
+        self.date_to = date_to
 
     # ------------------------------------------------------------------
     # fetch() — required by BaseScraper
@@ -133,9 +156,13 @@ class FederalRegisterScraper(BaseScraper):
         Returns a flat list of result dicts.
         One agency failing is logged and skipped — does not abort the run.
         """
-        since = (
-            datetime.now(timezone.utc) - timedelta(days=self.days_back)
-        ).strftime("%Y-%m-%d")
+        if self.date_from is not None:
+            since = self.date_from.strftime("%Y-%m-%d")
+        else:
+            since = (
+                datetime.now(timezone.utc) - timedelta(days=self.days_back)
+            ).strftime("%Y-%m-%d")
+        until = self.date_to.strftime("%Y-%m-%d") if self.date_to else None
 
         all_results: list[dict] = []
         failures: list[str] = []
@@ -149,18 +176,34 @@ class FederalRegisterScraper(BaseScraper):
                 "per_page": self.PER_PAGE,
                 "order": "newest",
             }
+            if until:
+                params["conditions[publication_date][lte]"] = until
 
             try:
-                response = self._http_get_with_retry(
-                    f"{self.FR_API_BASE}/documents.json",
-                    params=params,
-                )
-                results = response.json().get("results", [])
+                url: Optional[str] = f"{self.FR_API_BASE}/documents.json"
+                pages = 0
+                agency_docs = 0
+                while url and pages < self.MAX_PAGES:
+                    response = self._http_get_with_retry(url, params=params)
+                    body = response.json()
+                    results = body.get("results", [])
+                    all_results.extend(results)
+                    agency_docs += len(results)
+                    pages += 1
+                    # next_page_url already carries the full query string
+                    url = body.get("next_page_url")
+                    params = None
+                    if url:
+                        time.sleep(self.inter_page_sleep_seconds)
                 log.info(
-                    "FR API: agency=%s docs=%d since=%s",
-                    agency, len(results), since,
+                    "FR API: agency=%s docs=%d pages=%d since=%s until=%s",
+                    agency, agency_docs, pages, since, until or "-",
                 )
-                all_results.extend(results)
+                if url:
+                    msg = (f"{agency}: stopped at MAX_PAGES={self.MAX_PAGES} "
+                           f"({agency_docs} docs) — older documents NOT fetched")
+                    failures.append(msg)
+                    log.error("FR API: %s", msg)
             except _FatalError as e:
                 # Retries exhausted or non-retryable response — skip this agency
                 failures.append(f"{agency}: {e}")
@@ -267,3 +310,26 @@ class FederalRegisterScraper(BaseScraper):
             document_title=title or None,
             publication_date=publication_date,
         )
+
+
+class FederalRegisterBackfill(FederalRegisterScraper):
+    """
+    Manual, date-bounded historical pull (Entry #043). NOT registered in
+    SCRAPERS, so the nightly dispatcher never runs it.
+
+    Records under its own scraper_name so BaseScraper._compute_days_back(),
+    which keys on the most recent success/partial run of 'federal_register',
+    never mistakes a historical pull for a current one. Without this, a
+    backfill run after a nightly outage would reset the catch-up clock and
+    hide the outage's gap.
+
+    Usage (inside openclaw_fastapi):
+        from datetime import date
+        from app.scheduling.scrapers.federal_register import FederalRegisterBackfill
+        FederalRegisterBackfill(date(2026, 8, 1), date(2026, 8, 19)).run()
+    """
+    scraper_name = "federal_register_backfill"
+    uses_days_back_catchup = False
+
+    def __init__(self, date_from: date, date_to: date):
+        super().__init__(date_from=date_from, date_to=date_to)

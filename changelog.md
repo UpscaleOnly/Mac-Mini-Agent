@@ -3004,3 +3004,55 @@ Broad rules noticed: `Bash(python3 -)`, `Bash(python3 -c ' *)`, `Bash(docker exe
 | Live-verify the hook in a fresh session (auto mode): `ls /nonexistent-openclaw-hook-test` must prompt; `du -sh ~/openclaw` must not | Start of next session |
 | Mark ADR-045 §8.3 implemented in `ADR_045.docx` once verified | After live test |
 | Weekly `--send` | ~Oct 3–4 |
+
+---
+
+## Entry #043 — September 29, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Pipeline — August 4–16 content gap **backfilled**; silent scraper truncation found and **fixed** (pagination).
+
+**Permission mode:** Auto (ADR-014 §7). Pipeline work; only outbound traffic was the Federal Register API.
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **Found a silent truncation defect while planning the backfill.** `FederalRegisterScraper.fetch()` read only the first API page — the newest 100 documents per agency — and never followed pagination. The parent HHS query covers FDA, NIH, CDC, HRSA, CMS and more, ~33 documents/week (200+ between Aug 17 and Sep 28). So the planned "explicit `days_back`" backfill (57 days) would have returned only the newest ~3 weeks and silently missed Aug 4–16 again. The same defect sat latent in the nightly catch-up: `days_back_max = 30` permits ~140 HHS documents, so any outage longer than ~3 weeks would have lost its oldest days without a warning. The September 7–12 outage was short enough to escape it. Whether the original Aug 4–16 gap had the same cause was not investigated.
+
+2. **Fix — `app/scheduling/scrapers/federal_register.py`.** `fetch()` follows `next_page_url` (confirmed by a live API call: the field exists and carries the full query plus a `search_after_cursor`), capped at `MAX_PAGES = 20` per agency. Hitting the cap is **reported, not silent**: logged as `older documents NOT fetched` and added to failures, so the run records `partial`. Optional `date_from` / `date_to` bounds (`gte` / `lte`) added for targeted pulls; nightly runs pass neither and behave as before.
+
+3. **`FederalRegisterBackfill` class.** Date-bounded, not registered with the scheduler, and recorded under its own `scraper_name` (`federal_register_backfill`). Reason: `_compute_days_back()` keys on the latest success of `federal_register`; a historical pull recorded under that name would reset the catch-up clock and could hide a real outage gap.
+
+4. **Tests — `test_fr_pagination.py`** (14, tracked, fake API, no network/DB): multi-page follow including the oldest page, the cap reported as a failure with partial results kept, per-agency failure isolation, date bounds, and backfill isolation. Pass on host and inside the rebuilt container.
+
+5. **`fastapi` rebuilt.** Logs: `Schema version OK — live database is at version 7`; `keep_warm`, `weekly_digest`, `federal_policy_scrape (daily 01:00 ET)` registered; scheduler started with 3 jobs.
+
+6. **Backfill run — Aug 1–19** (margin either side). 212 fetched (HHS: 141 over **2 pages** — pagination exercised on live data), **94 inserted**, 118 skipped by the existing `ON CONFLICT` dedup (CMS/ACF documents also appear under the HHS parent query, plus existing edge-day rows). Status `success`, 0 retries.
+
+7. **Verified.** Every weekday Aug 4–14 now has documents (6–22 per day, consistent with Aug 3 = 23 and Aug 17 = 21); weekends empty as expected; edge days unchanged. The latest `federal_register` success is still the 05:44 UTC nightly, so the catch-up clock is untouched. **0** backfilled rows fall inside the brief's 7-day window. Table: 680 rows, 638 `is_new`.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/app/scheduling/scrapers/federal_register.py` | Pagination, date bounds, `FederalRegisterBackfill` |
+| `~/openclaw/test_fr_pagination.py` | New — 14 tests, tracked |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+| `~/openclaw/CURRENT_STATE.md` | Content state, gap closed, tasks, rollbacks |
+| `scraped_content` / `scraper_runs` | +94 rows; one `federal_register_backfill` run |
+
+### Risk Assessment
+
+Low. The nightly path changed only in following further pages, which a normal 1–2 day window never needs. More pages means more API calls, with a 1-second pause between pages. The cap is a runaway guard; if it is ever hit the run records `partial` rather than claiming success. The 94 new rows are `is_new = TRUE` but can never enter a brief (publication dates are ~6 weeks old).
+
+**Rollback:** `app/scheduling/scrapers/federal_register.py.bak.pre-pagination`, then `docker compose build fastapi && docker compose up -d fastapi`. Backfilled rows can be identified by `scraper_run_id` → `scraper_runs.scraper_name = 'federal_register_backfill'`.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Confirm tonight's 01:00 ET nightly records `success` with the new code | Next session |
+| Live-verify the §8.3 hook in a fresh session | Next session, first |
+| Weekly `--send` | ~Oct 3–4 |

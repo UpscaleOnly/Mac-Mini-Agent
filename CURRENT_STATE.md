@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 29, 2026 (Entry #042 — §8.3 traversal hook built, live test pending; Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
+**Last updated:** September 29, 2026 (Entry #043 — Aug 4–16 gap backfilled; scraper pagination fixed; Entry #042 — §8.3 traversal hook built, live test pending; Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -53,6 +53,7 @@ Must show `~/openclaw` and `git@github.com:UpscaleOnly/Mac-Mini-Agent.git` (SSH)
 - `generate_brief_review.py.bak.v7` — v7 (pre-modifier-word counts, no `request` unit, no enumeration rule).
 - `generate_brief_review.py.bak.v4` — working v4 (pre-v5: review-only, no `--send`, no SMTP, no `brief_runs`). Also `.bak.v3`, `.bak.v2`, `.bak.v0`; each file's header comment says what it lacks.
 - `app/scheduling/scheduler.py.bak.pre-misfire-fix` — pre-August-23 scheduler (10-minute misfire grace).
+- `app/scheduling/scrapers/federal_register.py.bak.pre-pagination` — first-page-only `fetch()`, no date bounds, no backfill class. Rebuild `fastapi` after restoring.
 - `ADR_033.docx.bak.plaintext-format` … `ADR_037.docx.bak.plaintext-format` — the original plain-text-as-`.docx` files, pre-conversion.
 - `ADR_042.docx.bak.pre-amendment-2026-08-23` — pre-"Mac Mini" correction.
 - `ADR_014.docx.bak.pre-amendment-2026-09-29` — before the §7 auto-mode amendment.
@@ -90,11 +91,13 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Content state (`scraped_content`)
 
-- Coverage **April 24 → September 18, 2026**, all `project = 'federal_policy_brief'`. **526 rows total: 502 `is_new = TRUE`, 24 consumed** by the August 22 send.
+- Coverage **April 24 → September 28, 2026**, all `project = 'federal_policy_brief'`. **680 rows total: 638 `is_new = TRUE`, 42 consumed** by the August 22 and September 27 sends (as of September 29).
 - **69 rows `is_new = TRUE` in the trailing 7-day window** as of September 20.
 - **Every query MUST filter `WHERE project = 'federal_policy_brief'`** — the table is project-scoped.
 - `raw_content` is **title + abstract only** (~569 chars avg). Brief depth is abstract-level by design of the current scraper.
-- ⚠️ **Unbackfilled historical gap: August 4–16, 2026 — still zero documents.** Roughly nine missing weekdays. It predates the Entry #020 catch-up logic, so it was never self-healed and **will not heal on its own** — the catch-up window computes from the last successful run, which has long since moved past it. Recoverable only by an explicit backfill.
+- ✅ **August 4–16 gap BACKFILLED September 29 (Entry #043)** — 94 documents inserted; every weekday Aug 4–14 now has 6–22 documents, in line with the adjacent weeks. Rows came from the `federal_register_backfill` run and carry `is_new = TRUE`, but their publication dates sit far outside the generator's 7-day window, so they never reach a brief.
+- ✅ **Silent catch-up truncation FIXED (Entry #043).** `fetch()` read only the first page — newest 100 per agency — and the parent HHS query runs ~33/week, so any catch-up over ~3 weeks (the cap is 30 days) silently lost its oldest documents. `fetch()` now follows `next_page_url`, capped at 20 pages per agency; hitting the cap marks the run `partial` and logs `older documents NOT fetched`. **Tests:** `python3 test_fr_pagination.py` (14; also runs in the container).
+- **Future backfills:** `FederalRegisterBackfill(date_from, date_to).run()` inside `openclaw_fastapi` — records under its own scraper name so it never resets the nightly catch-up clock. Not registered with the scheduler.
 - No content is expected Saturdays, Sundays, or federal holidays.
 
 ## federal_policy_brief — where the generator stands
@@ -127,11 +130,10 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 2. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline. *(ADR-014 auto-mode amendment DONE — Entry #041.)*
 3. **[Next session, first]** **Live-verify the ADR-045 §8.3 hook** (built Entry #042) — see startup step 0 below; then mark §8.3 implemented in `ADR_045.docx`. *(§8.2 and allowlist prune DONE — Entry #041.)*
 4. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
-5. **[Then]** Backfill the August 4–16 content gap (explicit `days_back`, or a targeted Federal Register API pull).
-6. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
-7. **[Then]** Refresh the local model — `gemma4:e4b` is five months old; a current model in the same size class is likely the highest-value zero-cost improvement available.
-8. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
-9. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
+5. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
+6. **[Then]** Refresh the local model — `gemma4:e4b` is five months old; a current model in the same size class is likely the highest-value zero-cost improvement available.
+7. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
+8. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
 
 ## Top open items
 
@@ -203,6 +205,7 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 
 ## Recent history (most recent first)
 
+- **Entry #043 (Sep 29):** **Aug 4–16 gap backfilled** (94 docs). Found and fixed a silent truncation: `fetch()` read only the first 100 docs per agency, so wide catch-ups lost their oldest documents. Pagination + date bounds + a separate `FederalRegisterBackfill` class; 14 tests; `fastapi` rebuilt, schema 7.
 - **Entry #042 (Sep 29):** ADR-045 §8.3 traversal hook **built** — 52 tests pass, including the three recorded breaches verbatim; tests caught a design gap (plain `ls` globs) before shipping. Registered in tracked `.claude/settings.json`. **Live test pending** — hooks load at session start.
 - **Entry #041 (Sep 29):** **ADR-014 amended (§7)** — auto mode permitted under conditions, closing the Entry #040 contradiction. **ADR-045 §8.2 done** — home-wide `Read` grant removed. The auto-mode classifier refused the amendment as self-expanding permissions; the session switched to Manual mode to finish, and that is now a §7 condition.
 
