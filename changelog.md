@@ -3105,3 +3105,56 @@ Documentation only; no system change. F7 is live: any `/agent` use fails until p
 | F7 migration (partitions + DEFAULT) | On approval |
 | Find why nothing reached `/agent` audit after May 17 | After F7 |
 | Amend ADR-046 with the extended findings | On approval |
+
+---
+
+## Entry #045 — September 29, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Schema — **F7 fixed**, `migration_007.sql`, schema **7 → 8**. Governance — **ADR-046 amended** (§13: F7–F9). Defect — `ADR_046.docx` malformed XML since September 20, fixed.
+
+**Permission mode:** Manual.
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **`migration_007.sql` applied** (operator-approved). `agent_actions` gains monthly partitions 2026-08 through 2027-12 and a DEFAULT partition, in a single transaction (`psql -1 -v ON_ERROR_STOP=1`). Verified: the insert that failed in Entry #044 now succeeds (rolled back — writes nothing); 22 partitions (4 original + 17 + DEFAULT); `schema_version` max 8; DEFAULT partition empty; existing 26 rows intact. The DEFAULT partition is the durable fix: a missing month now lands rows there instead of failing the request. Caveat recorded in the migration: a new monthly partition cannot be attached while DEFAULT holds rows in its range.
+
+2. **`schema.sql` and `app/db.py` updated to match.** Fresh-install path creates the same partitions and stamps version 8; `REQUIRED_SCHEMA_VERSION = 8`. **Fresh install tested** by running `schema.sql` in a scratch database (`openclaw_schematest`, created and dropped): 22 partitions, version 8. `fastapi` rebuilt — logs `Schema version OK — live database is at version 8 (required 8)`, 3 jobs scheduled. **Not tested end-to-end through `/agent`** (no traffic; would spend a local LLM call).
+
+3. **May 17 silence explained.** The operator has not used Telegram in months, so the absence of `agent_actions` rows since May 17 is disuse, not a second silent failure. The automated Sunday digest would have failed each week from August 2 — inferred, since those logs were lost in the Entry #043 container recreate.
+
+4. **ADR-046 amended — new §13** (operator-approved): method and scope of the extension; **F7** (HIGH, RESOLVED — impact, verification, follow-ups including the AU-5 fail-closed question); **F8** (MEDIUM — ADR-034 telemetry never deployed); **F9** (LOW — stale host references); `scripts/backup.sh` assessed clean; remediation-plan additions. Header status line, Status cell and footer marked "amended September 29". Validated (155 paragraphs). Original preserved as `ADR_046.docx.bak.pre-amendment-2026-09-29`.
+
+5. **Pre-existing defect found and fixed: `ADR_046.docx` was malformed XML.** The September 20 status-cell correction inserted a raw `&` ("Desktop & Documents Folders") without escaping it, so the file did not parse — Word would refuse it or offer repair. Escaped in the amended copy. **All 29 ADR `.docx` files were then parse-checked; all pass.** The `.bak` above still carries the defect — noted in `CURRENT_STATE.md` rollbacks.
+
+6. **Instructions** — Architecture line updated to live schema version 8.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/migration_007.sql` | New — applied live |
+| `~/openclaw/schema.sql` | Partitions + DEFAULT; version stamp 8 |
+| `~/openclaw/app/db.py` | `REQUIRED_SCHEMA_VERSION = 8` |
+| `~/openclaw/ADR_046.docx` | §13 amendment; XML defect fixed |
+| `~/openclaw/instructions_v3.0.md` | Schema version 8 |
+| `~/openclaw/CURRENT_STATE.md` | Schema, F7 resolved, F8/F9, rollbacks, tasks |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### Risk Assessment
+
+Low. The migration only adds empty partitions and a version row. `write_action()` remains fail-closed — that is now a design decision for the operator (AU-5), not a defect. Next horizon is December 2027; `SELECT count(*) FROM agent_actions_default` should stay 0.
+
+**Rollback:** detach and drop the new (empty) partitions, delete `schema_version` row 8, restore `schema.sql.bak.pre-migration007` and `app/db.py.bak.pre-migration007`, rebuild `fastapi`. Not recommended — it restores the outage.
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| AU-5 decision: keep `/agent` fail-closed on audit-write failure? | Operator |
+| F8 — deploy ADR-034 telemetry or mark pending hardware | Operator |
+| Hook live test + first paginated nightly check | Next session |
+| Weekly `--send` | ~Oct 3–4 |

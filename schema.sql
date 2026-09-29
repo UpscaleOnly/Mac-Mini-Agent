@@ -171,6 +171,26 @@ CREATE TABLE IF NOT EXISTS agent_actions_2026_06 PARTITION OF agent_actions
 CREATE TABLE IF NOT EXISTS agent_actions_2026_07 PARTITION OF agent_actions
     FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
 
+-- Migration 007 (September 29, 2026 — ADR-046 F7): monthly partitions
+-- 2026-08 through 2027-12, plus a DEFAULT partition so a missing month can
+-- never break audit writes. Before adding a 2028 partition, confirm
+-- agent_actions_default holds no rows in that range.
+DO $$
+DECLARE
+    m DATE := DATE '2026-08-01';
+BEGIN
+    WHILE m < DATE '2028-01-01' LOOP
+        EXECUTE format(
+            'CREATE TABLE IF NOT EXISTS %I PARTITION OF agent_actions '
+            'FOR VALUES FROM (%L) TO (%L)',
+            'agent_actions_' || to_char(m, 'YYYY_MM'),
+            m, (m + INTERVAL '1 month')::date
+        );
+        m := (m + INTERVAL '1 month')::date;
+    END LOOP;
+END $$;
+CREATE TABLE IF NOT EXISTS agent_actions_default PARTITION OF agent_actions DEFAULT;
+
 -- Indexes on partitioned table (created on each partition automatically)
 CREATE INDEX IF NOT EXISTS idx_agent_actions_session ON agent_actions(session_id);
 CREATE INDEX IF NOT EXISTS idx_agent_actions_persona ON agent_actions(persona);
@@ -451,13 +471,13 @@ CREATE TABLE IF NOT EXISTS schema_version (
 -- above and is guaranteed empty. No conflict handling needed.
 -- MUST match REQUIRED_SCHEMA_VERSION in app/db.py.
 INSERT INTO schema_version (version, description) VALUES
-    (7, 'Baseline schema — August 22, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038 (with main_identity_check source), ADR-039 H4 (scraped_content + scraper_runs + brief_runs).');
+    (8, 'Baseline schema — September 29, 2026. Includes ADR-029, ADR-034, ADR-035, ADR-037, ADR-038 (with main_identity_check source), ADR-039 H4 (scraped_content + scraper_runs + brief_runs), ADR-046 F7 (agent_actions partitions through 2027-12 + DEFAULT).');
 
 -- ============================================================================
 -- DONE
 -- Tables created: 14 + 1 view + 1 version tracker
 --   ADR-035: sessions, session_budget, tool_registry, session_state
---   ADR-029/035: agent_actions (partitioned, 4 initial monthly partitions)
+--   ADR-029/035: agent_actions (partitioned, monthly 2026-04..2027-12 + DEFAULT)
 --   ADR-037: session_transcripts, agent_heartbeat, service_health, knowledge_updates
 --   ADR-034: hardware_metrics + hardware_alerts view
 --   ADR-038: security_events

@@ -44,9 +44,10 @@ log = logging.getLogger(__name__)
 # Current migrations: 001 (initial), 002 (sessions align), 003 (security_events),
 #                     004 (security_events.source CHECK widened — May 3, 2026),
 #                     005 (scraped_content + scraper_runs — May 17, 2026),
-#                     006 (brief_runs — August 22, 2026).
-# schema.sql seeds version 7; REQUIRED is 7.
-REQUIRED_SCHEMA_VERSION: int = 7
+#                     006 (brief_runs — August 22, 2026),
+#                     007 (agent_actions partitions + DEFAULT — September 29, 2026).
+# schema.sql seeds version 8; REQUIRED is 8.
+REQUIRED_SCHEMA_VERSION: int = 8
 
 # Path to schema.sql — used only for PATH A (fresh installs)
 _SCHEMA_SQL_PATH = pathlib.Path(__file__).parent.parent / "schema.sql"

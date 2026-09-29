@@ -70,7 +70,7 @@ OpenClaw is a local-first, governance-first AI agent server. Three purposes:
 - Ollama — native on macOS at `host.docker.internal`, not in Docker
 - FastAPI — agent server and webhook receiver
 - ChromaDB — vector store / RAG
-- **PostgreSQL 16 — live schema version 7** (`migration_006.sql`, `brief_runs` table). *(v2.0 said version 4.)*
+- **PostgreSQL 16 — live schema version 8** (`migration_007.sql`, `agent_actions` partitions, September 29, 2026). *(v2.0 said version 4.)*
 - macOS Keychain (`account=openclaw`) — secrets storage via the `security` command
 - Python — primary language throughout
 
