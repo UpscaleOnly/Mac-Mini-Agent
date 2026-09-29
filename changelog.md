@@ -3219,3 +3219,47 @@ AU-5 trades completeness-by-blocking for availability-with-recovery, by operator
 ### Session summary (Entries #041–#046, September 29)
 
 ADR-014 §7 (auto mode under conditions); allowlist narrowed to `~/openclaw` and stripped of broad rules; §8.3 traversal hook built (live test pending); Aug 4–16 gap backfilled and a silent scraper truncation fixed; audit extended to code (F7–F9); F7 audit-log partition outage fixed (schema 8); AU-5 spool; ADR-034 deferred; ADR-046 amended and its malformed XML repaired; findings-recording rule revised.
+
+---
+
+## Entry #047 — September 29, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Governance — **ADR-029 amended** (§5), **ADR-046 amended** (§14). Audit — **F10** (90-day retention never enforced); **F7 root cause confirmed**. Global instructions — **CLAUDE.md Update 003**.
+
+**Permission mode:** Manual.
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **ADR-029 (stub) amended — new §5**, operator-approved. §5.1 AU-5 (Entry #046 behaviour: never fail the request; host spool; automatic replay; `ON CONFLICT` dedup; CRITICAL only if the spool also fails). §5.2 partitions (migration 007; root cause). §5.3 finding F10. Status cell marks the amendment and states it carries forward if the original ADR is ever recovered. Validated (28 → 39 paragraphs). Original: `ADR_029.docx.bak.pre-amendment-2026-09-29`.
+
+2. **F7 root cause confirmed — it was F5.** Entry #044 and ADR-046 §13 called the link unverified. Reading ADR-035 settles it: §9 says partitions "are created monthly by the nightly maintenance job", and §9.4 schedules the retention DROP as "run monthly by cron under dev account". Neither job was ever built (the scheduler runs only keep-warm, digest and scrape), and the account does not exist.
+
+3. **F10 — LOW — 90-day audit retention never enforced.** Same missing job. April–May 2026 rows remain in `agent_actions`. Over-retention, no evidence lost. Remediation (a maintenance job: drop expired partitions, pre-create upcoming ones, check `agent_actions_default` first) pending approval — task 5 in `CURRENT_STATE.md`.
+
+4. **ADR-046 amended — new §14**, operator-approved: F8 resolved by deferral (ADR-034); F7 root cause confirmed and §13's "unverified" corrected; F10 added; AU-5 cross-referenced; remediation additions. Status cell updated. Validated (155 → 162 paragraphs). Pre-§14 version is in Git at `34eb442`.
+
+5. **Global `~/.claude/CLAUDE.md` — Update 003**, operator-approved: "Automation over review queues" added to Communication Preferences; last-updated date and Update History entry added. **Boundary note:** `~/.claude` is outside `~/openclaw` and so falls under DATA_BOUNDARIES §2's default prohibition. The write was made because the global CLAUDE.md itself authorizes Claude Code to apply approved updates to that file, and the operator approved this one — a single-file, operator-authorized exception, disclosed here per ADR-045. Consider adding `~/.claude/CLAUDE.md` (write, approved updates only) to DATA_BOUNDARIES §1 so this stops being an exception.
+
+6. **Project-knowledge refresh — prepared, not performed by Claude.** Refreshing means removing the stale copies from the "Mac Mini" claude.ai project and uploading current ones. Removing files from the operator's account is a hard delete Claude does not perform, and uploading without removing would leave two versions that disagree — the failure mode `CURRENT_STATE.md`'s handoff section warns against. The exact file list is in `CURRENT_STATE.md` for the operator.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/ADR_029.docx` | §5 amendment |
+| `~/openclaw/ADR_046.docx` | §14 amendment |
+| `~/.claude/CLAUDE.md` | Update 003 (outside repo; not in Git) |
+| `~/openclaw/CURRENT_STATE.md` | F10, task list, rollbacks, refresh list |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| Project-knowledge refresh (list in `CURRENT_STATE.md`) | Operator |
+| Startup step 0; then the 16 GB inference-architecture conversation | Next session |
+| F10 maintenance job | On approval |
