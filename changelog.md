@@ -3337,8 +3337,14 @@ Backups: `app/llm.py.bak.pre-adr047`, `app/models.py.bak.pre-adr047`, `schema.sq
 - **F13 — MEDIUM — verifier false positives (v8), all three warnings on correct text.** (a) **In-section subset counts:** CMS text "A notice … Two notices … One notice …" is exactly right for 3 notices; `'2 notice(s)'` and `'1 notice(s)'` flagged WRONG against the section total. (b) **Enumeration rule missed its own shape:** TANF "Two recent information collection requests … One request …" — correct total stated, yet `'1 request(s)'` flagged. **Consequences:** the Oct 3–4 `--send` can be blocked by correct output; and ADR-047's bake-off ranks models by verifier warnings, so false positives would penalise models that write correct partial counts. Not fixed — needs approval.
 - **ADR-047 §8 gap:** kernel pressure level **2 (warn)** is not mapped — the run ended at level 2 and reported GREEN. Proposed: level 2 → YELLOW (needs approval; ADR §8 table amendment).
 
+### Operator-approved follow-ups — DONE (commit after `fb857a5`)
+
+1. **F13 — generator v9.1 (change 24).** Cause found for each shape; tests written verbatim from the live run **first** and seen to fail. (a) **TANF — FIXED:** "Two *recent information collection* requests" needed three modifier words, over the two-word budget, so the total was never read and "One request" was flagged. "information collection request(s)" is now a single unit counting toward `request`. (b) **CMS — NOT FIXED, by design:** "A notice … Two notices …" is correct but never states the total of 3; accepting a count below the true total is the tolerance approach ruled out after 15-vs-18 (⛔ in CURRENT_STATE). Pinned as a known limitation by a test that fails if a tolerance ever creeps in. The WRONG message now adds "if the text describes a subset without stating the total, it may be correct — check by hand"; it still blocks `--send`. `test_count_verification.py` 22 → 26, all pass. Backups `generate_brief_review.py.bak.v9`, `test_count_verification.py.bak.pre-f13`.
+2. **Pressure level 2 → YELLOW** — `memory_state()`; test added (`test_inference_guards.py` 23, all pass). **ADR-047 §8 amended** (table + dated note; status cell). Backup `ADR_047.docx.bak.pre-s8-amendment`.
+3. **`ADR_045.docx` — §8.2 and §8.3 marked IMPLEMENTED** in the status cell and footer (§8.3 live-verified this entry; AC-3 remains NOT MET per §8.4). Backup `ADR_045.docx.bak.pre-8.3-implemented`.
+
+**Consequence for the Oct 3–4 `--send`:** the TANF shape no longer blocks; the CMS subset shape still does. If it recurs, the brief is correct but unsent — review by hand, then decide.
+
 ### Pending
 
-- F13 verifier fix — recommended **before** the bake-off and before Oct 3–4 `--send` (approval).
-- ADR-047 §8: level 2 → YELLOW (approval).
-- Implementation steps 3–8 (ADR-047 §11), each approved.
+- ADR-047 §11 steps 3–8, each approved: step 3 (LaunchAgent template + Ollama env) is next; step 5 bake-off must hand-classify any subset-count warnings (F13 b) rather than score them as fabrications.

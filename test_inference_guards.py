@@ -69,6 +69,8 @@ check("YELLOW when swap grows > 1 GB",
       g.memory_state(ok, {**ok, "swap_mb": 2600.0})[0] == "YELLOW")
 check("YELLOW when free < 25%",
       g.memory_state(ok, {**ok, "free_pct": 20})[0] == "YELLOW")
+check("YELLOW at pressure level 2 (warn) -- the Sep 29 live-run case",
+      g.memory_state(ok, {**ok, "level": 2, "free_pct": 35, "swap_mb": 2408.0})[0] == "YELLOW")
 check("RED at critical pressure",
       g.memory_state(ok, {**ok, "level": 4})[0] == "RED")
 check("unreadable snapshot does not crash",

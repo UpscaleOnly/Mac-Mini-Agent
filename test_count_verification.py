@@ -95,4 +95,32 @@ check("executive summary: enumeration against an acceptable set",
                       "collection requests. One request concerns X.", "",
                       summary_truth), [])
 
+# ---- F13 (Entry #048): verbatim shapes from the Sep 29 v9 live run ----
+check("ICR compound phrase with a modifier (F13 TANF)",
+      X("Two recent information collection requests from HHS"), {(2, "request")})
+check("plain ICR count unchanged by the compound unit",
+      X("published two information collection requests"), {(2, "request")})
+tanf = ("Two recent information collection requests from the Health and Human "
+        "Services Department, Children and Families Administration, address data "
+        "collection activities. One request, published 2026-09-17, concerns the "
+        "Diaper Distribution Demonstration and Research Pilot (DDDRP). A separate "
+        "information collection request, published 2026-09-15, comes from OCSE.")
+check("F13 TANF live text verifies clean",
+      g.verify_counts("TANF", tanf, "",
+                      g.ground_truth_counts([row("information collection request")] * 2)),
+      [])
+# KNOWN LIMITATION, pinned deliberately. The CMS text is correct (three
+# notices: "A notice" + "Two notices"), but it never states the total, and
+# accepting a count below the true total is the tolerance approach ruled out
+# after the 15-vs-18 fabrication (Entry #037). This stays a warning; if this
+# test ever starts passing with no warnings, a tolerance has crept in.
+cms = ("A notice issued by CMS acknowledges the approval of an application from "
+       "DNV Healthcare USA Inc. Two notices published by CMS address billing and "
+       "appeals processes. One notice, published 2026-09-16, announces a public "
+       "meeting. Additionally, a notice published 2026-09-16 announces the annual "
+       "adjustment to the amount in controversy threshold.")
+w = g.verify_counts("CMS", cms, "", g.ground_truth_counts([row("notice")] * 3))
+check("F13 CMS subset counts stay flagged (known limitation, no tolerance)",
+      len(w) == 2 and all("WRONG" in x for x in w), True)
+
 print("\nall count-verification tests passed")

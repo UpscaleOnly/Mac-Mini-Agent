@@ -275,6 +275,14 @@ CHANGES FROM v8 (2026-09-29, Entry #048, ADR-047 §4-§6 and §8)
      failure, returning ~7 GB to the operator immediately instead of after
      Ollama's five-minute default.
      Tests: test_inference_guards.py.
+ 24. F13 (Entry #048): "information collection request(s)" is now one unit.
+     As three words it used up the two-word modifier budget, so "Two recent
+     information collection requests" was never read and the following "One
+     request" was flagged -- a false positive on correct text. Subset counts
+     with no stated total (CMS: "A notice ... Two notices ...") remain
+     flagged by design: accepting a count below the true total is the
+     tolerance approach ruled out after 15-vs-18. The WRONG message now says
+     a subset may be correct, so the operator knows what to check.
 
 """
 
@@ -809,6 +817,11 @@ _UNIT_PAIRS = [
     ("plan", "plans"),
     ("option", "options"),
     ("request", "requests"),
+    # The instrument's full name, as one unit (F13, Entry #048). As three
+    # words it consumed the whole two-word modifier budget, so "Two recent
+    # information collection requests" went unread -- and the "One request"
+    # that followed was then flagged for lack of a stated total.
+    ("information collection request", "information collection requests"),
     ("criterion", "criteria"),
     ("year", "years"),
     ("day", "days"),
@@ -817,6 +830,9 @@ _UNIT_PAIRS = [
 for _sing, _plur in _UNIT_PAIRS:
     _UNIT_NORMALIZE[_sing] = _sing
     _UNIT_NORMALIZE[_plur] = _sing
+# Compound units count toward their head noun, which is what ground truth tracks.
+_UNIT_NORMALIZE["information collection request"] = "request"
+_UNIT_NORMALIZE["information collection requests"] = "request"
 
 # All unit words for regex alternation (longest first to avoid prefix issues).
 _ALL_UNITS = sorted(_UNIT_NORMALIZE.keys(), key=len, reverse=True)
@@ -1019,7 +1035,8 @@ def verify_counts(label, generated, source_text, truth=None):
                         else " or ".join(str(v) for v in sorted(ok)))
             warnings.append(
                 f"[count] {label}: '{num} {unit}(s)' is WRONG -- the source "
-                f"documents contain {expected}"
+                f"documents contain {expected} (if the text describes a subset "
+                f"without stating the total, it may be correct -- check by hand)"
             )
         else:
             warnings.append(
@@ -1229,6 +1246,8 @@ def memory_state(before, after):
     reasons = []
     if after["level"] is not None and after["level"] >= RED_PRESSURE_LEVEL:
         return "RED", ["kernel memory pressure critical"]
+    if after["level"] == 2:   # warn -- added Entry #048 after a live run ended here
+        reasons.append("kernel memory pressure warn (level 2)")
     if after["free_pct"] is not None and after["free_pct"] < YELLOW_FREE_PCT:
         reasons.append(f"free {after['free_pct']}% < {YELLOW_FREE_PCT}%")
     if before["swap_mb"] is not None and after["swap_mb"] is not None:
