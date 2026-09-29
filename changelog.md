@@ -3056,3 +3056,52 @@ Low. The nightly path changed only in following further pages, which a normal 1�
 | Confirm tonight's 01:00 ET nightly records `success` with the new code | Next session |
 | Live-verify the §8.3 hook in a fresh session | Next session, first |
 | Weekly `--send` | ~Oct 3–4 |
+
+---
+
+## Entry #044 — September 29, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Audit — ADR-046 dedicated-host audit extended to code, scripts and launchd config; **new HIGH finding F7** (audit-log partition outage). Governance — findings-recording rule revised.
+
+**Permission mode:** Audit in **auto**; rule revision in **Manual** (ADR-014 §7 — it changes Claude's own authority).
+
+**Commits:** this entry
+
+### Changes Made
+
+1. **Rule revised — findings vs remediation.** `instructions_v3.0.md` Hard Rules: "Approve before building. Do not produce code, ADRs, or other artifacts without confirmation" replaced by **"Findings are recorded without prior approval; remediation is not."** Verified findings go into `changelog.md` and `CURRENT_STATE.md` immediately, with evidence and severity. Approval still gates code, schema/migrations, configuration, permissions, and creating or amending ADRs — **including open audit ADRs** (operator accepted the recommendation to keep ADRs gated). Reason: an unwritten finding waiting on approval is state that can be lost between sessions. ADR-014 §7 needed no change — its approve-before-building condition already names code, ADRs and migrations only.
+
+2. **Audit method.** 51 tracked non-ADR files (code, SQL, scripts, templates, project docs) swept with ADR-046's indicators plus out-of-boundary paths. Hits were verified against the live system: process table, `launchctl list`, `launchctl print system`, `dscl` account list, database catalog. `~/Library/LaunchAgents`, `/Library/LaunchDaemons` and `/etc` were not read (§2).
+
+3. **F7 — HIGH — `agent_actions` cannot accept rows dated on or after 2026-08-01.** The table is range-partitioned on `created_at` with partitions for 2026-04 through 2026-07 only, no DEFAULT partition, and no code or job that creates partitions (only `schema.sql` / `schema_patch.sql`). **Verified** with an insert inside a rolled-back transaction: `ERROR: no partition of relation "agent_actions" found for row`. `app/audit.py` `write_action()` is unguarded and `app/main.py` returns the `/agent` response only after it, so every `/agent` request since Aug 1 — Telegram persona messages and the Sunday `weekly_digest_job` — fails after the LLM call. ADR-029's "every request writes exactly one audit row" has been void since then.
+   **Also found:** the last `agent_actions` row is 2026-05-17 (26 rows total) and the last `sessions` row 2026-05-10, so nothing has reached the audit write since mid-May — ~2.5 months before the partitions ran out. Cause unknown.
+   **Evidence lost — Claude's miss:** recreating `openclaw_fastapi` for Entry #043 discarded its prior logs, so the Sept 27 digest's error cannot be read back.
+   **Possible link (unverified):** ADR-046 F5 records a monthly job assigned to a nonexistent `dev` account; if that job was the intended partition creator, F7 is F5 causing a live outage.
+
+4. **MEDIUM — ADR-034 hardware telemetry never deployed.** `hw_collector.py`, `hw_collector_setup.py`, `hardware_metrics.sql` assume a `dev` account, a root LaunchDaemon, a sudoers `powermetrics` entry and a Mac Studio M1 Max. No process, no system-launchd entry, 0 rows in `hardware_metrics`. The `hardware_alerts` view is percentage-based and would work if fed; nothing feeds it.
+
+5. **LOW — stale host references.** Model-tier labels 7B/14B/32B (`app/models.py`, `schema.sql`) and "14B" in `federal_policy_brief_DECISIONS.md` vs the deployed `gemma4:e4b`; `federal_policy_brief_CODE_REFERENCE.md` marks `scraped_content`/`brief_runs` "OPEN — setup day" though both exist; "setup day" in `app/db.py` and `app/persona_router.py`; `scripts/com.openclaw.backup.plist.template` plans a "Mac Studio setup day" removal and an ADR-020 `dev`-account move. **Clean:** `scripts/backup.sh`.
+
+6. **No remediation performed.** ADR-046 not amended (gated). F7 fix proposed and awaiting approval: a migration adding Aug 2026–Dec 2027 partitions and a DEFAULT partition (schema 7 → 8). Whether `/agent` should keep failing closed on an audit-write failure (AU-5) is a separate operator decision.
+
+### Files Changed
+
+| File | Action |
+|------|--------|
+| `~/openclaw/instructions_v3.0.md` | Hard Rules — findings vs remediation |
+| `~/openclaw/CURRENT_STATE.md` | F7 and audit findings; rule quick-reference; tasks |
+| `~/openclaw/changelog.md` | Updated (this entry) |
+
+### Risk Assessment
+
+Documentation only; no system change. F7 is live: any `/agent` use fails until partitions exist. The audit's indicator list is ADR-036-derived vocabulary, so absence of a hit is not proof of soundness (the same limit ADR-046 §3 states).
+
+### What's Next
+
+| Action | When |
+|--------|------|
+| F7 migration (partitions + DEFAULT) | On approval |
+| Find why nothing reached `/agent` audit after May 17 | After F7 |
+| Amend ADR-046 with the extended findings | On approval |

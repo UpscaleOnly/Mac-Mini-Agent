@@ -3,7 +3,7 @@
 *Read this first, every session. This is the snapshot of where things stand right now.*
 *Standing rules and how-to-assist live in the project instructions. Full session-by-session history lives in `changelog.md`.*
 
-**Last updated:** September 29, 2026 (Entry #043 — Aug 4–16 gap backfilled; scraper pagination fixed; Entry #042 — §8.3 traversal hook built, live test pending; Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
+**Last updated:** September 29, 2026 (Entry #044 — F7 audit-log partition outage found; findings rule revised; Entry #043 — Aug 4–16 gap backfilled; scraper pagination fixed; Entry #042 — §8.3 traversal hook built, live test pending; Entry #041 — ADR-014 §7 auto-mode amendment; ADR-045 §8.2 home-wide `Read` grant removed)
 **Project status:** **Active, production-first.** The federal_policy_brief pipeline generates *and delivers* briefs end to end. Governance and housekeeping are opportunistic and do not block shipping.
 
 > **Note on cadence:** the project sat dormant from August 23 to September 20, 2026. It survived that unattended — the scraper ran itself throughout. Dormancy is not a failure state for this system.
@@ -130,13 +130,20 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 1. **[Next]** **Weekly `--send`** — the third send, and the second clean send on a new window. Watch v8 for new false-positive shapes. *(Second send DONE Sept 27; off-device backup DONE and confirmed — Entry #040.)*
 2. **[Then]** **Decide ADR-046 F2 scope** — re-assess four NIST controls, or the full Moderate baseline. *(ADR-014 auto-mode amendment DONE — Entry #041.)*
 3. **[Next session, first]** **Live-verify the ADR-045 §8.3 hook** (built Entry #042) — see startup step 0 below; then mark §8.3 implemented in `ADR_045.docx`. *(§8.2 and allowlist prune DONE — Entry #041.)*
-4. **[Then]** **Extend the dedicated-host audit to code, scripts and launchd config** — F1 was found in a script, not an ADR.
+4. **[Next — awaiting approval]** **Fix F7** — `agent_actions` partitions (see Top open items). *(Dedicated-host audit extension DONE — Entry #044; findings under Top open items.)*
 5. **[Then]** Build `--send` confidence toward flipping `HARD_FAIL_ON_UNVERIFIED` to `True`.
 6. **[Then]** Refresh the local model — `gemma4:e4b` is five months old; a current model in the same size class is likely the highest-value zero-cost improvement available.
 7. **[Opportunistic]** Output polish: ISO dates in reader-facing prose; executive summary running long; ORR-under-TANF routing (a scope decision, not a bug).
 8. **[Opportunistic]** Rebuild project knowledge as a clean one-way mirror of disk.
 
 ## Top open items
+
+- 🔴 **F7 (Entry #044, HIGH) — the `agent_actions` audit log cannot accept records dated on or after August 1, 2026.** Partitions exist for April–July 2026 only; there is no DEFAULT partition and nothing creates new ones. Verified September 29 by an insert inside a rolled-back transaction: `no partition of relation "agent_actions" found for row`. `app/audit.py` `write_action()` has no error handling and `/agent` returns its response only after the write, so **every `/agent` request since August 1 (Telegram personas, Sunday digest) fails after the LLM call** — the ADR-029 "always audit" guarantee has been void since then. Separately, **nothing has reached the audit write since May 17** (last `sessions` row May 10); cause unknown. Pre-September-29 fastapi logs were lost when the container was recreated for Entry #043, so the September 27 digest failure cannot be read back. Possibly the same failure mode as ADR-046 F5 (a monthly job assigned to a nonexistent `dev` account) — **unverified**. **Proposed fix, awaiting approval:** migration adding Aug 2026–Dec 2027 partitions plus a DEFAULT partition (schema 7 → 8). Fail-closed on audit-write failure is a legitimate design (AU-5); whether to keep it is an operator decision, not part of the fix.
+- **ADR-046 audit extended to code, scripts and launchd config (Entry #044) — findings recorded; ADR-046 itself not amended** (ADRs stay approval-gated).
+  - **MEDIUM — ADR-034 hardware telemetry never deployed.** `hw_collector.py`, `hw_collector_setup.py`, `hardware_metrics.sql` assume a `dev` account, a root LaunchDaemon, a sudoers entry and a Mac Studio M1 Max. No process, no system-launchd entry, `hardware_metrics` has 0 rows — the `hardware_alerts` view is sound (percentage-based) but can never fire. Same class as F3.
+  - **LOW — stale host references in code and docs:** model-tier labels 7B/14B/32B (`app/models.py`, `schema.sql`) and "14B" in `federal_policy_brief_DECISIONS.md` vs the actual `gemma4:e4b`; `federal_policy_brief_CODE_REFERENCE.md` lists `scraped_content` and `brief_runs` as "OPEN — setup day" though both exist; "setup day" in `app/db.py` and `app/persona_router.py`; the backup plist template plans a "Mac Studio setup day" removal and an ADR-020 `dev`-account move.
+  - **Clean:** `scripts/backup.sh` (F1/F6 fixes hold).
+  - **Scope limit:** live `~/Library/LaunchAgents`, `/Library/LaunchDaemons` and `/etc` are §2-prohibited; launchd state was checked via `launchctl list` / `launchctl print system` instead.
 
 - ✅ **BACKUP PATH — RESOLVED September 20 (ADR-046 F1, Option C).** Backups now write to `~/openclaw/backups`, already sanctioned by ADR-040 §1 — no boundary crossing, no TCC grant, no policy amendment. **Verified by live run:** 148 KB dump, `gunzip -t` clean, 39 table/data statements, invisible to git.
   **Option A (grant TCC) was chosen first and reversed.** TCC attributes access to the *executing binary*, so for a shell script the grant target is `/bin/bash` — which would give every bash script on the machine full read/write access to `~/Documents`, `~/Desktop` and the FTI-bearing iCloud root. Broader exposure than the violation it fixed. TCC also cannot be automated: `tccutil` only resets, the databases are SIP-protected, and PPPC profiles need MDM (this host is not enrolled).
@@ -201,11 +208,12 @@ Do not re-open this without new evidence. An empty 7-day window still means the 
 - **Back up before replacing a working file** — `cp file.py file.py.bak.vN`. The backup is cheap insurance, not a workaround.
 - **`git commit` always with `-m` inline** — never a bare `git commit`.
 - **`git push` is NOT gated — corrected September 20, 2026.** This file previously stated that push "will be refused even when explicitly requested." It was tested directly on that date and succeeded (`28d7edf..eb99ebd`). The claim may have been true when written; it is not true now. Every earlier push this session was run by the operator on the strength of the stale note, which is exactly how a false claim survives. Test before repeating a documented restriction.
-- **Token conservation**; **approve before building**.
+- **Token conservation**; **approve before building** — for code, schema, config, permissions and ADRs. **Verified findings are recorded in the changelog and this file without prior approval** (revised September 29, Entry #044).
 - **Verify live state** (schema, files, config) before generating code or migrations. **Prefer an authoritative source over a clever inference** — this keeps paying off: the dual clone was caught by `git remote -v`; the scrape misfire was proven from `pmset -g log`; the 11 GB in `.git` turned out to be garbage rather than history only because `git count-objects -vH` was run instead of assuming; and `Docker.raw` reports 228 GB apparent against 3.0 GB actual, so `ls -lh` on it misleads by two orders of magnitude.
 
 ## Recent history (most recent first)
 
+- **Entry #044 (Sep 29):** Dedicated-host audit extended to code/scripts/launchd. **Found F7 (HIGH): `agent_actions` has no partition after July 2026 — every `/agent` request since Aug 1 fails**; verified by rolled-back insert. ADR-034 telemetry never deployed. Rule revised: **findings are recorded without prior approval; remediation still needs it.**
 - **Entry #043 (Sep 29):** **Aug 4–16 gap backfilled** (94 docs). Found and fixed a silent truncation: `fetch()` read only the first 100 docs per agency, so wide catch-ups lost their oldest documents. Pagination + date bounds + a separate `FederalRegisterBackfill` class; 14 tests; `fastapi` rebuilt, schema 7.
 - **Entry #042 (Sep 29):** ADR-045 §8.3 traversal hook **built** — 52 tests pass, including the three recorded breaches verbatim; tests caught a design gap (plain `ls` globs) before shipping. Registered in tracked `.claude/settings.json`. **Live test pending** — hooks load at session start.
 - **Entry #041 (Sep 29):** **ADR-014 amended (§7)** — auto mode permitted under conditions, closing the Entry #040 contradiction. **ADR-045 §8.2 done** — home-wide `Read` grant removed. The auto-mode classifier refused the amendment as self-expanding permissions; the session switched to Manual mode to finish, and that is now a §7 condition.

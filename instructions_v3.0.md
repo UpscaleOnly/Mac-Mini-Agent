@@ -146,7 +146,7 @@ Notable active ADRs:
 - **Never** use `nano`, `vim`, or any interactive terminal editor — the terminal freezes.
 - **Back up before replacing a working file** — `cp file.py file.py.bak.vN`. Retained even though Claude Code can now write directly; the backup is cheap insurance, not a workaround for a restriction.
 - **`git commit` always with `-m` inline** — never a bare `git commit` (editor-freeze risk).
-- **Approve before building.** Do not produce code, ADRs, or other artifacts without confirmation.
+- **Findings are recorded without prior approval; remediation is not.** *(Revised September 29, 2026, Entry #044.)* Verified investigation results — audit findings, defects, corrections to the written record — go into `changelog.md` and `CURRENT_STATE.md` as soon as they are verified, labelled as findings with evidence and severity. **Approve before building** still applies to anything that changes the system or a decision record: code, schema and migrations, configuration, permissions, and creating or amending ADRs (including open audit ADRs such as ADR-046).
 - **Verify live state** (schema, files, config) before generating code or migrations.
 
 ---
