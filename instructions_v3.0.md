@@ -187,7 +187,11 @@ These apply to **Desktop chat**. In Claude Code, write files directly with per-a
 5. `git add -A && git commit -m "..."` then push (note the push gating above).
 6. **Update `changelog.md`** with a new numbered entry — the load-bearing record that compensates for the memory defect.
 7. **Update `CURRENT_STATE.md`** if state actually changed. This is now the session-startup entry point, so letting it drift defeats the protocol. *(New in v3.0 — it had gone four entries stale before the August 23 refresh.)*
-8. Refresh project knowledge if canonical-set files changed (ADR-039 §5.6.4).
+8. **REQUIRED — the operator uploads `CURRENT_STATE.md` and `changelog.md` to the "Mac Mini" claude.ai project** whenever the session changed either file, which is nearly every session. *(Added v3.3, September 30, 2026: this had not been happening, so claude.ai chats were working from stale state.)* Claude prompts for it as the **last** close-out step, after the push, and does not call the session closed until the operator confirms. Method:
+   - In the project's Project knowledge panel, **remove the old copy** of each file first. Two copies of either file are worse than none.
+   - **Drag and drop** each file from a Finder window of `~/openclaw` (Claude opens one with `open -R CURRENT_STATE.md`). Do not use the upload dialog: on September 30 it offered stale copies from earlier in the day.
+   - **Verify:** preview `CURRENT_STATE.md` in the project. Its "Last updated" line must name the session's entry number, and the last `## Entry` heading in `changelog.md` must match.
+   Other changed canonical files (ADRs, code, and `instructions_v3.0.md` into the Instructions panel) remain opportunistic (ADR-039 §5.6.4).
 
 ---
 
@@ -205,6 +209,8 @@ ADR-039 §5.6 (A6) established a **weekly Sunday re-upload** of canonical-set fi
 
 Refresh when canonical files have materially changed. Prioritize `CURRENT_STATE.md`, `changelog.md`, and any ADR documents modified since the last upload.
 
+**Amended in v3.3 (September 30, 2026, operator decision):** `CURRENT_STATE.md` and `changelog.md` are no longer opportunistic. Uploading them is a **required step of every session close** (closing ritual step 8), because the claude.ai project is where the operator works between Claude Code sessions, and it had been left stale. It still never blocks shipping: the push happens first, and a missed upload is fixed at the next close, not treated as an incident. Everything else in the canonical set stays opportunistic.
+
 ---
 
-*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v3.2, August 23, 2026 (replaces v2.0, May 18, 2026)*
+*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v3.3, September 30, 2026 (v3.2 August 23, 2026; replaces v2.0, May 18, 2026). v3.3: closing-ritual step 8 — CURRENT_STATE.md and changelog.md uploaded to the claude.ai project at every session close.*
