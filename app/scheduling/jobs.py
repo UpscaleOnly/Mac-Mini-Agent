@@ -7,6 +7,7 @@ Jobs defined here:
   keep_warm_job              — HTTP GET /health every 5 minutes (cold-start prevention)
   weekly_digest_job          — Sunday 07:00 EST digest via full agent pipeline (ADR-031)
   scrape_dispatcher_job      — Per-project scraper fan-out (ADR-039 H4)
+  db_maintenance_job         — Nightly agent_actions partition create/drop (ADR-047 F10)
 
 Design rules:
   - Jobs must be async.
@@ -185,3 +186,54 @@ async def scrape_dispatcher_job(project: str) -> None:
         "success=%d partial=%d failed=%d total_inserted=%d",
         project, success_count, partial_count, failed_count, total_inserted,
     )
+
+
+# ---------------------------------------------------------------------------
+# Database maintenance job (ADR-047 §11 step 6, F10)
+# ---------------------------------------------------------------------------
+
+async def db_maintenance_job() -> None:
+    """
+    Create upcoming agent_actions partitions and drop those past 90-day
+    retention (logic and rationale in app/maintenance.py).
+
+    Never raises. Every outcome — including failures — is written to
+    agent_actions itself, because deleting audit records is an auditable
+    event. A failed step is retried by the next night's run; the standing
+    escalation signal is agent_actions_default growing above zero.
+    """
+    import uuid
+    from app.audit import write_action
+    from app.db import get_pool
+    from app.maintenance import describe, run_maintenance
+    from app.models import AgentActionRecord
+
+    summary = None
+    error = None
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            summary = await run_maintenance(conn)
+    except Exception as e:
+        error = f"{type(e).__name__}: {e}"
+
+    if summary is not None:
+        line = describe(summary)
+        if summary["errors"]:
+            error = " | ".join(summary["errors"])
+            log.error("db_maintenance_job: %s — %s", line, error)
+        else:
+            log.info("db_maintenance_job: %s", line)
+    else:
+        line = "not run"
+        log.error("db_maintenance_job: failed before any step — %s", error)
+
+    await write_action(AgentActionRecord(
+        action_id=uuid.uuid4(),
+        session_id=uuid.uuid4(),
+        persona="automate",
+        action_type="db_maintenance",
+        tool_name="agent_actions_partitions",
+        validation_verdict=line,
+        error_message=error,
+    ))

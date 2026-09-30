@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, v9.3
+generate_brief_review.py - federal_policy_brief, v9.5
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -292,6 +292,17 @@ CHANGES FROM v8 (2026-09-29, Entry #048, ADR-047 §4-§6 and §8)
      MODEL qwen3:8b, THINK False (was gemma4:e4b with its default reasoning).
      Bake-off: zero fabrications for both; thinking off 2.8x faster; qwen3:8b
      lightest in memory. Revert = these two constants.
+ 27. v9.4 (Entry #049, ADR-047 §14 note): MODEL back to gemma4:e4b, THINK
+     stays False. Reading the round-3 briefs showed qwen3:8b breaking
+     SYSTEM_PROMPT -- recommending action, editorialising, tallying inputs,
+     and calling child support "a key function under TANF" -- none of which
+     the verifier can detect. gemma4 stayed inside the sources. Revert =
+     MODEL constant (.bak.v9.3).
+ 28. v9.5 (Entry #049): each SOURCE ATTRIBUTION ADDENDUM entry carries its
+     Federal Register link (scraped_content.url_path, stored since the
+     scraper was built but never selected). Plain-text email; mail clients
+     auto-link bare https URLs. The addendum is built from metadata after
+     verification, so the model and verify_claims() never see the links.
 
 """
 
@@ -314,7 +325,7 @@ log = logging.getLogger(__name__)
 # ----------------------------- CONFIG -----------------------------
 WINDOW_DAYS = 7                       # production value
 PROJECT = "federal_policy_brief"      # scoping tag in scraped_content.project
-MODEL = "qwen3:8b"                    # ADR-047 §14: the BRIEF workload's model (was gemma4:e4b)
+MODEL = "gemma4:e4b"                  # ADR-047 §14: the BRIEF workload's model (v9.4; qwen3:8b in v9.3 broke SYSTEM_PROMPT)
 OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_TIMEOUT = 300                  # seconds; local inference can be slow
 TEMPERATURE = 0.2                     # low = factual, consistent
@@ -1122,7 +1133,7 @@ def fetch_rows(conn):
         cur.execute(
             """
             SELECT id, publishing_agency, document_title,
-                   publication_date, content_type, raw_content
+                   publication_date, content_type, raw_content, url_path
             FROM scraped_content
             WHERE project = %s
               AND is_new = TRUE
@@ -1443,6 +1454,9 @@ def attribution(rows_by_area):
                 f"  - ({d['_instrument']}) {agency} - {title} "
                 f"({d['publication_date']})"
             )
+            url = (d.get("url_path") or "").strip()
+            if url:
+                out.append(f"      {url}")
         out.append("")
     return "\n".join(out)
 

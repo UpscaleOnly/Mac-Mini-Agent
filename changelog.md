@@ -3418,3 +3418,53 @@ Backups: `app/llm.py.bak.pre-adr047`, `app/models.py.bak.pre-adr047`, `schema.sq
 ### Session close (Entry #048)
 
 Closing ritual: `fastapi` built and up (schema 8, 3 jobs); all six test files pass; commits `fb857a5`, `546650c`, `07a4cb2`, `c569ac5`, `7a2071c`, `a04110a` and this close-out pushed. Next-session checks and the remaining ADR-047 steps are in `CURRENT_STATE.md` → Active task.
+
+## Entry #049 — September 30, 2026
+
+**Operator:** Sheldon Wheeler
+
+**Category:** Brief model reversed to `gemma4:e4b` (operator decision); generator v9.4 → v9.5 (source links); **ADR-047 step 6 built and live** — F10 audit-log partition maintenance; finding F16.
+
+**Permission mode:** auto mode (operator-initiated and present, ADR-014 §7). No permission or boundary edits this session.
+
+### Startup checks
+
+- **First nightly on the paginated scraper — PASSED.** 2026-09-30 05:40 UTC, `success`, 28 fetched / 11 inserted, no error. Under 100 per agency, so the second-page path was not exercised by a nightly (it is covered by `test_fr_pagination.py` and the Entry #043 backfill).
+- **Ollama login race — NOT APPLICABLE.** Last boot 2026-09-12; no reboot since the LaunchAgent was installed. Carried forward — operator to reboot at session close.
+- Health: `agent_actions_default` 0; audit spool absent (0).
+
+### Finding — `qwen3:8b` breaks SYSTEM_PROMPT (verified, bake-off round-3 briefs)
+
+Reading the two finalist briefs (`bakeoff_2026-09-29/`) against SYSTEM_PROMPT ("Do not editorialize, advocate, predict outcomes, or recommend action"): `qwen3:8b` recommended action to state agencies (twice), editorialised ("signal ongoing interest in state innovation"), asserted significance for the SSA rule while stating it had no abstract, tallied inputs in the executive summary ("three notices", "18 SNAP notices", "two information collection requests" — correct, so the verifier passed them), and described child support enforcement as "a key function under TANF" (wrong). Its specific facts were checked against the source abstracts and held (FDA petition denied April 1, 2026; no change to the DDDRP Beneficiary Report). `gemma4:e4b` stayed inside the sources. The verifier cannot detect prompt departures of this kind, which is why the two tied on the scored metrics. Basis: one brief per model.
+
+### Operator decision — briefs back to `gemma4:e4b`, thinking off
+
+1. **Generator v9.3 → v9.4** (change 27): `MODEL = "gemma4:e4b"`; `THINK` stays `False`. Backup `.bak.v9.3`. One model now serves briefs and chat. `qwen3:8b` stays installed until gemma4 completes a clean `--send`.
+2. **ADR-047 §14 amendment note** (September 30) records the reversal and basis; footer updated. Backup `ADR_047.docx.bak.pre-s14-note`. XML validated; reads back via `textutil`.
+
+### Generator v9.5 — Federal Register links in the source list (operator-approved)
+
+Change 28: `fetch_rows()` also selects `scraped_content.url_path` (stored since the scraper was built, never used); `attribution()` prints each document's link on its own line under its entry, and prints nothing extra when a row has no link. The addendum is built from metadata after verification, so neither the model nor `verify_claims()` sees the links. Plain-text email — Apple Mail / iOS auto-link bare `https://` URLs. Backup `.bak.v9.4`. Links **within** the model-written prose are deferred (needs citation markers from the model and a verifier check).
+
+**Operator Q&A recorded:** the model never fetches web content. The scraper stores title + abstract (~635 chars avg) plus link, agency, date and type; full documents (text, PDF, HTML) are **not** downloaded or archived. `scraped_content` (691 rows from 2026-04-24) has no retention job and is kept indefinitely; every brief's text is written to `federal_policy_brief_review_<date>.txt` and tracked in Git; `brief_runs` records each send. A full-text archive is a separate decision, tied to the chatbot ADR (F15).
+
+### ADR-047 §11 step 6 — F10 partition maintenance (operator-approved, including the first-run drop)
+
+- **`app/maintenance.py` (new):** `plan()` (pure) decides; `run_maintenance()` applies. Ensures monthly `agent_actions_YYYY_MM` partitions for the current month + 3; before each create, checks `agent_actions_default` for rows in that month and, if any, skips it and records an error. Drops monthly partitions whose whole month is older than 90 days (retention ≥ 90, ≤ ~121 days). Bounds read from the catalog; names must match `agent_actions_YYYY_MM`; DEFAULT never touched. Each statement in its own transaction under `SET LOCAL lock_timeout = '5s'` (avoids queueing `/agent` writes behind the 04:00 `pg_dump`). Idempotent.
+- **`app/scheduling/jobs.py`:** `db_maintenance_job()` — never raises; writes its own `agent_actions` row (`persona automate`, `action_type db_maintenance`, summary in `validation_verdict`, errors in `error_message`), because deleting audit records is an auditable event. Automatic retry is the next night; escalation signal is `agent_actions_default` > 0.
+- **`app/scheduling/scheduler.py`:** registered daily **01:30 ET**, `misfire_grace_time` 11100 s, `coalesce=True` (fires on the 03:55 wake like the scraper). Backups `.bak.pre-f10` for both.
+- **Tests:** `test_db_maintenance.py` (22: live state, 90-day boundary to the hour, year end, empty table, odd names/bounds left alone, stranded DEFAULT rows, explicit UTC bounds, one lock timeout not stopping the rest). Passed on host and in the container. **Scratch-database run** (`f10_scratch`, dropped afterwards): run 1 created Dec, dropped Apr(22)/May(4)/Jun(0); run 2 no-op; stranded Jan 2027 row blocked the create with the expected error.
+- **Deploy:** `fastapi` rebuilt; logs `Schema version OK … version 8` and `db_maintenance (daily 01:30 ET)`, 4 active jobs. All six container test files pass.
+- **Live run (triggered once by hand):** `created=none dropped=agent_actions_2026_04(22),agent_actions_2026_05(4),agent_actions_2026_06(0) rows_dropped=26`. Partitions 22 → 19; audit row written; DEFAULT 0; spool empty. The dropped rows (the only pre-F7 audit records) remain in the 30-day nightly dumps — verified present in `openclaw_20260930_040527.sql.gz` — until those age out. **F10 remediated** (ADR-046 status update is step 7).
+
+### Review-only run — first gemma4 v9.4 / v9.5 run
+
+`python3 generate_brief_review.py` → exit 0, 45 s, **0 verifier warnings**, 3 documents (Sep 23–30, `is_new`; the Sep 27 send consumed the earlier rows; 31 routine documents dropped). Memory YELLOW (level 2, free 77% → 35%). Links render correctly. Output `federal_policy_brief_review_2026-09-30.txt` (tracked).
+
+### Finding F16 — MEDIUM — executive summary misstated one document as two, and the verifier passed it
+
+The only CMS document is a **correction** to the August 4 IPPS/LTCH final rule. The executive summary opened with "A final rule from CMS regarding … IPPS … was published on 2026-09-29" (dropping "correction") and closed with "Other activities included a final rule from the CMS Office of the Secretary correcting technical and typographical errors in a prior final rule" — the same document, presented as two actions, the first of them misdescribed as a substantive IPPS rule. The CMS section itself is accurate. The verifier checks numbers, dates, citations and counts; it has no check that the summary's items map one-to-one to source documents. Model-independent as far as known (one run). Not fixed — on the "after first clean send" list.
+
+### Session close (Entry #049)
+
+`fastapi` built and up (schema 8, 4 jobs); all container tests pass; committed and pushed. Operator reboots after the push; next session runs the Ollama login-race check and confirms Docker Desktop and all four containers return unattended.

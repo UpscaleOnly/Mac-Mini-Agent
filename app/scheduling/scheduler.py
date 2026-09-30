@@ -48,6 +48,7 @@ def register_jobs() -> None:
         keep_warm_job,
         weekly_digest_job,
         scrape_dispatcher_job,
+        db_maintenance_job,
     )
 
     # ── Keep-warm: ping /health every 5 minutes to prevent cold-start ───
@@ -103,6 +104,27 @@ def register_jobs() -> None:
         coalesce=True,  # if several runs were missed, run once — catch-up handles the span
     )
     log.info("Scheduled job registered: federal_policy_scrape (daily 01:00 ET)")
+
+    # ── agent_actions partition maintenance: daily 01:30 ET — ADR-047 F10 ──
+    # Same sleep problem and same answer as the scraper: the Mac is usually
+    # asleep at 01:30, so the wide grace lets the run fire on the 03:55 wake.
+    # It takes milliseconds; its 5 s lock_timeout keeps it from queueing
+    # /agent writes behind the 04:00 pg_dump. Idempotent — a missed or failed
+    # night is simply redone by the next one.
+    scheduler.add_job(
+        db_maintenance_job,
+        trigger=CronTrigger(
+            hour=1,
+            minute=30,
+            timezone=_ET,
+        ),
+        id="db_maintenance",
+        name="agent_actions partition maintenance (daily 01:30 ET) — ADR-047 F10",
+        replace_existing=True,
+        misfire_grace_time=11100,
+        coalesce=True,
+    )
+    log.info("Scheduled job registered: db_maintenance (daily 01:30 ET)")
 
 
 def start_scheduler() -> None:
