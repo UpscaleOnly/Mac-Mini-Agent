@@ -177,8 +177,8 @@ CREATE TABLE brief_runs (
 | 5 | Quality validation for generated content | OPEN — Phase 2 |
 | 6 | Subscription management system | OPEN — required before beta |
 | 7 | Subscriber portal (Phase 2) | DEFERRED |
-| 8 | `scraped_content` table creation | OPEN — setup day |
-| 9 | `brief_runs` table creation | OPEN — setup day |
+| 8 | `scraped_content` table creation | DONE — `schema.sql`; in production |
+| 9 | `brief_runs` table creation | DONE — `migration_006.sql` (Aug 22, 2026); in production |
 
 ---
 

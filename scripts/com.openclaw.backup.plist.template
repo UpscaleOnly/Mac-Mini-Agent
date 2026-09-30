@@ -14,12 +14,14 @@
   Manual test-fire (no waiting for 4 AM):
                             launchctl start com.openclaw.backup
 
-  Removal (Mac Studio setup day):
+  Removal (if the backup job is ever retired or moved):
     1. launchctl unload -w ~/Library/LaunchAgents/com.openclaw.backup.plist
     2. rm ~/Library/LaunchAgents/com.openclaw.backup.plist
 
-  Per ADR-019 interim deviation (changelog Entry #013), reverts to
-  ADR-020 'dev' account model on Mac Studio setup day.
+  Per ADR-019 interim deviation (changelog Entry #013). The ADR-020
+  'dev' account model is not implemented on this host (ADR-046 F5);
+  this LaunchAgent runs under the operator account and is listed in
+  ADR-040 Section 3.1 (ADR-047 Section 9).
 
   Behavior:
     - RunAtLoad=false   — do NOT run immediately when loaded; wait for the schedule

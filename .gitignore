@@ -37,3 +37,6 @@ spool/
 
 # ADR-045 §8.3 traversal-guard run log (Entry #048) — local evidence, not tracked
 scripts/hooks/traversal_guard.log
+research/
+# Office lock files (e.g. ~$DR_048.docx while open in Word)
+~$*

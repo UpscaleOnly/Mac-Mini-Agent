@@ -1,0 +1,218 @@
+{
+ "_about": "IT Governance source register (ADR-048; Part A approved 2026-09-30). Every entry retrieved from the named source on 2026-09-30; nothing from memory. 'cited_by' = which of the three frameworks cites it (retrieved text). Verify at the source before use in any formal document. Updated 2026-09-30 with operator-supplied TSSR v12.1 and ARC-AMPE Vol. I v1.0.4.",
+ "frameworks": [
+  {
+   "id": "irs_pub1075",
+   "agency": "IRS",
+   "title": "Publication 1075, Tax Information Security Guidelines for Federal, State and Local Agencies",
+   "version": "Rev. 11-2021 (Catalog Number 46937O)",
+   "url": "https://www.irs.gov/pub/irs-pdf/p1075.pdf",
+   "monitor": "HTTP Last-Modified + SHA-256",
+   "baseline_last_modified": "Fri, 10 Dec 2021 03:10:34 GMT"
+  },
+  {
+   "id": "cms_arc_ampe",
+   "agency": "CMS",
+   "title": "Acceptable Risk Controls for ACA, Medicaid, and Partner Entities (ARC-AMPE)",
+   "version": "Volume I v1.0.4, May 7, 2026",
+   "url": "https://www.cms.gov/marketplace/resources/regulations-guidance#arc-ampe",
+   "documents": [
+    "https://www.cms.gov/files/document/arc-ampe-vol-1-v102-508-5cr-04112025.pdf",
+    "https://www.cms.gov/files/document/arc-ampevol2sspp-aca-aev102-50803212025.xlsx"
+   ],
+   "monitor": "ARC-AMPE link list on the CMS public page (lags zONE); operator-supplied updates",
+   "caveat": "Newer versions reach AEs through CMS zONE (record of changes, v1.0.3: \"Updated zONE URLs\"); the public page lags. Record of changes: 1.0.3 December 4, 2025; 1.0.4 May 7, 2026 (SAR retired as an ATC package artifact). A third-party report of \"v1.03, October 23, 2025\" does not match CMS's own record. Volume II version on file: v1.02 (public page).",
+   "version_source": "operator-supplied copy (2026-09-30), record of changes read directly; the CMS public page still lists v1.02"
+  },
+  {
+   "id": "ssa_tssr",
+   "agency": "SSA",
+   "title": "Electronic Information Exchange Security Requirements and Procedures for State and Local Agencies Exchanging Electronic Information with the Social Security Administration — Technical System Security Requirements (TSSR)",
+   "version": "Version 12.1, April 28, 2026",
+   "url": "https://www.ssa.gov/dataexchange/security.html",
+   "monitor": "none - ssa.gov returns HTTP 403 to automated requests; operator-supplied updates only",
+   "caveat": "ssa.gov returns HTTP 403 to automated requests; updates are operator-supplied. Supersedes the v8.50 (2019) copy found on a state site.",
+   "version_source": "operator-supplied copy (2026-09-30), title page read directly"
+  }
+ ],
+ "statutes": [
+  {
+   "cite": "26 U.S.C. 6103",
+   "heading": "Confidentiality and disclosure of returns and return information",
+   "note": "(p)(4) Safeguards confirmed present",
+   "cited_by": [
+    "irs_pub1075",
+    "cms_arc_ampe"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section6103&num=0&edition=prelim"
+  },
+  {
+   "cite": "26 U.S.C. 7213",
+   "heading": "Unauthorized disclosure of information",
+   "cited_by": [
+    "irs_pub1075"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7213&num=0&edition=prelim"
+  },
+  {
+   "cite": "26 U.S.C. 7213A",
+   "heading": "Unauthorized inspection of returns or return information",
+   "cited_by": [
+    "irs_pub1075"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7213A&num=0&edition=prelim"
+  },
+  {
+   "cite": "26 U.S.C. 7431",
+   "heading": "Civil damages for unauthorized inspection or disclosure of returns and return information",
+   "cited_by": [
+    "irs_pub1075"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7431&num=0&edition=prelim"
+  },
+  {
+   "cite": "5 U.S.C. 552a",
+   "heading": "Records maintained on individuals (Privacy Act)",
+   "note": "(o) Matching Agreements, (p) Verification and Opportunity to Contest Findings, (u) Data Integrity Boards confirmed present; TSSR v12.1 cites \"Privacy Act of 1974 as amended [5 USC 552a]\" and the Computer Matching and Privacy Protection Act",
+   "cited_by": [
+    "irs_pub1075",
+    "cms_arc_ampe",
+    "ssa_tssr"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title5-section552a&num=0&edition=prelim"
+  },
+  {
+   "cite": "44 U.S.C. 3551",
+   "heading": "Purposes (FISMA)",
+   "cited_by": [
+    "cms_arc_ampe",
+    "ssa_tssr"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title44-section3551&num=0&edition=prelim",
+   "note": "TSSR v12.1 cites FISMA of 2014 [PL 113-283]"
+  },
+  {
+   "cite": "42 U.S.C. 18081",
+   "heading": "Procedures for determining eligibility for Exchange participation, premium tax credits and reduced cost-sharing, and individual responsibility exemptions",
+   "note": "ACA sec. 1411; (g) Confidentiality of applicant information confirmed present",
+   "cited_by": [
+    "cms_arc_ampe"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section18081&num=0&edition=prelim"
+  },
+  {
+   "cite": "42 U.S.C. 1306",
+   "heading": "Disclosure of information in possession of Social Security Administration or Department of Health and Human Services",
+   "note": "Social Security Act sec. 1106 (source credit confirmed); cited by TSSR v8.50 (2019) only — not by TSSR v12.1. Kept pending operator review.",
+   "cited_by": [],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section1306&num=0&edition=prelim"
+  },
+  {
+   "cite": "42 U.S.C. 1320b-7",
+   "heading": "Income and eligibility verification system",
+   "note": "Social Security Act sec. 1137 (source credit confirmed); cited by TSSR v8.50 (2019) only — not by TSSR v12.1. Kept pending operator review.",
+   "cited_by": [],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section1320b-7&num=0&edition=prelim"
+  },
+  {
+   "cite": "42 U.S.C. 653",
+   "heading": "Federal Parent Locator Service",
+   "note": "Social Security Act sec. 453 (source credit confirmed); cited by TSSR v8.50 (2019) only — not by TSSR v12.1. Kept pending operator review.",
+   "cited_by": [],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section653&num=0&edition=prelim"
+  },
+  {
+   "cite": "5 U.S.C. 552",
+   "heading": "Public information; agency rules, opinions, orders, records, and proceedings",
+   "note": "FOIA; TSSR v12.1 cites [PL 104-232, 5 USC 552]",
+   "cited_by": [
+    "ssa_tssr"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title5-section552&num=0&edition=prelim"
+  },
+  {
+   "cite": "44 U.S.C. chapter 31",
+   "heading": "Records Management by Federal Agencies",
+   "note": "TSSR v12.1 cites [44 USC 31]",
+   "cited_by": [
+    "ssa_tssr"
+   ],
+   "url": "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title44-chapter31&num=0&edition=prelim"
+  }
+ ],
+ "regulations": [
+  {
+   "cite": "45 CFR 155.260",
+   "heading": "Privacy and security of personally identifiable information",
+   "cited_by": [
+    "cms_arc_ampe"
+   ],
+   "ecfr_latest_amendment": "2016-12-30",
+   "url": "https://www.ecfr.gov/current/title-45/section-155.260"
+  },
+  {
+   "cite": "45 CFR 155.280",
+   "heading": "Oversight and monitoring of privacy and security requirements",
+   "cited_by": [
+    "cms_arc_ampe"
+   ],
+   "ecfr_latest_amendment": "2016-12-30",
+   "url": "https://www.ecfr.gov/current/title-45/section-155.280"
+  },
+  {
+   "cite": "26 CFR 301.6103(n)-1",
+   "heading": "Disclosure of returns and return information in connection with written contracts or agreements for the acquisition of property or services for tax administration purposes",
+   "cited_by": [
+    "irs_pub1075"
+   ],
+   "ecfr_latest_amendment": "2016-12-19",
+   "url": "https://www.ecfr.gov/current/title-26/section-301.6103(n)-1"
+  },
+  {
+   "cite": "32 CFR part 2002",
+   "heading": "Controlled Unclassified Information (CUI)",
+   "note": "TSSR v12.1 cites 32 C.F.R. § 2002.16(a)(6) (Accessing and disseminating) and Part 2002",
+   "cited_by": [
+    "ssa_tssr"
+   ],
+   "ecfr_latest_amendment": "2016-12-22",
+   "url": "https://www.ecfr.gov/current/title-32/subtitle-B/chapter-XX/part-2002"
+  },
+  {
+   "cite": "26 CFR 301.6103(p)(4)-1",
+   "heading": "Procedures relating to safeguards for returns or return information",
+   "ecfr_latest_amendment": "2016-12-19",
+   "heading_source": "eCFR versioner API (structure as of 2026-09-28 for parts; versions endpoint for sections), retrieved 2026-09-30",
+   "cited_by": [],
+   "included_by": "operator decision 2026-09-30 (revisit after output test)",
+   "url": "https://www.ecfr.gov/current/title-26/section-301.6103(p)(4)-1"
+  },
+  {
+   "cite": "26 CFR 301.6103(p)(7)-1",
+   "heading": "Procedures for administrative review of a determination that an authorized recipient has failed to safeguard returns or return information",
+   "ecfr_latest_amendment": "2016-12-19",
+   "heading_source": "eCFR versioner API (structure as of 2026-09-28 for parts; versions endpoint for sections), retrieved 2026-09-30",
+   "cited_by": [],
+   "included_by": "operator decision 2026-09-30 (revisit after output test)",
+   "url": "https://www.ecfr.gov/current/title-26/section-301.6103(p)(7)-1"
+  },
+  {
+   "cite": "42 CFR part 431 subpart F (431.300 ff.)",
+   "heading": "Safeguarding Information on Applicants and Beneficiaries",
+   "ecfr_latest_amendment": "2017-01-01",
+   "heading_source": "eCFR versioner API (structure as of 2026-09-28 for parts; versions endpoint for sections), retrieved 2026-09-30",
+   "cited_by": [],
+   "included_by": "operator decision 2026-09-30 (revisit after output test)",
+   "url": "https://www.ecfr.gov/current/title-42/chapter-IV/subchapter-C/part-431/subpart-F"
+  },
+  {
+   "cite": "20 CFR part 401",
+   "heading": "Privacy and Disclosure of Official Records and Information",
+   "ecfr_latest_amendment": "2023-01-10",
+   "heading_source": "eCFR versioner API (structure as of 2026-09-28 for parts; versions endpoint for sections), retrieved 2026-09-30",
+   "cited_by": [],
+   "included_by": "operator decision 2026-09-30 (revisit after output test)",
+   "url": "https://www.ecfr.gov/current/title-20/chapter-III/part-401"
+  }
+ ]
+}

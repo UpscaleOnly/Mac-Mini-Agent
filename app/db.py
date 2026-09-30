@@ -5,7 +5,7 @@ Bootstrap strategy (revised Session 12):
 
   On every startup, exactly one of two paths runs:
 
-  PATH A — Empty database (fresh install, local rebuild, Mac Studio setup day):
+  PATH A — Empty database (fresh install, local rebuild, host migration):
     - No OpenClaw tables exist in the database
     - Run schema.sql in full: creates all tables, indexes, partitions
     - schema_version is seeded to REQUIRED_SCHEMA_VERSION by schema.sql itself

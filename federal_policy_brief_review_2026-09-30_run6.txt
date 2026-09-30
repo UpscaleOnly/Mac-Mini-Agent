@@ -1,0 +1,78 @@
+FEDERAL POLICY BRIEF
+Coverage: 2026-09-23 to 2026-09-30
+================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+A final rule from the Health and Human Services Department, Centers for Medicare & Medicaid Services, Office of the Secretary, was published on 2026-09-29, correcting technical and typographical errors in a prior final rule concerning Medicare Program matters. This prior rule, published on August 4, 2026, addressed Hospital Inpatient Prospective Payment Systems for Acute Care Hospitals (IPPS) and the Long-Term Care Hospital Prospective Payment System, alongside policy changes and Fiscal Year (FY) 2027 Rates, Quality Programs requirements, other policy changes, and updated Health Information Technology Standards. The remaining activity included routine paperwork items.
+
+CMS (MEDICAID/CHIP/MEDICARE)
+----------------------------
+A final rule from the Health and Human Services Department, Centers for Medicare & Medicaid Services, Office of the Secretary, published on 2026-09-29, corrects technical and typographical errors in a previous final rule. This prior rule, published on August 4, 2026, addressed Medicare Program matters, specifically concerning Hospital Inpatient Prospective Payment Systems for Acute Care Hospitals (IPPS) and the Long-Term Care Hospital Prospective Payment System, as well as policy changes and Fiscal Year (FY) 2027 Rates, requirements for Quality Programs, other policy changes, and the adoption of updated versions of certain Health Information Technology Standards.
+
+Sources:
+  - Medicare Program; Hospital Inpatient Prospective Payment Systems for Acute Care Hospitals (IPPS) and the Long-Term Care Hospital Prospective Payment System and Policy Changes and Fiscal Year (FY) 2027 Rates; Requirements for Quality Programs; Other Policy Changes; and Adoption of Updated Versions of Certain Health Information Technology Standards; Correction (2026-09-29)
+    https://www.federalregister.gov/documents/2026/09/29/2026-19946/medicare-program-hospital-inpatient-prospective-payment-systems-for-acute-care-hospitals-ipps-and
+
+IT GOVERNANCE
+-------------
+No IT governance documents from SSA, CMS or the IRS appeared in the Federal Register in this window.
+
+Reference -- frameworks and governing authorities (ADR-048 source register; verify before formal use):
+  - IRS: Publication 1075, Tax Information Security Guidelines for Federal, State and Local Agencies -- Rev. 11-2021 (Catalog Number 46937O)
+    https://www.irs.gov/pub/irs-pdf/p1075.pdf
+  - CMS: Acceptable Risk Controls for ACA, Medicaid, and Partner Entities (ARC-AMPE) -- Volume I v1.0.4, May 7, 2026
+    https://www.cms.gov/marketplace/resources/regulations-guidance#arc-ampe
+  - SSA: Electronic Information Exchange Security Requirements and Procedures for State and Local Agencies Exchanging Electronic Information with the Social Security Administration — Technical System Security Requirements (TSSR) -- Version 12.1, April 28, 2026
+    https://www.ssa.gov/dataexchange/security.html
+  Statutes:
+  - 26 U.S.C. 6103 -- Confidentiality and disclosure of returns and return information
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section6103&num=0&edition=prelim
+  - 26 U.S.C. 7213 -- Unauthorized disclosure of information
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7213&num=0&edition=prelim
+  - 26 U.S.C. 7213A -- Unauthorized inspection of returns or return information
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7213A&num=0&edition=prelim
+  - 26 U.S.C. 7431 -- Civil damages for unauthorized inspection or disclosure of returns and return information
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7431&num=0&edition=prelim
+  - 5 U.S.C. 552a -- Records maintained on individuals (Privacy Act)
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title5-section552a&num=0&edition=prelim
+  - 44 U.S.C. 3551 -- Purposes (FISMA)
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title44-section3551&num=0&edition=prelim
+  - 42 U.S.C. 18081 -- Procedures for determining eligibility for Exchange participation, premium tax credits and reduced cost-sharing, and individual responsibility exemptions
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section18081&num=0&edition=prelim
+  - 42 U.S.C. 1306 -- Disclosure of information in possession of Social Security Administration or Department of Health and Human Services
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section1306&num=0&edition=prelim
+  - 42 U.S.C. 1320b-7 -- Income and eligibility verification system
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section1320b-7&num=0&edition=prelim
+  - 42 U.S.C. 653 -- Federal Parent Locator Service
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section653&num=0&edition=prelim
+  - 5 U.S.C. 552 -- Public information; agency rules, opinions, orders, records, and proceedings
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title5-section552&num=0&edition=prelim
+  - 44 U.S.C. chapter 31 -- Records Management by Federal Agencies
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title44-chapter31&num=0&edition=prelim
+  Regulations:
+  - 45 CFR 155.260 -- Privacy and security of personally identifiable information
+    https://www.ecfr.gov/current/title-45/section-155.260
+  - 45 CFR 155.280 -- Oversight and monitoring of privacy and security requirements
+    https://www.ecfr.gov/current/title-45/section-155.280
+  - 26 CFR 301.6103(n)-1 -- Disclosure of returns and return information in connection with written contracts or agreements for the acquisition of property or services for tax administration purposes
+    https://www.ecfr.gov/current/title-26/section-301.6103(n)-1
+  - 32 CFR part 2002 -- Controlled Unclassified Information (CUI)
+    https://www.ecfr.gov/current/title-32/subtitle-B/chapter-XX/part-2002
+  - 26 CFR 301.6103(p)(4)-1 -- Procedures relating to safeguards for returns or return information
+    https://www.ecfr.gov/current/title-26/section-301.6103(p)(4)-1
+  - 26 CFR 301.6103(p)(7)-1 -- Procedures for administrative review of a determination that an authorized recipient has failed to safeguard returns or return information
+    https://www.ecfr.gov/current/title-26/section-301.6103(p)(7)-1
+  - 42 CFR part 431 subpart F (431.300 ff.) -- Safeguarding Information on Applicants and Beneficiaries
+    https://www.ecfr.gov/current/title-42/chapter-IV/subchapter-C/part-431/subpart-F
+  - 20 CFR part 401 -- Privacy and Disclosure of Official Records and Information
+    https://www.ecfr.gov/current/title-20/chapter-III/part-401
+Change monitoring of these sources is not yet active (ADR-048 Part B).
+
+SOURCE ATTRIBUTION ADDENDUM
+===========================
+
+CMS (Medicaid/CHIP/Medicare)
+----------------------------
+  - (final rule) Health and Human Services Department, Centers for Medicare & Medicaid Services, Office of the Secretary - Medicare Program; Hospital Inpatient Prospective Payment Systems for Acute Care Hospitals (IPPS) and the Long-Term Care Hospital Prospective Payment System and Policy Changes and Fiscal Year (FY) 2027 Rates; Requirements for Quality Programs; Other Policy Changes; and Adoption of Updated Versions of Certain Health Information Technology Standards; Correction (2026-09-29)
+      https://www.federalregister.gov/documents/2026/09/29/2026-19946/medicare-program-hospital-inpatient-prospective-payment-systems-for-acute-care-hospitals-ipps-and

@@ -78,7 +78,7 @@ check("unreadable snapshot does not crash",
                      {"level": None, "free_pct": None, "swap_mb": None})[0] == "GREEN")
 
 # ---- production defaults (v9.3, ADR-047 §14) ----
-check("brief workload model is qwen3:8b", g.MODEL == "qwen3:8b")
+check("brief workload model is gemma4:e4b (v9.4, ADR-047 §14 note)", g.MODEL == "gemma4:e4b")
 check("brief workload thinking is off by default", g.THINK is False)
 check("default payload sends think false", g.build_payload("x").get("think") is False)
 

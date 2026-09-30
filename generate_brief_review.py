@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_brief_review.py - federal_policy_brief, v9.5
+generate_brief_review.py - federal_policy_brief, v9.9
 
 Reads recent Federal Register items from the scraped_content table, groups
 them by program area, uses local Gemma (via Ollama) to synthesize a plain-text
@@ -303,6 +303,45 @@ CHANGES FROM v8 (2026-09-29, Entry #048, ADR-047 §4-§6 and §8)
      scraper was built but never selected). Plain-text email; mail clients
      auto-link bare https URLs. The addendum is built from metadata after
      verification, so the model and verify_claims() never see the links.
+ 29. v9.6 (Entry #050): USDA scope filter (operator decision). A USDA
+     document is kept only if its sub-agency is the Food and Nutrition
+     Service/Administration (FNS/FNA) or its title/abstract mentions SNAP
+     ("SNAP" as a word, or "Supplemental Nutrition Assistance Program").
+     A SNAP-mentioning document from another USDA sub-agency routes to SNAP.
+     Everything else from USDA (almonds, Forest Service, APHIS ...) is
+     dropped before the model and printed as "DROPPED (out of scope, USDA)".
+     Tests: test_scope_filter.py.
+ 30. v9.7 (Entry #050, operator-approved): IRS scope filter -- an IRS
+     document is kept only if its title/abstract names an HHS-adjacent
+     topic (IRS_KEEP_TERMS) and none of the non-HHS exclusions
+     (IRS_EXCLUDE_TERMS: LIHTC, corporate); dropped ones are printed with the
+     USDA drops. Clickable links: each section ends with a "Sources" list
+     (title + Federal Register link, from metadata, after verification), and
+     --send / --test-email mail an HTML part (real <a> links) alongside the
+     plain text. Review mode also saves the HTML next to the .txt.
+     --test-email mails the brief with a [TEST] subject and nothing else:
+     no is_new flip, no brief_runs row, sent even with warnings (which are
+     listed at the top). Supersedes federal_policy_brief_DECISIONS.md's
+     "no links / plain text only" (operator decision, September 30, 2026).
+ 31. v9.8 (Entry #050, ADR-048 Part A, operator-approved): IT Governance
+     section, after TANF. An SSA, CMS or IRS document routes there (ahead
+     of CMS / Cross-Program) if it is a Privacy Act system of records or
+     matching program notice, or its title/abstract names a safeguarding
+     term (IT_GOV_TERMS); those terms also keep IRS documents in scope. The
+     section appears every week: model prose when it has documents, then a
+     deterministic reference block (frameworks, versions, governing
+     authorities, links) read from it_governance_sources.json. Change
+     monitoring (ADR-048 Part B) is not built; the block says so.
+     Tests: test_it_governance.py.
+ 32. v9.9 (Entry #050, operator-approved layout): every section appears
+     every week -- a section with no documents carries one fixed line (no
+     model call). Appendices, all deterministic: A -- this brief's sources
+     (the former SOURCE ATTRIBUTION ADDENDUM); B -- earlier documents,
+     published 8-30 days ago, in scope, regardless of whether a brief
+     already carried them (catches documents that missed their 7-day
+     window); C -- the IT Governance reference (frameworks, statutes,
+     regulations), moved out of the section, which now points to it.
+     Tests: test_layout.py.
 
 """
 
@@ -315,6 +354,9 @@ import subprocess
 import sys
 import time
 import datetime as dt
+import html as htmllib
+import json
+from pathlib import Path
 from email.message import EmailMessage
 
 import psycopg2
@@ -324,6 +366,7 @@ log = logging.getLogger(__name__)
 
 # ----------------------------- CONFIG -----------------------------
 WINDOW_DAYS = 7                       # production value
+EARLIER_DAYS = 30                     # v9.9: Appendix B reaches back this far (days 8-30)
 PROJECT = "federal_policy_brief"      # scoping tag in scraped_content.project
 MODEL = "gemma4:e4b"                  # ADR-047 §14: the BRIEF workload's model (v9.4; qwen3:8b in v9.3 broke SYSTEM_PROMPT)
 OLLAMA_URL = "http://localhost:11434/api/chat"
@@ -424,13 +467,14 @@ SUB_AGENCY_RULES = [
 DEFAULT_AREA = "Cross-Program"   # rest of USDA, FDA, CDC, NIH, IRS, SSA, ...
 
 # Fixed section ordering in the finished brief.
-AREA_ORDER = ["CMS", "SNAP", "TANF", "Cross-Program"]
+AREA_ORDER = ["CMS", "SNAP", "TANF", "IT Governance", "Cross-Program"]
 
 # Printed section headings.
 AREA_HEADING = {
     "CMS": "CMS (Medicaid/CHIP/Medicare)",
     "SNAP": "SNAP",
     "TANF": "TANF",
+    "IT Governance": "IT Governance",
     "Cross-Program": "Cross-Program",
 }
 
@@ -441,6 +485,10 @@ AREA_AUDIENCE = {
             "make clear which program a given document governs"),
     "SNAP": "state SNAP agencies",
     "TANF": "state TANF agencies",
+    "IT Governance": ("state agency information security, privacy and "
+                      "data-exchange officers responsible for safeguarding "
+                      "SSA-provided data, federal tax information and "
+                      "Exchange/Medicaid personally identifiable information"),
     "Cross-Program": ("state health and human services agencies generally, "
                       "across program lines"),
 }
@@ -492,6 +540,142 @@ def is_foreign(d):
         return True
 
     return False
+
+
+# --------------------- SCOPE FILTER: USDA ---------------------
+# The scraper queries the whole Agriculture Department. Only nutrition
+# assistance belongs in an HHS policy brief (operator, September 30, 2026):
+# keep FNS/FNA documents and any USDA document that mentions SNAP; drop the
+# rest, printed for review. Non-USDA documents are untouched.
+USDA_DEPARTMENT = "agriculture department"
+USDA_KEEP_SUB_AGENCIES = (
+    "food and nutrition service",
+    "food and nutrition administration",
+)
+
+
+def _mentions_snap(d):
+    text = f"{d.get('document_title') or ''}\n{d.get('raw_content') or ''}"
+    # "SNAP" must be upper case (the acronym); the full name any case.
+    return bool(re.search(r"\bSNAP\b", text)
+                or re.search(r"supplemental nutrition assistance program",
+                             text, re.I))
+
+
+def is_usda(d):
+    dept, _subs = split_agency(d.get("publishing_agency"))
+    return dept.lower() == USDA_DEPARTMENT
+
+
+def usda_in_scope(d):
+    """True for non-USDA documents; for USDA, FNS/FNA or a SNAP mention."""
+    if not is_usda(d):
+        return True
+    _dept, subs = split_agency(d.get("publishing_agency"))
+    hay = " | ".join(s.lower() for s in subs)
+    if any(k in hay for k in USDA_KEEP_SUB_AGENCIES):
+        return True
+    return _mentions_snap(d)
+
+
+# --------------------- IT GOVERNANCE ROUTING (ADR-048 Part A) ---------------------
+# SSA, CMS and IRS documents about safeguarding federal data route to the IT
+# Governance section. Terms are word-bounded and case-insensitive; the list is
+# printed with each run's input set so a wrong call is visible.
+IT_GOV_TERMS = (
+    "computer matching", "matching program", "system of records",
+    "privacy act", "federal tax information", "publication 1075",
+    "pub 1075", "safeguard", "safeguards", "information security",
+    "security and privacy", "data exchange", "fisma", "arc-ampe",
+    "mars-e", "6103", "552a",
+)
+IT_GOV_INSTRUMENTS = {
+    "Privacy Act matching program notice",
+    "Privacy Act system of records notice",
+}
+IT_GOV_REGISTER = (Path(__file__).resolve().parent / "agents" / "prototype"
+                   / "projects" / "federal_policy_brief"
+                   / "it_governance_sources.json")
+
+
+def _it_gov_agency(agency):
+    dept, subs = split_agency(agency)
+    names = [dept.lower()] + [x.lower() for x in subs]
+    return any(n == "social security administration"
+               or "centers for medicare" in n
+               or "internal revenue service" in n for n in names)
+
+
+def is_it_governance(d, instrument=None):
+    """SSA/CMS/IRS document that is a Privacy Act notice or names a
+    safeguarding term."""
+    if not _it_gov_agency(d.get("publishing_agency")):
+        return False
+    if instrument in IT_GOV_INSTRUMENTS:
+        return True
+    text = f"{d.get('document_title') or ''}\n{d.get('raw_content') or ''}"
+    return bool(_IT_GOV_RE.search(text))
+
+
+# --------------------- SCOPE FILTER: IRS ---------------------
+# IRS documents are kept only when HHS-adjacent (operator, September 30,
+# 2026). Keep terms are matched case-insensitively on title + abstract; an
+# exclusion wins over a keep term (a corporate rule that mentions health
+# insurance is still corporate). Dropped IRS documents are printed for review.
+IRS_SUB_AGENCY = "internal revenue service"
+IRS_KEEP_TERMS = (
+    # tax credits reaching HHS program populations
+    "earned income", "child tax credit", "premium tax credit",
+    "dependent care",
+    # health coverage
+    "affordable care act", "health coverage", "health insurance",
+    "minimum essential coverage",
+    # benefit programs
+    "medicaid", "medicare", "snap", "supplemental nutrition assistance",
+    "tanf", "temporary assistance for needy families", "child support",
+    "treasury offset",
+    # data safeguarding
+    "federal tax information", "publication 1075", "pub 1075",
+    "safeguard", "disclosure of return information",
+)
+IRS_EXCLUDE_TERMS = (
+    "low-income housing credit", "low income housing credit", "lihtc",
+    "corporate", "corporation",
+)
+
+
+def _term_re(terms):
+    return re.compile(r"\b(" + "|".join(re.escape(t) for t in terms) + r")\b",
+                      re.I)
+
+
+_IRS_KEEP_RE = _term_re(IRS_KEEP_TERMS + IT_GOV_TERMS)   # v9.8: IT Governance terms keep IRS docs
+_IRS_EXCLUDE_RE = _term_re(IRS_EXCLUDE_TERMS)
+_IT_GOV_RE = _term_re(IT_GOV_TERMS)
+
+
+def is_irs(d):
+    _dept, subs = split_agency(d.get("publishing_agency"))
+    return any(IRS_SUB_AGENCY in s.lower() for s in subs)
+
+
+def irs_in_scope(d):
+    """True for non-IRS documents; for IRS, a keep term and no exclusion."""
+    if not is_irs(d):
+        return True
+    text = f"{d.get('document_title') or ''}\n{d.get('raw_content') or ''}"
+    if _IRS_EXCLUDE_RE.search(text):
+        return False
+    return bool(_IRS_KEEP_RE.search(text))
+
+
+def scope_drop_reason(d):
+    """None if in scope, else a short reason for the review output."""
+    if not usda_in_scope(d):
+        return "USDA: not FNS/FNA, no SNAP mention"
+    if not irs_in_scope(d):
+        return "IRS: not HHS-adjacent"
+    return None
 
 
 # --------------------- CROSS-PROGRAM INSTRUMENT FILTER ---------------------
@@ -1146,6 +1330,53 @@ def fetch_rows(conn):
         return [dict(zip(cols, r)) for r in cur.fetchall()]
 
 
+def fetch_earlier_rows(conn, today=None):
+    """Appendix B (v9.9): documents published EARLIER_DAYS..WINDOW_DAYS+1 days
+    ago, whether or not a brief already carried them."""
+    today = today or dt.date.today()
+    lo = today - dt.timedelta(days=EARLIER_DAYS)
+    hi = today - dt.timedelta(days=WINDOW_DAYS)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, publishing_agency, document_title,
+                   publication_date, content_type, raw_content, url_path
+            FROM scraped_content
+            WHERE project = %s
+              AND publication_date >= %s
+              AND publication_date < %s
+            ORDER BY publication_date DESC, id DESC
+            """,
+            (PROJECT, lo, hi),
+        )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+def prepare_rows(rows):
+    """Filter and classify, as for the brief. Returns (kept, dropped_scope,
+    dropped_routine); kept rows carry _instrument and _area."""
+    rows = [d for d in rows if not is_foreign(d)]
+    dropped_scope = [(d, scope_drop_reason(d)) for d in rows
+                     if scope_drop_reason(d)]
+    rows = [d for d in rows if not scope_drop_reason(d)]
+    for d in rows:
+        d["_instrument"] = instrument_type(d["content_type"],
+                                           d["document_title"])
+        d["_area"] = area_for(d["publishing_agency"])
+        if is_usda(d) and d["_area"] == "Cross-Program" and _mentions_snap(d):
+            d["_area"] = "SNAP"
+        if is_it_governance(d, d["_instrument"]):
+            d["_area"] = "IT Governance"
+    dropped_routine, kept = [], []
+    for d in rows:
+        if d["_area"] == "Cross-Program" and d["_instrument"] not in CROSS_PROGRAM_KEEP:
+            dropped_routine.append(d)
+        else:
+            kept.append(d)
+    return kept, dropped_scope, dropped_routine
+
+
 def split_agency(agency):
     """Split 'Dept, Sub-agency, Sub-agency' into (department, [sub-agencies])."""
     parts = [p.strip() for p in (agency or "").split(",") if p.strip()]
@@ -1439,7 +1670,7 @@ def synthesize_exec_summary(date_range, section_texts, rows_by_area):
 
 def attribution(rows_by_area):
     """Deterministic source list built straight from metadata."""
-    out = ["SOURCE ATTRIBUTION ADDENDUM", "=" * 27, ""]
+    out = ["APPENDIX A -- SOURCES FOR THIS BRIEF", "=" * 36, ""]
     for area in AREA_ORDER:
         rows = rows_by_area.get(area)
         if not rows:
@@ -1461,6 +1692,202 @@ def attribution(rows_by_area):
     return "\n".join(out)
 
 
+FR_URL_PREFIX = "https://www.federalregister.gov/"
+
+
+def _safe_url(d):
+    """The document's Federal Register link, or '' if absent or not FR."""
+    url = (d.get("url_path") or "").strip()
+    return url if url.startswith(FR_URL_PREFIX) else ""
+
+
+def section_sources(rows):
+    """Plain-text 'Sources' list for one section: title, then its link."""
+    out = ["Sources:"]
+    for d in rows:
+        title = (d["document_title"] or "Untitled").strip()
+        out.append(f"  - {title} ({d['publication_date']})")
+        url = _safe_url(d)
+        if url:
+            out.append(f"    {url}")
+    return "\n".join(out)
+
+
+def load_it_gov_register(path=IT_GOV_REGISTER):
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def it_gov_reference(reg):
+    """Deterministic reference block (plain text), from the register."""
+    out = ["APPENDIX C -- IT GOVERNANCE REFERENCE", "=" * 36,
+           "Frameworks and governing authorities "
+           "(ADR-048 source register; verify before formal use):"]
+    for fw in reg["frameworks"]:
+        out.append(f"  - {fw['agency']}: {fw['title']} -- {fw['version']}")
+        out.append(f"    {fw['url']}")
+    out.append("  Statutes:")
+    for a in reg["statutes"]:
+        out.append(f"  - {a['cite']} -- {a['heading']}")
+        out.append(f"    {a['url']}")
+    out.append("  Regulations:")
+    for a in reg["regulations"]:
+        out.append(f"  - {a['cite']} -- {a['heading']}")
+        out.append(f"    {a['url']}")
+    out.append("Change monitoring of these sources is not yet active "
+               "(ADR-048 Part B).")
+    return "\n".join(out)
+
+
+def _html_link(url, text):
+    url = (url or "").strip()
+    if url.startswith("https://"):
+        return f'<a href="{htmllib.escape(url, quote=True)}">{htmllib.escape(text)}</a>'
+    return htmllib.escape(text)
+
+
+def it_gov_reference_html(reg):
+    h = ["<h2>Appendix C &mdash; IT Governance Reference</h2>",
+         "<p class=m>Frameworks and governing authorities "
+         "(ADR-048 source register; verify before formal use):</p><ul>"]
+    for fw in reg["frameworks"]:
+        h.append(f"<li>{htmllib.escape(fw['agency'])}: "
+                 f"{_html_link(fw['url'], fw['title'])} "
+                 f"<span class=m>({htmllib.escape(fw['version'])})</span></li>")
+    h.append("</ul><p class=m>Statutes:</p><ul>")
+    h.extend(f"<li>{_html_link(a['url'], a['cite'])} &mdash; "
+             f"{htmllib.escape(a['heading'])}</li>" for a in reg["statutes"])
+    h.append("</ul><p class=m>Regulations:</p><ul>")
+    h.extend(f"<li>{_html_link(a['url'], a['cite'])} &mdash; "
+             f"{htmllib.escape(a['heading'])}</li>" for a in reg["regulations"])
+    h.append("</ul><p class=m>Change monitoring of these sources is not yet "
+             "active (ADR-048 Part B).</p>")
+    return "\n".join(h)
+
+
+NO_IT_GOV_DOCS = ("No IT governance documents from SSA, CMS or the IRS "
+                  "appeared in the Federal Register in this window.")
+IT_GOV_POINTER = ("Governing frameworks, statutes and regulations: see "
+                  "Appendix C.")
+
+
+def empty_section_line(area):
+    """v9.9: the fixed line for a section with no documents this window."""
+    if area == "IT Governance":
+        return NO_IT_GOV_DOCS
+    return (f"No new {AREA_HEADING[area]} documents in the Federal Register "
+            f"in this window.")
+
+
+def earlier_appendix(earlier_by_area, today=None):
+    """Appendix B (plain text): earlier documents, days 8-30, with links."""
+    today = today or dt.date.today()
+    lo = today - dt.timedelta(days=EARLIER_DAYS)
+    hi = today - dt.timedelta(days=WINDOW_DAYS + 1)
+    out = ["APPENDIX B -- EARLIER DOCUMENTS (published "
+           f"{lo.isoformat()} to {hi.isoformat()})", "=" * 36,
+           "In scope, whether or not an earlier brief carried them.", ""]
+    if not any(earlier_by_area.values()):
+        out.append("None.")
+        return "\n".join(out)
+    for area in AREA_ORDER:
+        rows = earlier_by_area.get(area)
+        if not rows:
+            continue
+        heading = f"{AREA_HEADING[area]} ({len(rows)})"
+        out.append(heading)
+        out.append("-" * len(heading))
+        for d in rows:
+            title = (d["document_title"] or "Untitled").strip()
+            out.append(f"  - ({d['_instrument']}) {title} ({d['publication_date']})")
+            url = _safe_url(d)
+            if url:
+                out.append(f"      {url}")
+        out.append("")
+    return "\n".join(out)
+
+
+def _html_paragraphs(text):
+    paras = [p.strip() for p in re.split(r"\n\s*\n", text or "") if p.strip()]
+    return "\n".join(
+        "<p>" + htmllib.escape(p).replace("\n", "<br>") + "</p>" for p in paras)
+
+
+def _html_source_item(d, with_agency=False):
+    title = htmllib.escape((d["document_title"] or "Untitled").strip())
+    url = _safe_url(d)
+    link = (f'<a href="{htmllib.escape(url, quote=True)}">{title}</a>'
+            if url else title)
+    meta = f"{d['_instrument']}, {d['publication_date']}"
+    if with_agency:
+        agency = (d["publishing_agency"] or "Unknown agency").strip()
+        meta = f"{agency}; {meta}"
+    return f"<li>{link} <span class=m>({htmllib.escape(meta)})</span></li>"
+
+
+def brief_html(date_range, exec_summary, section_texts, rows_by_area,
+               banner="", it_gov_reg=None, earlier_by_area=None):
+    """HTML version of the brief: same text, real links. Every model- or
+    database-derived string is escaped; only FR links become hrefs."""
+    h = ['<!doctype html><html><head><meta charset="utf-8">',
+         "<style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;"
+         "max-width:720px;margin:auto;line-height:1.45;color:#222}"
+         "h1{font-size:20px}h2{font-size:16px;border-bottom:1px solid #ccc;"
+         "padding-bottom:2px;margin-top:24px}.m{color:#666;font-size:13px}"
+         "li{margin-bottom:6px}.b{background:#fff3cd;padding:8px}</style>",
+         "</head><body>"]
+    if banner:
+        h.append(f'<div class=b>{htmllib.escape(banner).replace(chr(10), "<br>")}</div>')
+    h.append("<h1>Federal Policy Brief</h1>")
+    h.append(f"<p class=m>Coverage: {htmllib.escape(date_range)}</p>")
+    h.append("<h2>Executive Summary</h2>")
+    h.append(_html_paragraphs(exec_summary))
+    texts = dict(section_texts)
+    full = it_gov_reg is not None       # v9.9 layout: every section, appendices
+    for area in AREA_ORDER:
+        if area not in texts and not full:
+            continue
+        h.append(f"<h2>{htmllib.escape(AREA_HEADING[area])}</h2>")
+        if area in texts:
+            h.append(_html_paragraphs(texts[area]))
+            h.append("<p class=m>Sources:</p><ul>")
+            h.extend(_html_source_item(d) for d in rows_by_area.get(area, []))
+            h.append("</ul>")
+        else:
+            h.append(_html_paragraphs(empty_section_line(area)))
+        if full and area == "IT Governance":
+            h.append(f"<p class=m>{htmllib.escape(IT_GOV_POINTER)}</p>")
+    h.append("<h2>Appendix A &mdash; Sources for This Brief</h2>")
+    for area in AREA_ORDER:
+        rows = rows_by_area.get(area)
+        if not rows:
+            continue
+        h.append(f"<p><b>{htmllib.escape(AREA_HEADING[area])}</b></p><ul>")
+        h.extend(_html_source_item(d, with_agency=True) for d in rows)
+        h.append("</ul>")
+    if full:
+        today = dt.date.today()
+        lo = today - dt.timedelta(days=EARLIER_DAYS)
+        hi = today - dt.timedelta(days=WINDOW_DAYS + 1)
+        h.append("<h2>Appendix B &mdash; Earlier Documents</h2>")
+        h.append(f"<p class=m>Published {lo.isoformat()} to {hi.isoformat()}; "
+                 "in scope, whether or not an earlier brief carried them.</p>")
+        eb = earlier_by_area or {}
+        if not any(eb.values()):
+            h.append("<p>None.</p>")
+        for area in AREA_ORDER:
+            rows = eb.get(area)
+            if not rows:
+                continue
+            h.append(f"<p><b>{htmllib.escape(AREA_HEADING[area])} "
+                     f"({len(rows)})</b></p><ul>")
+            h.extend(_html_source_item(d) for d in rows)
+            h.append("</ul>")
+        h.append(it_gov_reference_html(it_gov_reg))
+    h.append("</body></html>")
+    return "\n".join(h)
+
+
 # =====================================================================
 # SEND-TO-INBOX (v5, ADR-039 H4)
 # =====================================================================
@@ -1476,8 +1903,10 @@ def attribution(rows_by_area):
 # runs no transaction and touches no table -- a cross-process lock needs one.
 # =====================================================================
 
-def send_email(subject, body):
+def send_email(subject, body, html=None):
     """Send `body` as a plain-text email, self-addressed via iCloud SMTP.
+    With `html`, the message is multipart/alternative: plain text plus an
+    HTML part carrying real links (v9.7).
 
     Returns the sender/recipient address on success. Raises on any
     Keychain-lookup or SMTP failure -- callers must catch and record the
@@ -1497,6 +1926,8 @@ def send_email(subject, body):
     msg["From"] = user
     msg["To"] = user
     msg.set_content(body)
+    if html:
+        msg.add_alternative(html, subtype="html")
 
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
         server.starttls()
@@ -1554,7 +1985,8 @@ def _record_run_best_effort(*args, **kwargs):
         conn.close()
 
 
-def handle_send(rows, claim_warnings, brief, subject, start, today):
+def handle_send(rows, claim_warnings, brief, subject, start, today,
+                html=None):
     """--send mode: gate on clean verification, email, flip is_new, audit.
 
     Returns True iff the email was actually sent. A skip (unverified) or a
@@ -1578,7 +2010,7 @@ def handle_send(rows, claim_warnings, brief, subject, start, today):
         return False
 
     try:
-        recipient = send_email(subject, brief)
+        recipient = send_email(subject, brief, html)
     except Exception as e:
         print(f"SMTP send failed: {e}", file=sys.stderr)
         _record_run_best_effort(
@@ -1679,7 +2111,17 @@ def main():
              "Omitted: the model's default, as before. Evaluation only -- "
              "cannot be combined with --send.",
     )
+    parser.add_argument(
+        "--test-email", action="store_true",
+        help="Email the brief to yourself with a [TEST] subject so the "
+             "format and links can be checked. Nothing else: no is_new "
+             "flip, no brief_runs row. Sent even if verification has "
+             "warnings (they are listed at the top). Cannot be combined "
+             "with --send.",
+    )
     args = parser.parse_args()
+    if args.test_email and args.send:
+        parser.error("--test-email cannot be combined with --send")
     if args.think and args.send:
         parser.error("--think is for evaluation only and cannot be combined "
                      "with --send (ADR-047 §4)")
@@ -1705,6 +2147,7 @@ def main():
 
     try:
         rows = fetch_rows(conn)
+        earlier_raw = fetch_earlier_rows(conn)
     finally:
         conn.close()
 
@@ -1712,30 +2155,25 @@ def main():
     start = today - dt.timedelta(days=WINDOW_DAYS)
     date_range = f"{start.isoformat()} to {today.isoformat()}"
 
-    # ---- foreign content filter (silent -- no review output) ----
-    rows = [d for d in rows if not is_foreign(d)]
-
-    # ---- classify up front so review output and prompts agree ----
-    for d in rows:
-        d["_instrument"] = instrument_type(d["content_type"],
-                                           d["document_title"])
-        d["_area"] = area_for(d["publishing_agency"])
-
-    # ---- Cross-Program instrument filter (printed for review) ----
-    dropped_routine = []
-    kept = []
-    for d in rows:
-        if d["_area"] == "Cross-Program" and d["_instrument"] not in CROSS_PROGRAM_KEEP:
-            dropped_routine.append(d)
-        else:
-            kept.append(d)
-    rows = kept
+    # ---- foreign / USDA / IRS filters, classification, routine drop ----
+    # (dropped_scope and dropped_routine are printed for review below)
+    rows, dropped_scope, dropped_routine = prepare_rows(rows)
+    earlier, _es, _er = prepare_rows(earlier_raw)
+    earlier_by_area = {}
+    for d in earlier:
+        earlier_by_area.setdefault(d["_area"], []).append(d)
 
     # ---- input set (printed for review) ----
     print("=" * 78)
     print(f"INPUT SET  project={PROJECT}  window={WINDOW_DAYS}d "
           f"({date_range})  is_new only")
     print("=" * 78)
+    if dropped_scope:
+        print(f"DROPPED (out of scope) -- {len(dropped_scope)} document(s):")
+        for d, why in dropped_scope:
+            title = (d["document_title"] or "Untitled").strip()[:60]
+            print(f"  [{d['publication_date']}] {why:38} {title}")
+        print()
     if dropped_routine:
         print(f"DROPPED (routine, Cross-Program) -- {len(dropped_routine)} "
               f"document(s) excluded from the brief:")
@@ -1749,6 +2187,9 @@ def main():
         print("Tip: raise WINDOW_DAYS at the top of the script to reach "
               "older banked content.")
         return
+    print("IT Governance routing (ADR-048 Part A): SSA/CMS/IRS Privacy Act "
+          "notices, or terms: " + ", ".join(IT_GOV_TERMS))
+    print()
     print(f"{len(rows)} document(s)  [date | area | instrument | agency | title]:")
     for d in rows:
         agency = (d["publishing_agency"] or "?")[:34]
@@ -1815,14 +2256,30 @@ def main():
         exec_summary,
         "",
     ]
-    for area, text in section_texts:
+    it_gov_reg = load_it_gov_register()
+    texts = dict(section_texts)
+    for area in AREA_ORDER:                     # v9.9: every section, every week
         heading = AREA_HEADING[area].upper()
         parts.append(heading)
         parts.append("-" * len(heading))
-        parts.append(text)
+        if area in texts:
+            parts.append(texts[area])
+            parts.append("")
+            parts.append(section_sources(rows_by_area[area]))
+        else:
+            parts.append(empty_section_line(area))
+        if area == "IT Governance":
+            parts.append("")
+            parts.append(IT_GOV_POINTER)
         parts.append("")
     parts.append(attribution(rows_by_area))
+    parts.append("")
+    parts.append(earlier_appendix(earlier_by_area))
+    parts.append("")
+    parts.append(it_gov_reference(it_gov_reg))
     brief = "\n".join(parts)
+    html = brief_html(date_range, exec_summary, section_texts, rows_by_area,
+                      it_gov_reg=it_gov_reg, earlier_by_area=earlier_by_area)
 
     # ---- output: screen + file ----
     print("=" * 64)
@@ -1843,13 +2300,35 @@ def main():
                    f"{dt.datetime.now().strftime('%H%M%S')}.txt")
     with open(outname, "w", encoding="utf-8") as f:
         f.write(brief)
+    htmlname = outname[:-4] + ".html"
+    with open(htmlname, "w", encoding="utf-8") as f:
+        f.write(html)
     print()
-    print(f"Saved to ./{outname}")
+    print(f"Saved to ./{outname} and ./{htmlname}")
+
+    if args.test_email:
+        banner = ("TEST COPY -- review-only run. Nothing was marked processed "
+                  "and no brief_runs row was written.")
+        if claim_warnings:
+            banner += ("\nVerifier warnings (a real --send would be held):\n"
+                       + "\n".join(f"! {w}" for w in claim_warnings))
+        test_html = brief_html(date_range, exec_summary, section_texts,
+                               rows_by_area, banner=banner,
+                               it_gov_reg=it_gov_reg,
+                               earlier_by_area=earlier_by_area)
+        try:
+            to = send_email(f"[TEST] Federal Policy Brief - {date_range}",
+                            banner + "\n\n" + brief, test_html)
+        except Exception as e:
+            print(f"Test email failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Test email sent to {to}. Nothing marked processed.")
 
     if args.send:
         print()
         subject = f"Federal Policy Brief - {date_range}"
-        sent = handle_send(rows, claim_warnings, brief, subject, start, today)
+        sent = handle_send(rows, claim_warnings, brief, subject, start, today,
+                           html)
         sys.exit(0 if sent else 1)
 
 

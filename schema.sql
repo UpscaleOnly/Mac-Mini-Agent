@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS agent_actions (
     action_type             TEXT NOT NULL,                           -- tool_call / llm_request / approval_request / trust_tier_elevation_request
     tool_name               TEXT,                                    -- Tool invoked (NULL for direct LLM calls)
     model_tier              INTEGER,                                 -- ADR-021 tier used for this action
-    model_name              TEXT,                                    -- e.g. 'mistral-nemo-14b', 'claude-sonnet'
+    model_name              TEXT,                                    -- actual model, e.g. 'gemma4:e4b'
     routing_decision        TEXT,                                    -- local / cloud / escalated
     input_tokens            INTEGER,                                 -- ADR-035: tokens in prompt + context
     output_tokens           INTEGER,                                 -- ADR-035: tokens in model completion

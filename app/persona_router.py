@@ -11,7 +11,7 @@ The bot token in the webhook URL identifies which persona is active.
 
 For now, a single bot handles all personas with a /persona command
 or chat-based routing. This will be split to per-persona bots
-when the three Telegram bots are created on setup day.
+if and when the three Telegram bots are created (not scheduled).
 """
 import logging
 from app.models import Persona
