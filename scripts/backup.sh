@@ -69,6 +69,13 @@ DATESTAMP="$(date +%Y%m%d)"
 DUMP_FILE="$BACKUP_DIR/openclaw_${TIMESTAMP}.sql.gz"
 LOG_FILE="$LOG_DIR/backup_${DATESTAMP}.log"
 
+# Docker CLI. Docker Desktop's per-user CLI install (Settings → Advanced →
+# "User", the no-password option — F17, Sep 30) puts the CLI in ~/.docker/bin
+# and removes the /usr/local/bin symlinks. launchd runs this with a bare PATH,
+# so resolve the binary explicitly; fall back to the system location.
+DOCKER="$HOME/.docker/bin/docker"
+[ -x "$DOCKER" ] || DOCKER="/usr/local/bin/docker"
+
 # ── Secret / config lookup ───────────────────────────────────────────
 # Bot token: stored in macOS Keychain per A1 (Entry #008).
 # Operator chat id: not a secret — read from .env per existing telegram_bot.py
@@ -164,7 +171,7 @@ fi
 log "BACKUP_START: target=$DUMP_FILE"
 
 # ── Preflight: postgres container running ────────────────────────────
-if ! /usr/local/bin/docker ps --format '{{.Names}}' 2>/dev/null | /usr/bin/grep -q '^openclaw_postgres$'; then
+if ! "$DOCKER" ps --format '{{.Names}}' 2>/dev/null | /usr/bin/grep -q '^openclaw_postgres$'; then
   log "FATAL: openclaw_postgres container not running"
   send_telegram_alert "postgres_down" "openclaw_postgres container is not in docker ps. Backup skipped."
   exit 4
@@ -178,7 +185,7 @@ fi
 # We pipe through to capture the gzipped output to a file. The pipefail option
 # is set so that a pg_dump failure surfaces even though gzip would have exited 0.
 set -o pipefail
-/usr/local/bin/docker exec openclaw_postgres pg_dump -U openclaw -d openclaw -Z 9 > "$DUMP_FILE" 2>>"$LOG_FILE"
+"$DOCKER" exec openclaw_postgres pg_dump -U openclaw -d openclaw -Z 9 > "$DUMP_FILE" 2>>"$LOG_FILE"
 DUMP_RC=$?
 set +o pipefail
 
