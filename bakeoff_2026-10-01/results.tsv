@@ -1,0 +1,7 @@
+run	input	model	think	exit	seconds	free_pct_after	swap_growth_mb	max_level	warnings
+1doc-a	current week (1 doc)	gemma4:e4b-apr2026	off	0	32	31	0	2	0
+1doc-b	current week (1 doc)	gemma4:e4b-oct2026	off	0	28	21	793	2	0
+1	Sep 22-28 (18 docs)	gemma4:e4b-oct2026	off	0	115	30	1508	1	0
+2	Sep 22-28 (18 docs)	gemma4:e4b-apr2026	off	0	159	17	1319	1	0
+3	Sep 22-28 (18 docs)	gemma4:e4b-oct2026	off	0	122	39	-826	1	0
+4	Sep 22-28 (18 docs)	gemma4:e4b-apr2026	off	0	166	12	-64	2	0

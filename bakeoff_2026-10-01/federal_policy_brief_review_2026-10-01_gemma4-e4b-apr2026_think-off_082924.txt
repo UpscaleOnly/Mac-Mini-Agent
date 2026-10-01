@@ -1,0 +1,283 @@
+FEDERAL POLICY BRIEF
+Coverage: 2026-09-24 to 2026-10-01
+================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+A proposed rule from the Health and Human Services Department, Centers for Medicare & Medicaid Services, solicits input on Medicare Part D Reasonable and Relevant Pharmacy Contracting Standards, while the Health and Human Services Department, Centers for Medicare & Medicaid Services, issued an information collection request regarding Medicaid and CHIP Generic Information Collection Activities. The Agriculture Department, Food and Nutrition Administration, published two information collection requests concerning the Summer Food Service Program and quick-turnaround surveys for SNAP and related programs. The Food and Drug Administration issued a final rule regarding food additives and a proposed rule concerning color additive regulations, alongside a final rule and proposed rule from the Food and Drug Administration addressing nonclinical testing terminology. Other actions included a Privacy Act system of records notice from the Health and Human Services Department, Children and Families Administration, and a Privacy Act matching program notice between the Health and Human Services Department, Centers for Medicare & Medicaid Services, and the U.S. Department of the Treasury, Bureau of Fiscal Service.
+
+CMS (MEDICAID/CHIP/MEDICARE)
+----------------------------
+A notice from the Health and Human Services Department, Centers for Medicare & Medicaid Services, is an information collection request regarding Medicaid and Children's Health Insurance Program (CHIP) Generic Information Collection Activities. This request seeks public comment on proposed collections of information that CMS believes are generic and fall within an existing umbrella scope covering Medicaid and CHIP State plan amendments, waivers, demonstrations, and reporting. Interested persons can submit comments on the burden estimates or other aspects of this collection of information.
+
+Separately, the Health and Human Services Department, Centers for Medicare & Medicaid Services, issued a proposed rule titled Request for Information concerning Medicare Part D Reasonable and Relevant Pharmacy Contracting Standards. This RFI solicits input for establishing standards for reasonable and relevant pharmacy contract terms and conditions under the Medicare prescription drug benefit. This action relates to requirements added by section 6223(a) of the Consolidated Appropriations Act, 2026, which mandates that Part D plan sponsors must permit pharmacies meeting standard contract terms to participate as a network pharmacy, and requires the Secretary to establish these standards for plan years beginning January 1, 2029.
+
+Sources:
+  - Medicaid and Children's Health Insurance Program (CHIP) Generic Information Collection Activities: Proposed Collection; Comment Request (2026-09-25)
+    https://www.federalregister.gov/documents/2026/09/25/2026-19707/medicaid-and-childrens-health-insurance-program-chip-generic-information-collection-activities
+  - Request for Information; Medicare Part D Reasonable and Relevant Pharmacy Contracting Standards (2026-09-24)
+    https://www.federalregister.gov/documents/2026/09/24/2026-19535/request-for-information-medicare-part-d-reasonable-and-relevant-pharmacy-contracting-standards
+
+SNAP
+----
+An information collection request from the Agriculture Department, Food and Nutrition Administration, published 2026-09-24, invites comment on a proposed revision to an existing collection. This collection relates to recognizing program sponsors' nutrition efforts within the Summer Food Service Program (SFSP) or the National School Lunch Program (NSLP) Seamless Summer Option (SSO).
+
+Additionally, the Agriculture Department, Food and Nutrition Administration, published another information collection request on 2026-09-24. This notice seeks public and agency comment on a proposed collection for conducting quick-turnaround surveys. These surveys pertain to State and local agencies providing services under the Supplemental Nutrition Assistance Program (SNAP), Child Nutrition Programs, and Supplemental Nutrition and Safety Programs administered federally by the Food and Nutrition Administration (FNA). The programs covered by this survey collection include SNAP, WIC, NSLP, SBP, SMP, FFVP, SFSP, SEBT, Team Nutrition, the Patrick Leahy Farm to School Program, CACFP, USDA Foods in Schools, FDPIR, TEFAP, and CSFP.
+
+Sources:
+  - Agency Information Collection Activities: Turnip the Beet High Quality Summer Meals Program (2026-09-24)
+    https://www.federalregister.gov/documents/2026/09/24/2026-19548/agency-information-collection-activities-turnip-the-beet-high-quality-summer-meals-program
+  - Agency Information Collection Activities: Proposed Collection; Comment Request-Generic Clearance for FNA Quick Response Surveys (FNA QRS) (2026-09-24)
+    https://www.federalregister.gov/documents/2026/09/24/2026-19556/agency-information-collection-activities-proposed-collection-comment-request-generic-clearance-for
+
+TANF
+----
+A Privacy Act system of records notice from the Health and Human Services Department, Children and Families Administration, was published on 2026-09-28. This notice details a modification to an existing system of records maintained by the Office of Refugee Resettlement (ORR) within HHS' Administration for Children and Families (ACF), System No. 09-80-0321, ORR Unaccompanied Children Bureau (UCB) Administrative Program Records. The records cover unaccompanied children, their intended sponsors, and members of the intended sponsors' households for administering ORR programs. The modification changes the system of records name to "ORR Unaccompanied Alien Children Bureau (UACB) Administrative Program Records" and streamlines routine uses to enhance information sharing for child protection while keeping core privacy protections.
+
+Additionally, a notice from the Health and Human Services Department, Children and Families Administration, was published on 2026-09-24. This notice announces the intent to award a single-source cooperative agreement up to $20,000,000 to International Rescue Committee in New York, New York. The agreement is for the National Virtual Program for Professional Advancement, with a proposed project period from September 30, 2026, through September 29, 2027. This initiative will use IRC's nationwide virtual service delivery model to provide professional advancement services to up to 1,334 eligible refugees who arrived in the United States between September 1, 2026, and September 30, 2026.
+
+Sources:
+  - Privacy Act of 1974; System of Records (2026-09-28)
+    https://www.federalregister.gov/documents/2026/09/28/2026-19755/privacy-act-of-1974-system-of-records
+  - Announcement of the Intent To Award a Single-Source Cooperative Agreement to International Rescue Committee in New York, New York (2026-09-24)
+    https://www.federalregister.gov/documents/2026/09/24/2026-19570/announcement-of-the-intent-to-award-a-single-source-cooperative-agreement-to-international-rescue
+
+IT GOVERNANCE
+-------------
+A matching program notice between Health and Human Services Department, Centers for Medicare & Medicaid Services, was published on 2026-09-25. This notice concerns the re-establishment of a matching program between CMS and the Do Not Pay Working System, which is administered by the U.S. Department of the Treasury, Bureau of Fiscal Service (Fiscal Service). This action is in accordance with subsection (e)(12) of the Privacy Act of 1974, as amended.
+
+Sources:
+  - Privacy Act of 1974; Matching Program (2026-09-25)
+    https://www.federalregister.gov/documents/2026/09/25/2026-19643/privacy-act-of-1974-matching-program
+
+Governing frameworks, statutes and regulations: see Appendix C.
+
+CROSS-PROGRAM
+-------------
+A final rule from the Food and Drug Administration, published 2026-09-25, amends food additive regulations to allow for the safe use of vitamin D2 inactive bakers yeast as a source of vitamin D2 in specific food categories, following a petition from Lallemand Inc. Separately, the Food and Drug Administration published a proposed rule on 2026-09-25 regarding a color additive petition from Doehler GmbH, proposing to amend color additive regulations for the safe use of calcium sulfate in various foods.
+
+The Food and Drug Administration also issued a direct final rule on 2026-09-22 and a proposed rule on 2026-09-22 concerning nonclinical testing terminology. Both actions substitute references to "animal" tests or studies with "nonclinical" tests or studies, add definitions for "nonclinical test" and "nonclinical study," and substitute "nonclinical" for "preclinical" and "in vitro" for consistency. These changes align with amendments to the Federal Food, Drug, and Cosmetic Act and the Public Health Service Act and are intended to remove an emphasis on animal testing as the sole methodology for assessing drug safety in the nonclinical setting.
+
+Regarding state exchanges, an interim final rule with comment from the Department of Health and Human Services, published 2026-09-23, codifies authority for a temporary moratorium on agent and broker registration for Federally-facilitated Exchanges. This moratorium pauses registration for agents and brokers without a Plan Year 2026 Exchange agreement who seek to enter agreements with Centers for Medicare & Medicaid Services to assist with enrollment through Federally-facilitated Exchanges for Plan Year 2027. This temporary moratorium does not affect registrations on State-based Exchanges.
+
+Sources:
+  - Food Additives Permitted for Direct Addition to Food for Human Consumption; Vitamin D2 Inactive Bakers Yeast (2026-09-25)
+    https://www.federalregister.gov/documents/2026/09/25/2026-19656/food-additives-permitted-for-direct-addition-to-food-for-human-consumption-vitamin-d2-inactive
+  - Filing of Color Additive Petition From Doehler GmbH; Request To Amend the Color Additive Regulations To Provide for the Safe Use of Calcium Sulfate in Various Foods at Levels Consistent With Good Manufacturing Practice (2026-09-25)
+    https://www.federalregister.gov/documents/2026/09/25/2026-19658/filing-of-color-additive-petition-from-doehler-gmbh-request-to-amend-the-color-additive-regulations
+  - Patient Protection and Affordable Care Act; Temporary Moratoria on Certain Agent and Broker Registration To Participate in the Exchanges (2026-09-23)
+    https://www.federalregister.gov/documents/2026/09/23/2026-19493/patient-protection-and-affordable-care-act-temporary-moratoria-on-certain-agent-and-broker
+  - Nonclinical Testing Terminology (2026-09-22)
+    https://www.federalregister.gov/documents/2026/09/22/2026-19349/nonclinical-testing-terminology
+  - Nonclinical Testing Terminology (2026-09-22)
+    https://www.federalregister.gov/documents/2026/09/22/2026-19350/nonclinical-testing-terminology
+
+APPENDIX A -- SOURCES FOR THIS BRIEF
+====================================
+
+CMS (Medicaid/CHIP/Medicare)
+----------------------------
+  - (information collection request) Health and Human Services Department, Centers for Medicare & Medicaid Services - Medicaid and Children's Health Insurance Program (CHIP) Generic Information Collection Activities: Proposed Collection; Comment Request (2026-09-25)
+      https://www.federalregister.gov/documents/2026/09/25/2026-19707/medicaid-and-childrens-health-insurance-program-chip-generic-information-collection-activities
+  - (proposed rule) Health and Human Services Department, Centers for Medicare & Medicaid Services - Request for Information; Medicare Part D Reasonable and Relevant Pharmacy Contracting Standards (2026-09-24)
+      https://www.federalregister.gov/documents/2026/09/24/2026-19535/request-for-information-medicare-part-d-reasonable-and-relevant-pharmacy-contracting-standards
+
+SNAP
+----
+  - (information collection request) Agriculture Department, Food and Nutrition Administration - Agency Information Collection Activities: Turnip the Beet High Quality Summer Meals Program (2026-09-24)
+      https://www.federalregister.gov/documents/2026/09/24/2026-19548/agency-information-collection-activities-turnip-the-beet-high-quality-summer-meals-program
+  - (information collection request) Agriculture Department, Food and Nutrition Administration - Agency Information Collection Activities: Proposed Collection; Comment Request-Generic Clearance for FNA Quick Response Surveys (FNA QRS) (2026-09-24)
+      https://www.federalregister.gov/documents/2026/09/24/2026-19556/agency-information-collection-activities-proposed-collection-comment-request-generic-clearance-for
+
+TANF
+----
+  - (Privacy Act system of records notice) Health and Human Services Department, Children and Families Administration - Privacy Act of 1974; System of Records (2026-09-28)
+      https://www.federalregister.gov/documents/2026/09/28/2026-19755/privacy-act-of-1974-system-of-records
+  - (notice) Health and Human Services Department, Children and Families Administration - Announcement of the Intent To Award a Single-Source Cooperative Agreement to International Rescue Committee in New York, New York (2026-09-24)
+      https://www.federalregister.gov/documents/2026/09/24/2026-19570/announcement-of-the-intent-to-award-a-single-source-cooperative-agreement-to-international-rescue
+
+IT Governance
+-------------
+  - (Privacy Act matching program notice) Health and Human Services Department, Centers for Medicare & Medicaid Services - Privacy Act of 1974; Matching Program (2026-09-25)
+      https://www.federalregister.gov/documents/2026/09/25/2026-19643/privacy-act-of-1974-matching-program
+
+Cross-Program
+-------------
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Food Additives Permitted for Direct Addition to Food for Human Consumption; Vitamin D2 Inactive Bakers Yeast (2026-09-25)
+      https://www.federalregister.gov/documents/2026/09/25/2026-19656/food-additives-permitted-for-direct-addition-to-food-for-human-consumption-vitamin-d2-inactive
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Filing of Color Additive Petition From Doehler GmbH; Request To Amend the Color Additive Regulations To Provide for the Safe Use of Calcium Sulfate in Various Foods at Levels Consistent With Good Manufacturing Practice (2026-09-25)
+      https://www.federalregister.gov/documents/2026/09/25/2026-19658/filing-of-color-additive-petition-from-doehler-gmbh-request-to-amend-the-color-additive-regulations
+  - (final rule) Health and Human Services Department - Patient Protection and Affordable Care Act; Temporary Moratoria on Certain Agent and Broker Registration To Participate in the Exchanges (2026-09-23)
+      https://www.federalregister.gov/documents/2026/09/23/2026-19493/patient-protection-and-affordable-care-act-temporary-moratoria-on-certain-agent-and-broker
+  - (proposed rule) Health and Human Services Department, Food and Drug Administration - Nonclinical Testing Terminology (2026-09-22)
+      https://www.federalregister.gov/documents/2026/09/22/2026-19349/nonclinical-testing-terminology
+  - (final rule) Health and Human Services Department, Food and Drug Administration - Nonclinical Testing Terminology (2026-09-22)
+      https://www.federalregister.gov/documents/2026/09/22/2026-19350/nonclinical-testing-terminology
+
+
+APPENDIX B -- EARLIER DOCUMENTS (published 2026-09-01 to 2026-09-23)
+====================================
+In scope, whether or not an earlier brief carried them.
+
+CMS (Medicaid/CHIP/Medicare) (4)
+--------------------------------
+  - (notice) Medicare and Medicaid Programs; Application From DNV Healthcare USA Inc. (DNV) for Continued CMS-Approval of its Hospital Accreditation Program (2026-09-17)
+      https://www.federalregister.gov/documents/2026/09/17/2026-19061/medicare-and-medicaid-programs-application-from-dnv-healthcare-usa-inc-dnv-for-continued
+  - (notice) Medicare Program; Public Meeting for New Revisions to the Healthcare Common Procedure Coding System (HCPCS) Level II Coding (2026-09-16)
+      https://www.federalregister.gov/documents/2026/09/16/2026-19015/medicare-program-public-meeting-for-new-revisions-to-the-healthcare-common-procedure-coding-system
+  - (notice) Medicare Program; Medicare Appeals; Adjustment to the Amount in Controversy Threshold Amounts for Calendar Year 2027 (2026-09-16)
+      https://www.federalregister.gov/documents/2026/09/16/2026-19016/medicare-program-medicare-appeals-adjustment-to-the-amount-in-controversy-threshold-amounts-for
+  - (notice) Medicare Program; Town Hall Meeting on the Fiscal Year 2028 Applications for New Technology Add-On Payments (2026-09-08)
+      https://www.federalregister.gov/documents/2026/09/08/2026-18226/medicare-program-town-hall-meeting-on-the-fiscal-year-2028-applications-for-new-technology-add-on
+
+SNAP (20)
+---------
+  - (notice) Supplemental Nutrition Assistance Program: State of North Dakota SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18879/supplemental-nutrition-assistance-program-state-of-north-dakota-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Virginia SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18880/supplemental-nutrition-assistance-program-state-of-virginia-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Nevada SNAP Demonstration Project Request (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18881/supplemental-nutrition-assistance-program-state-of-nevada-snap-demonstration-project-request
+  - (notice) Supplemental Nutrition Assistance Program: State of Wyoming SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18882/supplemental-nutrition-assistance-program-state-of-wyoming-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Missouri SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18884/supplemental-nutrition-assistance-program-state-of-missouri-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Texas SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18885/supplemental-nutrition-assistance-program-state-of-texas-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Arkansas SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18886/supplemental-nutrition-assistance-program-state-of-arkansas-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Florida SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18887/supplemental-nutrition-assistance-program-state-of-florida-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Hawaii SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18888/supplemental-nutrition-assistance-program-state-of-hawaii-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Idaho SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18889/supplemental-nutrition-assistance-program-state-of-idaho-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Kansas SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18890/supplemental-nutrition-assistance-program-state-of-kansas-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Oklahoma SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18891/supplemental-nutrition-assistance-program-state-of-oklahoma-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Montana SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18892/supplemental-nutrition-assistance-program-state-of-montana-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Utah SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18893/supplemental-nutrition-assistance-program-state-of-utah-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Indiana SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18894/supplemental-nutrition-assistance-program-state-of-indiana-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Louisiana SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18895/supplemental-nutrition-assistance-program-state-of-louisiana-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of South Carolina SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18896/supplemental-nutrition-assistance-program-state-of-south-carolina-snap-demonstration-project
+  - (notice) Supplemental Nutrition Assistance Program: State of Ohio SNAP Demonstration Project (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18897/supplemental-nutrition-assistance-program-state-of-ohio-snap-demonstration-project
+  - (final rule) Simplified Geographic Preference Procurement in Child Nutrition Programs (2026-09-09)
+      https://www.federalregister.gov/documents/2026/09/09/2026-18337/simplified-geographic-preference-procurement-in-child-nutrition-programs
+  - (information collection request) Agency Information Collection Activities: WIC and Senior Farmers' Market Nutrition Programs-Reporting and Recordkeeping Burden (2026-09-04)
+      https://www.federalregister.gov/documents/2026/09/04/2026-18171/agency-information-collection-activities-wic-and-senior-farmers-market-nutrition-programs-reporting
+
+TANF (6)
+--------
+  - (information collection request) Proposed Information Collection Activity; Diaper Distribution Demonstration and Research Pilot Beneficiary and Organizational Survey and Beneficiary Report (2026-09-17)
+      https://www.federalregister.gov/documents/2026/09/17/2026-19023/proposed-information-collection-activity-diaper-distribution-demonstration-and-research-pilot
+  - (information collection request) Proposed Information Collection Activity; Multistate Financial Institution Data Match With Federally Assisted State Transmitted Levy (2026-09-15)
+      https://www.federalregister.gov/documents/2026/09/15/2026-18841/proposed-information-collection-activity-multistate-financial-institution-data-match-with-federally
+  - (proposed rule) Reducing Bureaucracy and Burden for the Repatriation of Mentally Ill Nationals (2026-09-04)
+      https://www.federalregister.gov/documents/2026/09/04/2026-18167/reducing-bureaucracy-and-burden-for-the-repatriation-of-mentally-ill-nationals
+  - (notice) Announcement of the Intent To Award a Single-Source Cooperative Agreement to Spaulding for Children for the National Training and Development Curriculum for Foster/Adoptive Parents (NTDC) in Southfield, Michigan (2026-09-02)
+      https://www.federalregister.gov/documents/2026/09/02/2026-17959/announcement-of-the-intent-to-award-a-single-source-cooperative-agreement-to-spaulding-for-children
+  - (notice) Submission for Office of Management and Budget Review; TANF Contingency Fund Application (2026-09-02)
+      https://www.federalregister.gov/documents/2026/09/02/2026-17982/submission-for-office-of-management-and-budget-review-tanf-contingency-fund-application
+  - (notice) Emergency Office of Management and Budget Review and Public Comment: Questionnaire for the Refugee Outreach and Well-Being Initiative (2026-09-01)
+      https://www.federalregister.gov/documents/2026/09/01/2026-17856/emergency-office-of-management-and-budget-review-and-public-comment-questionnaire-for-the-refugee
+
+IT Governance (1)
+-----------------
+  - (Privacy Act system of records notice) Privacy Act of 1974; System of Records (2026-09-09)
+      https://www.federalregister.gov/documents/2026/09/09/2026-18316/privacy-act-of-1974-system-of-records
+
+Cross-Program (16)
+------------------
+  - (final rule) Patient Protection and Affordable Care Act; Temporary Moratoria on Certain Agent and Broker Registration To Participate in the Exchanges (2026-09-23)
+      https://www.federalregister.gov/documents/2026/09/23/2026-19493/patient-protection-and-affordable-care-act-temporary-moratoria-on-certain-agent-and-broker
+  - (proposed rule) Nonclinical Testing Terminology (2026-09-22)
+      https://www.federalregister.gov/documents/2026/09/22/2026-19349/nonclinical-testing-terminology
+  - (final rule) Nonclinical Testing Terminology (2026-09-22)
+      https://www.federalregister.gov/documents/2026/09/22/2026-19350/nonclinical-testing-terminology
+  - (final rule) Medical Devices; Exemption From Premarket Notification: Radiology Computer-Aided Detection and/or Diagnosis Devices and Computer-Aided Triage and Notification Devices (2026-09-17)
+      https://www.federalregister.gov/documents/2026/09/17/2026-19074/medical-devices-exemption-from-premarket-notification-radiology-computer-aided-detection-andor
+  - (final rule) Revised Medical Criteria for Evaluating Cardiovascular Disorders (2026-09-16)
+      https://www.federalregister.gov/documents/2026/09/16/C1-2026-13420/revised-medical-criteria-for-evaluating-cardiovascular-disorders
+  - (final rule) Medical Devices; Cardiovascular Devices; Classification of the Cardiovascular Machine Learning-Based Notification Software (2026-09-11)
+      https://www.federalregister.gov/documents/2026/09/11/2026-18612/medical-devices-cardiovascular-devices-classification-of-the-cardiovascular-machine-learning-based
+  - (final rule) Medical Devices; General Hospital and Personal Use Devices; Classification of the Whole Room Microbial Reduction Device (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18426/medical-devices-general-hospital-and-personal-use-devices-classification-of-the-whole-room-microbial
+  - (final rule) Medical Devices; Radiology Devices; Classification of the Vaginal Hydrogel Packing System (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18427/medical-devices-radiology-devices-classification-of-the-vaginal-hydrogel-packing-system
+  - (final rule) Medical Devices; Gastroenterology-Urology Devices; Classification of the Implanted Tibial Electrical Urinary Continence Device (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18428/medical-devices-gastroenterology-urology-devices-classification-of-the-implanted-tibial-electrical
+  - (final rule) Medical Devices; Ear, Nose, and Throat Devices; Classification of the Cooperative Powered Surgical Assist Device for ENT Surgery (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18429/medical-devices-ear-nose-and-throat-devices-classification-of-the-cooperative-powered-surgical
+  - (final rule) Medical Devices; Clinical Chemistry and Clinical Toxicology Devices; Classification of the Anti-Tumor Necrosis Factor Alpha Monoclonal Antibody Test System for Inflammatory Bowel Disease (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18430/medical-devices-clinical-chemistry-and-clinical-toxicology-devices-classification-of-the-anti-tumor
+  - (final rule) Medical Devices; Cardiovascular Devices; Classification of the Extravascular Support for an Arteriovenous Fistula for Vascular Access (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18431/medical-devices-cardiovascular-devices-classification-of-the-extravascular-support-for-an
+  - (final rule) Medical Devices; Cardiovascular Devices; Classification of the Temperature Regulation Device for Esophageal Protection During Cardiac Ablation Procedures (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18432/medical-devices-cardiovascular-devices-classification-of-the-temperature-regulation-device-for
+  - (final rule) Medical Devices; Cardiovascular Devices; Classification of the Mechanical Deviation Device for Esophageal Protection During Cardiac Ablation Procedures (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18433/medical-devices-cardiovascular-devices-classification-of-the-mechanical-deviation-device-for
+  - (proposed rule) Green Innovation GmbH; Withdrawal of Food Additive Petition (Animal Use) (2026-09-10)
+      https://www.federalregister.gov/documents/2026/09/10/2026-18469/green-innovation-gmbh-withdrawal-of-food-additive-petition-animal-use
+  - (Privacy Act matching program notice) Privacy Act of 1974; Matching Program (2026-09-02)
+      https://www.federalregister.gov/documents/2026/09/02/2026-17907/privacy-act-of-1974-matching-program
+
+
+APPENDIX C -- IT GOVERNANCE REFERENCE
+====================================
+Frameworks and governing authorities (ADR-048 source register; verify before formal use):
+  - IRS: Publication 1075, Tax Information Security Guidelines for Federal, State and Local Agencies -- Rev. 11-2021 (Catalog Number 46937O)
+    https://www.irs.gov/pub/irs-pdf/p1075.pdf
+  - CMS: Acceptable Risk Controls for ACA, Medicaid, and Partner Entities (ARC-AMPE) -- Volume I v1.0.4, May 7, 2026
+    https://www.cms.gov/marketplace/resources/regulations-guidance#arc-ampe
+  - SSA: Electronic Information Exchange Security Requirements and Procedures for State and Local Agencies Exchanging Electronic Information with the Social Security Administration — Technical System Security Requirements (TSSR) -- Version 12.1, April 28, 2026
+    https://www.ssa.gov/dataexchange/security.html
+  Statutes:
+  - 26 U.S.C. 6103 -- Confidentiality and disclosure of returns and return information
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section6103&num=0&edition=prelim
+  - 26 U.S.C. 7213 -- Unauthorized disclosure of information
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7213&num=0&edition=prelim
+  - 26 U.S.C. 7213A -- Unauthorized inspection of returns or return information
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7213A&num=0&edition=prelim
+  - 26 U.S.C. 7431 -- Civil damages for unauthorized inspection or disclosure of returns and return information
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title26-section7431&num=0&edition=prelim
+  - 5 U.S.C. 552a -- Records maintained on individuals (Privacy Act)
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title5-section552a&num=0&edition=prelim
+  - 44 U.S.C. 3551 -- Purposes (FISMA)
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title44-section3551&num=0&edition=prelim
+  - 42 U.S.C. 18081 -- Procedures for determining eligibility for Exchange participation, premium tax credits and reduced cost-sharing, and individual responsibility exemptions
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section18081&num=0&edition=prelim
+  - 42 U.S.C. 1306 -- Disclosure of information in possession of Social Security Administration or Department of Health and Human Services
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section1306&num=0&edition=prelim
+  - 42 U.S.C. 1320b-7 -- Income and eligibility verification system
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section1320b-7&num=0&edition=prelim
+  - 42 U.S.C. 653 -- Federal Parent Locator Service
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title42-section653&num=0&edition=prelim
+  - 5 U.S.C. 552 -- Public information; agency rules, opinions, orders, records, and proceedings
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title5-section552&num=0&edition=prelim
+  - 44 U.S.C. chapter 31 -- Records Management by Federal Agencies
+    https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title44-chapter31&num=0&edition=prelim
+  Regulations:
+  - 45 CFR 155.260 -- Privacy and security of personally identifiable information
+    https://www.ecfr.gov/current/title-45/section-155.260
+  - 45 CFR 155.280 -- Oversight and monitoring of privacy and security requirements
+    https://www.ecfr.gov/current/title-45/section-155.280
+  - 26 CFR 301.6103(n)-1 -- Disclosure of returns and return information in connection with written contracts or agreements for the acquisition of property or services for tax administration purposes
+    https://www.ecfr.gov/current/title-26/section-301.6103(n)-1
+  - 32 CFR part 2002 -- Controlled Unclassified Information (CUI)
+    https://www.ecfr.gov/current/title-32/subtitle-B/chapter-XX/part-2002
+  - 26 CFR 301.6103(p)(4)-1 -- Procedures relating to safeguards for returns or return information
+    https://www.ecfr.gov/current/title-26/section-301.6103(p)(4)-1
+  - 26 CFR 301.6103(p)(7)-1 -- Procedures for administrative review of a determination that an authorized recipient has failed to safeguard returns or return information
+    https://www.ecfr.gov/current/title-26/section-301.6103(p)(7)-1
+  - 42 CFR part 431 subpart F (431.300 ff.) -- Safeguarding Information on Applicants and Beneficiaries
+    https://www.ecfr.gov/current/title-42/chapter-IV/subchapter-C/part-431/subpart-F
+  - 20 CFR part 401 -- Privacy and Disclosure of Official Records and Information
+    https://www.ecfr.gov/current/title-20/chapter-III/part-401
+Change monitoring of these sources is not yet active (ADR-048 Part B).
