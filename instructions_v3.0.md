@@ -148,6 +148,7 @@ Notable active ADRs:
 - **`git commit` always with `-m` inline** — never a bare `git commit` (editor-freeze risk).
 - **Findings are recorded without prior approval; remediation is not.** *(Revised September 29, 2026, Entry #044.)* Verified investigation results — audit findings, defects, corrections to the written record — go into `changelog.md` and `CURRENT_STATE.md` as soon as they are verified, labelled as findings with evidence and severity. **Approve before building** still applies to anything that changes the system or a decision record: code, schema and migrations, configuration, permissions, and creating or amending ADRs (including open audit ADRs such as ADR-046).
 - **Verify live state** (schema, files, config) before generating code or migrations.
+- **Before any package cleanup** (`brew autoremove`, `brew uninstall`, `pip uninstall`), check what the project's host-run scripts actually execute on (`which python3`, their imports). A package manager's dependency list does not know about pip libraries or scripts that use a package. *(Added v3.4, October 1, 2026, operator-approved: the September 30 `brew autoremove` removed the Homebrew Python 3.14 that the generator runs on, because only Homebrew's own dependency list was checked.)*
 
 ---
 
@@ -213,4 +214,4 @@ Refresh when canonical files have materially changed. Prioritize `CURRENT_STATE.
 
 ---
 
-*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v3.3, September 30, 2026 (v3.2 August 23, 2026; replaces v2.0, May 18, 2026). v3.3: closing-ritual step 8 — CURRENT_STATE.md and changelog.md uploaded to the claude.ai project at every session close.*
+*Sheldon Wheeler — OpenClaw Personal Stack — Instructions v3.4, October 1, 2026 (v3.3 September 30, 2026; v3.2 August 23, 2026; replaces v2.0, May 18, 2026). v3.4: hard rule — check what host-run scripts execute on before any package cleanup. v3.3: closing-ritual step 8 — CURRENT_STATE.md and changelog.md uploaded to the claude.ai project at every session close.*
