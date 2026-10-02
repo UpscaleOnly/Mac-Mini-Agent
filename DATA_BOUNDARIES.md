@@ -3,6 +3,7 @@
 # Governing ADR: ADR-040 | Established: April 19, 2026 | Status: DECIDED
 # Version 2.0 — Amended September 20, 2026 by ADR-045 (enforcement, scope, control classification)
 # Version 2.1 — Amended September 29, 2026 by ADR-047 §9 (two LaunchAgent files, Ollama server log; Section 1 now matches what runs)
+# Version 2.2 — Amended October 2, 2026 by operator decision (changelog Entry #052): host-maintenance look-only paths for Docker, Ollama, Homebrew and Python
 
 ---
 
@@ -16,9 +17,19 @@
 | `~/Library/LaunchAgents/com.openclaw.backup.plist` | Write — this one file only | Nightly `pg_dump` LaunchAgent (live since May 17, 2026; ADR-019). Installed from the tracked template `scripts/com.openclaw.backup.plist.template`. *(Added v2.1 — the file predates this listing; the policy now matches what runs.)* |
 | `~/Library/LaunchAgents/com.openclaw.ollama-env.plist` | Write — this one file only | Sets named `OLLAMA_*` server variables at login (ADR-047 §9). Installed from the tracked template `scripts/com.openclaw.ollama-env.plist.template`. *(Added v2.1)* |
 | `~/.ollama/logs/server.log` | Read only — this one file | Verify the Ollama server's effective configuration after a restart; read for configuration lines only. *(Added v2.1, ADR-047 §9)* |
-| `~/.ollama/models` | **No direct access** | Managed by the Ollama server; reached only through the `ollama` CLI / API (`pull`, `rm`, `list`, `show`). Listed so model downloads are not mistaken for a boundary crossing. *(Added v2.1)* |
+| `~/.ollama/models/manifests` | Read only | Identify a model's exact build and its parts (e.g. when a tag is republished). Small description files; no personal data. *(Added v2.2)* |
+| `~/.ollama/models` (everything else, including the weight files) | **No direct access** | Managed by the Ollama server; reached only through the `ollama` CLI / API (`pull`, `rm`, `list`, `show`). Nothing under `~/.ollama/models` is ever written, moved or deleted except by Ollama itself — the production April build of `gemma4:e4b` is no longer served under that tag and cannot be re-downloaded. *(Added v2.1; narrowed v2.2)* |
+| `~/Library/Python` | List and read | The pip libraries the host-run generator and tests use. For confirming they are present when Python itself is broken and `pip` cannot run (F18). Installs and removals go through `pip` with operator approval. *(Added v2.2)* |
+| `/Library/PrivilegedHelperTools/com.docker.socket`, `/Library/PrivilegedHelperTools/com.docker.vmnetd`, `/Library/LaunchDaemons/com.docker.socket.plist`, `/Library/LaunchDaemons/com.docker.vmnetd.plist` | Existence, owner and date only — these four files, by explicit path | Diagnose Docker Desktop's privileged helpers (F17). No contents read; no listing of either folder. *(Added v2.2)* |
+| `/var/run/docker.sock`, `~/.docker/run/docker.sock` | Existence and link target only | Confirm which Docker socket is in use. *(Added v2.2)* |
+| `~/.docker/bin` | List and execute | Docker CLI location since the Sep 30, 2026 System → User change; `scripts/backup.sh` runs `docker` from here. *(Added v2.2)* |
+| `/Applications/Docker.app`, `/Applications/Ollama.app` | Existence and version only — these two, by explicit path | Confirm what is installed. No listing of `/Applications`. *(Added v2.2)* |
+| `/opt/homebrew` | **No direct access** — reached only through the `brew` command (`list`, `info`, `deps`, `uses`, `services list`) | Check installed packages and what depends on them. *(Added v2.2)* |
+| `~/.zprofile` | Read only — this one file | Check the PATH that host-run scripts get. Edits need operator approval for that edit. *(Added v2.2)* |
 
 **LaunchAgents directory:** only the two files named above. Listing, globbing or reading any other entry in `~/Library/LaunchAgents` remains prohibited (§2.2). **launchd environment:** `launchctl setenv` / `getenv` / `unsetenv` limited to variables named `OLLAMA_*`.
+
+**Host maintenance (added v2.2).** The v2.2 rows permit *looking*, for diagnosing Docker, Ollama, Homebrew and Python on this host. They do not permit changing anything: every install, uninstall, `brew autoremove`, settings change or edit to `~/.zprofile` needs the operator's approval for that action, and the package-cleanup hard rule applies. Wildcards and folder listings stay prohibited (§2.2) except in `~/.docker/bin`, `~/.ollama/models/manifests` and `~/Library/Python`. Commands that report system state without reading user folders — `sw_vers`, `sysctl`, `uptime`, `last`, `pmset -g`, `launchctl list` / `print` — are not filesystem access under this policy. The traversal hook (§6) still asks the operator before a listing outside `~/openclaw`, whatever this section permits.
 
 ---
 
@@ -29,7 +40,7 @@
 | `~/Library/Mobile Documents/com~apple~CloudDocs/` (root) | Contains Federal Tax Information (FTI), personal financial documents, legal documents, and family records. No agent or process may read, list, or write here. |
 | `~/Documents` | Personal document store. Prohibited at current phase. |
 | `~/Desktop` | Personal workspace. Prohibited at current phase. |
-| `~/Library` (except the Mac-Mini-Backups path and the two named LaunchAgent files in Section 1) | System and application support files. No agent traversal permitted. |
+| `~/Library` (except the Mac-Mini-Backups path, the two named LaunchAgent files and `~/Library/Python` in Section 1) | System and application support files. No agent traversal permitted. |
 | All other paths not listed in Section 1 | Prohibited by default. A new ADR amendment is required before any code touches them. |
 
 **Default rule: if a path is not in Section 1, it is prohibited.**
@@ -82,9 +93,9 @@ FTI is protected data under 26 U.S.C. § 6103. Its presence on this filesystem i
 
 | Field | Value |
 |-------|-------|
-| ADR | ADR-040 (amended by ADR-045 and ADR-047 §9) |
+| ADR | ADR-040 (amended by ADR-045, ADR-047 §9 and the October 2, 2026 operator decision, Entry #052) |
 | Title | Filesystem Boundary and Sensitive Data Separation Policy |
-| Date | April 19, 2026 — amended September 20 and September 29, 2026 |
+| Date | April 19, 2026 — amended September 20, September 29 and October 2, 2026 |
 | Status | DECIDED |
 | Owner | Sheldon Wheeler |
 
